@@ -114,6 +114,7 @@ export interface CommonSpace {
   taxaLimpeza: number;
   regras: string[];
   imagemUrl: string;
+  ativo?: boolean;
 }
 
 export type ReservationStatus = 'PENDENTE' | 'APROVADA' | 'RECUSADA' | 'CANCELADA';
@@ -158,4 +159,15 @@ export interface InAppNotification {
   unidadeAlvo?: string; // se especificado, apenas a unidade vê
   perfilAlvo?: Role;    // se especificado, apenas o perfil vê
   linkDestino?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  usuarioId?: string;
+  usuarioNome: string;
+  usuarioRole: Role;
+  acao: string;
+  modulo: 'UNIDADES' | 'RESERVAS' | 'MULTAS' | 'ESPACOS' | 'DOCUMENTOS' | 'SISTEMA';
+  detalhes?: Record<string, unknown>;
+  createdAt: string;
 }

@@ -7,6 +7,8 @@ import type {
   CommonSpace,
   Reservation,
   InAppNotification,
+  DocumentLink,
+  AuditLog,
 } from '@/types';
 
 // ──────────────────────────────────────────────
@@ -22,7 +24,7 @@ function rowToUnit(r: Record<string, unknown>): Unit {
     proprietarioTelefone: r.proprietario_telefone as string,
     proprietarioEmail: r.proprietario_email as string,
     tipoOcupacao: r.tipo_ocupacao as Unit['tipoOcupacao'],
-    moradores: [],
+    moradores: (r.moradores as Unit['moradores']) ?? [],
     vagasGaragem: (r.vagas_garagem as string[]) ?? [],
     animais: (r.animais as string) ?? '',
     observacoes: (r.observacoes as string) ?? undefined,
@@ -39,7 +41,7 @@ export async function fetchUnits(supabase: SupabaseClient): Promise<Unit[]> {
   return (data ?? []).map(rowToUnit);
 }
 
-export async function insertUnit(supabase: SupabaseClient, unit: Omit<Unit, 'id' | 'moradores'>): Promise<Unit | null> {
+export async function insertUnit(supabase: SupabaseClient, unit: Omit<Unit, 'id'>): Promise<Unit | null> {
   const { data, error } = await supabase.from('units').insert({
     bloco: unit.bloco,
     numero: unit.numero,
@@ -50,12 +52,13 @@ export async function insertUnit(supabase: SupabaseClient, unit: Omit<Unit, 'id'
     vagas_garagem: unit.vagasGaragem,
     animais: unit.animais,
     observacoes: unit.observacoes,
+    moradores: unit.moradores ?? [],
   }).select().single();
   if (error) { console.error('insertUnit:', error); return null; }
   return rowToUnit(data);
 }
 
-export async function updateUnitDB(supabase: SupabaseClient, id: string, unit: Partial<Omit<Unit, 'id' | 'moradores'>>): Promise<Unit | null> {
+export async function updateUnitDB(supabase: SupabaseClient, id: string, unit: Partial<Omit<Unit, 'id'>>): Promise<Unit | null> {
   const payload: Record<string, unknown> = {};
   if (unit.bloco !== undefined) payload.bloco = unit.bloco;
   if (unit.numero !== undefined) payload.numero = unit.numero;
@@ -66,6 +69,7 @@ export async function updateUnitDB(supabase: SupabaseClient, id: string, unit: P
   if (unit.vagasGaragem !== undefined) payload.vagas_garagem = unit.vagasGaragem;
   if (unit.animais !== undefined) payload.animais = unit.animais;
   if (unit.observacoes !== undefined) payload.observacoes = unit.observacoes;
+  if (unit.moradores !== undefined) payload.moradores = unit.moradores;
 
   const { data, error } = await supabase.from('units').update(payload).eq('id', id).select().single();
   if (error) { console.error('updateUnitDB:', error); return null; }
@@ -260,7 +264,71 @@ export async function fetchSpaces(supabase: SupabaseClient): Promise<CommonSpace
     taxaLimpeza: Number(r.taxa_limpeza),
     regras: (r.regras as string[]) ?? [],
     imagemUrl: (r.imagem_url as string) ?? '',
+    ativo: (r.ativo as boolean) ?? true,
   }));
+}
+
+export async function insertSpace(
+  supabase: SupabaseClient,
+  space: Omit<CommonSpace, 'id'>
+): Promise<CommonSpace | null> {
+  const { data, error } = await supabase.from('spaces').insert({
+    nome: space.nome,
+    descricao: space.descricao,
+    capacidade_max: space.capacidadeMax,
+    horario_funcionamento: space.horarioFuncionamento,
+    taxa_limpeza: space.taxaLimpeza,
+    regras: space.regras,
+    imagem_url: space.imagemUrl,
+    ativo: space.ativo ?? true,
+  }).select().single();
+  if (error) { console.error('insertSpace:', error); return null; }
+  return {
+    id: data.id,
+    nome: data.nome,
+    descricao: data.descricao,
+    capacidadeMax: data.capacidade_max,
+    horarioFuncionamento: data.horario_funcionamento,
+    taxaLimpeza: Number(data.taxa_limpeza),
+    regras: data.regras ?? [],
+    imagemUrl: data.imagem_url ?? '',
+    ativo: data.ativo ?? true,
+  };
+}
+
+export async function updateSpaceDB(
+  supabase: SupabaseClient,
+  id: string,
+  space: Partial<Omit<CommonSpace, 'id'>>
+): Promise<CommonSpace | null> {
+  const payload: Record<string, unknown> = {};
+  if (space.nome !== undefined) payload.nome = space.nome;
+  if (space.descricao !== undefined) payload.descricao = space.descricao;
+  if (space.capacidadeMax !== undefined) payload.capacidade_max = space.capacidadeMax;
+  if (space.horarioFuncionamento !== undefined) payload.horario_funcionamento = space.horarioFuncionamento;
+  if (space.taxaLimpeza !== undefined) payload.taxa_limpeza = space.taxaLimpeza;
+  if (space.regras !== undefined) payload.regras = space.regras;
+  if (space.imagemUrl !== undefined) payload.imagem_url = space.imagemUrl;
+  if (space.ativo !== undefined) payload.ativo = space.ativo;
+
+  const { data, error } = await supabase.from('spaces').update(payload).eq('id', id).select().single();
+  if (error) { console.error('updateSpaceDB:', error); return null; }
+  return {
+    id: data.id,
+    nome: data.nome,
+    descricao: data.descricao,
+    capacidadeMax: data.capacidade_max,
+    horarioFuncionamento: data.horario_funcionamento,
+    taxaLimpeza: Number(data.taxa_limpeza),
+    regras: data.regras ?? [],
+    imagemUrl: data.imagem_url ?? '',
+    ativo: data.ativo ?? true,
+  };
+}
+
+export async function deleteSpaceDB(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from('spaces').delete().eq('id', id);
+  if (error) console.error('deleteSpaceDB:', error);
 }
 
 // ──────────────────────────────────────────────
@@ -375,3 +443,97 @@ export async function markAllNotifsReadDB(supabase: SupabaseClient, ids: string[
   const { error } = await supabase.from('notifications').update({ lida: true }).in('id', ids);
   if (error) console.error('markAllNotifsReadDB:', error);
 }
+
+// ──────────────────────────────────────────────
+// DOCUMENTS & LINKS
+// ──────────────────────────────────────────────
+
+function rowToDocument(r: Record<string, unknown>): DocumentLink {
+  return {
+    id: r.id as string,
+    titulo: r.titulo as string,
+    descricao: (r.descricao as string) ?? '',
+    categoria: r.categoria as DocumentLink['categoria'],
+    arquivoNome: (r.arquivo_nome as string) ?? undefined,
+    tamanhoArquivo: (r.tamanho_arquivo as string) ?? undefined,
+    linkExterno: (r.link_externo as string) ?? '',
+    telefone: (r.telefone as string) ?? undefined,
+    dataAtualizacao: r.data_atualizacao
+      ? new Date(r.data_atualizacao as string).toLocaleDateString('pt-BR')
+      : new Date().toLocaleDateString('pt-BR'),
+  };
+}
+
+export async function fetchDocuments(supabase: SupabaseClient): Promise<DocumentLink[]> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('fetchDocuments:', error); return []; }
+  return (data ?? []).map(rowToDocument);
+}
+
+export async function insertDocument(
+  supabase: SupabaseClient,
+  doc: Omit<DocumentLink, 'id' | 'dataAtualizacao'>
+): Promise<DocumentLink | null> {
+  const { data, error } = await supabase.from('documents').insert({
+    titulo: doc.titulo,
+    descricao: doc.descricao,
+    categoria: doc.categoria,
+    arquivo_nome: doc.arquivoNome,
+    tamanho_arquivo: doc.tamanhoArquivo,
+    link_externo: doc.linkExterno,
+    telefone: doc.telefone,
+  }).select().single();
+  if (error) { console.error('insertDocument:', error); return null; }
+  return rowToDocument(data);
+}
+
+export async function deleteDocumentDB(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from('documents').delete().eq('id', id);
+  if (error) console.error('deleteDocumentDB:', error);
+}
+
+// ──────────────────────────────────────────────
+// AUDIT LOGS
+// ──────────────────────────────────────────────
+
+function rowToAuditLog(r: Record<string, unknown>): AuditLog {
+  return {
+    id: r.id as string,
+    usuarioId: (r.usuario_id as string) ?? undefined,
+    usuarioNome: r.usuario_nome as string,
+    usuarioRole: r.usuario_role as AuditLog['usuarioRole'],
+    acao: r.acao as string,
+    modulo: r.modulo as AuditLog['modulo'],
+    detalhes: (r.detalhes as Record<string, unknown>) ?? undefined,
+    createdAt: (r.created_at as string) ?? new Date().toISOString(),
+  };
+}
+
+export async function fetchAuditLogs(supabase: SupabaseClient, modulo?: string): Promise<AuditLog[]> {
+  let query = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(100);
+  if (modulo && modulo !== 'TODOS') {
+    query = query.eq('modulo', modulo);
+  }
+  const { data, error } = await query;
+  if (error) { console.error('fetchAuditLogs:', error); return []; }
+  return (data ?? []).map(rowToAuditLog);
+}
+
+export async function insertAuditLog(
+  supabase: SupabaseClient,
+  log: Omit<AuditLog, 'id' | 'createdAt'>
+): Promise<void> {
+  const { error } = await supabase.from('audit_logs').insert({
+    usuario_id: log.usuarioId,
+    usuario_nome: log.usuarioNome,
+    usuario_role: log.usuarioRole,
+    acao: log.acao,
+    modulo: log.modulo,
+    detalhes: log.detalhes ?? {},
+  });
+  if (error) console.error('insertAuditLog:', error);
+}
+

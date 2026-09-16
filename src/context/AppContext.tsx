@@ -12,16 +12,20 @@ import {
   CommonSpace,
   Reservation,
   InAppNotification,
+  DocumentLink,
+  AuditLog,
 } from '@/types';
-import { INITIAL_SPACES } from '@/lib/mockData';
+import { INITIAL_SPACES, INITIAL_DOCS } from '@/lib/mockData';
 import {
   fetchUnits, insertUnit, updateUnitDB,
   fetchVehicles, insertVehicle, deleteVehicleDB,
   fetchNotices, insertNotice, deleteNoticeDB,
   fetchFines, insertFine, updateFineDB,
-  fetchSpaces,
+  fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB,
   fetchReservations, insertReservation, updateReservationDB,
   fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
+  fetchDocuments, insertDocument, deleteDocumentDB,
+  fetchAuditLogs, insertAuditLog,
 } from '@/lib/supabase/db';
 
 interface AppContextType {
@@ -42,6 +46,14 @@ interface AppContextType {
   submitFineAppeal: (fineId: string, texto: string, anexoNome?: string) => Promise<void>;
   judgeFineAppeal: (fineId: string, deferido: boolean, resposta: string) => Promise<void>;
   spaces: CommonSpace[];
+  addSpace: (space: Omit<CommonSpace, 'id'>) => Promise<void>;
+  updateSpace: (id: string, space: Partial<Omit<CommonSpace, 'id'>>) => Promise<void>;
+  deleteSpace: (id: string) => Promise<void>;
+  documents: DocumentLink[];
+  addDocument: (doc: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => Promise<void>;
+  deleteDocument: (id: string) => Promise<void>;
+  auditLogs: AuditLog[];
+  fetchAuditLogsData: (modulo?: string) => Promise<void>;
   reservations: Reservation[];
   requestReservation: (data: {
     espacoId: string;
@@ -72,6 +84,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [spaces, setSpaces] = useState<CommonSpace[]>(INITIAL_SPACES);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  const [documents, setDocuments] = useState<DocumentLink[]>(INITIAL_DOCS);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Carrega o perfil do usuário autenticado
   const loadUserProfile = useCallback(async (authUserId: string) => {
@@ -101,7 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Carrega todos os dados do banco quando o usuário está logado
   const loadAllData = useCallback(async () => {
-    const [u, v, n, f, s, r, notifs] = await Promise.all([
+    const [u, v, n, f, s, r, notifs, docs, logs] = await Promise.all([
       fetchUnits(supabase),
       fetchVehicles(supabase),
       fetchNotices(supabase),
@@ -109,6 +123,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchSpaces(supabase),
       fetchReservations(supabase),
       fetchNotifications(supabase),
+      fetchDocuments(supabase),
+      fetchAuditLogs(supabase),
     ]);
     setUnits(u);
     setVehicles(v);
@@ -117,6 +133,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (s.length > 0) setSpaces(s);
     setReservations(r);
     setNotifications(notifs);
+    if (docs.length > 0) setDocuments(docs);
+    setAuditLogs(logs);
   }, [supabase]);
 
   // Escuta mudanças de sessão (login/logout)
@@ -146,18 +164,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(null);
     setUnits([]); setVehicles([]); setNotices([]);
     setFines([]); setReservations([]); setNotifications([]);
+    setDocuments(INITIAL_DOCS); setAuditLogs([]);
+  };
+
+  // ── AUDIT HELPER ──
+
+  const recordAudit = async (acao: string, modulo: AuditLog['modulo'], detalhes?: Record<string, unknown>) => {
+    if (!currentUser) return;
+    await insertAuditLog(supabase, {
+      usuarioId: currentUser.id,
+      usuarioNome: currentUser.name,
+      usuarioRole: currentUser.role,
+      acao,
+      modulo,
+      detalhes,
+    });
+    const updated = await fetchAuditLogs(supabase);
+    setAuditLogs(updated);
+  };
+
+  const fetchAuditLogsData = async (modulo?: string) => {
+    const logs = await fetchAuditLogs(supabase, modulo);
+    setAuditLogs(logs);
   };
 
   // ── UNITS ──
 
   const addUnit = async (unitData: Omit<Unit, 'id'>) => {
     const created = await insertUnit(supabase, unitData);
-    if (created) setUnits((prev) => [created, ...prev]);
+    if (created) {
+      setUnits((prev) => [created, ...prev]);
+      await recordAudit(
+        `Cadastrou Unidade ${created.numero} (Bloco ${created.bloco})`,
+        'UNIDADES',
+        {
+          unidade: created.numero,
+          bloco: created.bloco,
+          proprietario: created.proprietarioNome,
+          moradoresCount: created.moradores.length,
+        }
+      );
+    }
   };
 
   const updateUnit = async (id: string, unitData: Partial<Unit>) => {
     const updated = await updateUnitDB(supabase, id, unitData);
-    if (updated) setUnits((prev) => prev.map((u) => (u.id === id ? updated : u)));
+    if (updated) {
+      setUnits((prev) => prev.map((u) => (u.id === id ? updated : u)));
+      await recordAudit(`Atualizou cadastro da Unidade ${updated.numero} (Bloco ${updated.bloco})`, 'UNIDADES', {
+        id,
+      });
+    }
   };
 
   // ── VEHICLES ──
@@ -201,6 +258,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const created = await insertFine(supabase, fineData, protocolNumber);
     if (!created) return;
     setFines((prev) => [created, ...prev]);
+    await recordAudit(`Emitiu notificação/multa ${protocolNumber}`, 'MULTAS', {
+      protocolo: protocolNumber,
+      unidade: fineData.unidade,
+      bloco: fineData.bloco,
+      valor: fineData.valor,
+    });
     await insertNotification(supabase, {
       titulo: `Notificação Disciplinar ${protocolNumber}`,
       mensagem: `Registrada notificação para a Unidade ${fineData.unidade} Bloco ${fineData.bloco}. Confirme ciência no portal.`,
@@ -249,7 +312,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       recurso_status: deferido ? 'DEFERIDO' : 'INDEFERIDO',
       recurso_analisado_por: currentUser?.name ?? 'Síndico',
     });
-    if (updated) setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
+    if (updated) {
+      setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
+      await recordAudit(
+        deferido ? `Deferiu recurso da notificação` : `Indeferiu recurso da notificação`,
+        'MULTAS',
+        { fineId, deferido, resposta }
+      );
+    }
+  };
+
+  // ── SPACES ──
+
+  const addSpace = async (spaceData: Omit<CommonSpace, 'id'>) => {
+    const created = await insertSpace(supabase, spaceData);
+    if (created) {
+      setSpaces((prev) => [...prev, created]);
+      await recordAudit(`Cadastrou novo espaço comum: ${created.nome}`, 'ESPACOS', {
+        id: created.id,
+        nome: created.nome,
+        taxaLimpeza: created.taxaLimpeza,
+      });
+    }
+  };
+
+  const updateSpace = async (id: string, spaceData: Partial<Omit<CommonSpace, 'id'>>) => {
+    const updated = await updateSpaceDB(supabase, id, spaceData);
+    if (updated) {
+      setSpaces((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      await recordAudit(`Atualizou espaço comum: ${updated.nome}`, 'ESPACOS', { id });
+    }
+  };
+
+  const deleteSpace = async (id: string) => {
+    const target = spaces.find((s) => s.id === id);
+    await deleteSpaceDB(supabase, id);
+    setSpaces((prev) => prev.filter((s) => s.id !== id));
+    await recordAudit(`Removeu espaço comum: ${target?.nome ?? id}`, 'ESPACOS', { id });
+  };
+
+  // ── DOCUMENTS ──
+
+  const addDocument = async (docData: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => {
+    const created = await insertDocument(supabase, docData);
+    if (created) {
+      setDocuments((prev) => [created, ...prev]);
+      await recordAudit(`Publicou documento: ${created.titulo}`, 'DOCUMENTOS', {
+        titulo: created.titulo,
+        categoria: created.categoria,
+      });
+    }
+  };
+
+  const deleteDocument = async (id: string) => {
+    const target = documents.find((d) => d.id === id);
+    await deleteDocumentDB(supabase, id);
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+    await recordAudit(`Excluiu documento: ${target?.titulo ?? id}`, 'DOCUMENTOS', { id });
   };
 
   // ── RESERVATIONS ──
@@ -305,6 +424,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     if (!updated) return;
     setReservations((prev) => prev.map((r) => (r.id === reservationId ? updated : r)));
+
+    await recordAudit(
+      aprovado ? `Aprovou reserva de ${targetRes?.espacoNome ?? 'espaço'}` : `Recusou reserva de ${targetRes?.espacoNome ?? 'espaço'}`,
+      'RESERVAS',
+      {
+        reservationId,
+        espaco: targetRes?.espacoNome,
+        unidade: targetRes?.unidade,
+        aprovado,
+        motivoRecusa,
+      }
+    );
 
     if (targetRes) {
       await insertNotification(supabase, {
@@ -362,6 +493,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         submitFineAppeal,
         judgeFineAppeal,
         spaces,
+        addSpace,
+        updateSpace,
+        deleteSpace,
+        documents,
+        addDocument,
+        deleteDocument,
+        auditLogs,
+        fetchAuditLogsData,
         reservations,
         requestReservation,
         judgeReservation,
