@@ -33,7 +33,7 @@ O **Harmony Condo** é uma plataforma web para gestão integrada e comunicação
 
 ## Tech Stack
 - **Framework Front-end & Backend:** Next.js (App Router, Server Actions, TypeScript) para alta performance e SEO interno.
-- **Estilização & UI:** Tailwind CSS + Radix UI / Lucide Icons (Design limpo, sem clichês, responsivo para celulares e desktops).
+- **Estilização & UI:** Tailwind CSS + Radix UI / Lucide Icons (Design limpo, sem clichês, responsivo para celulares e desktops). Logo está na pasta src/images/logo.pngO logo deve ser usado nas seguintes situações: 1- No login 2- No header das páginas 3- Em relatórios impressos.
 - **Banco de Dados & ORM:** PostgreSQL / SQLite (desenvolvimento local ágil) com Prisma ORM ou Supabase Client para garantir Row-Level Security (RLS) e integridade relacional.
 - **Armazenamento de Arquivos/Imagens:** Storage para anexos de infrações/multas e atas em PDF.
 - **Validação & Segurança:** Zod para validação rigorosa de schemas e sanitização de inputs.
