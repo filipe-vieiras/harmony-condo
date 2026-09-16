@@ -27,6 +27,8 @@ export default function VeiculosPage() {
 
 function VeiculosContent() {
   const { currentUser, vehicles, addVehicle, deleteVehicle } = useApp();
+
+  if (!currentUser) return null;
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
 
@@ -36,10 +38,10 @@ function VeiculosContent() {
   const [modelo, setModelo] = useState('');
   const [cor, setCor] = useState('');
   const [bloco, setBloco] = useState('A');
-  const [unidade, setUnidade] = useState(currentUser.unidade || '101');
+  const [unidade, setUnidade] = useState(currentUser?.unidade || '101');
   const [vaga, setVaga] = useState('');
-  const [proprietarioNome, setProprietarioNome] = useState(currentUser.name || '');
-  const [telefoneContato, setTelefoneContato] = useState(currentUser.telefone || '');
+  const [proprietarioNome, setProprietarioNome] = useState(currentUser?.name || '');
+  const [telefoneContato, setTelefoneContato] = useState(currentUser?.telefone || '');
   const [status, setStatus] = useState<'ATIVO' | 'VISITANTE'>('ATIVO');
 
   const filteredVehicles = vehicles.filter((v) => {

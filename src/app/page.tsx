@@ -39,6 +39,8 @@ function DashboardContent() {
     judgeReservation 
   } = useApp();
 
+  if (!currentUser) return null;
+
   const [searchPlate, setSearchPlate] = useState('');
 
   // Filtros de acordo com o papel ativo

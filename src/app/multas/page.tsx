@@ -31,6 +31,8 @@ export default function MultasPage() {
 
 function MultasContent() {
   const { currentUser, fines, addFine } = useApp();
+
+  if (!currentUser) return null;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('TODOS');
   const [showModal, setShowModal] = useState(false);

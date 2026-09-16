@@ -229,7 +229,7 @@ function ReservasContent() {
                   <th className="px-5 py-3.5">Unidade / Morador</th>
                   <th className="px-5 py-3.5">Status</th>
                   <th className="px-5 py-3.5">Avaliação / Parecer</th>
-                  {currentUser.role === 'SINDICO' && (
+                  {currentUser?.role === 'SINDICO' && (
                     <th className="px-5 py-3.5 text-right no-print">Aprovação do Síndico</th>
                   )}
                 </tr>
@@ -284,7 +284,7 @@ function ReservasContent() {
                             </span>
                           )}
                         </td>
-                        {currentUser.role === 'SINDICO' && (
+                        {currentUser?.role === 'SINDICO' && (
                           <td className="px-5 py-3.5 text-right no-print">
                             {r.status === 'PENDENTE' ? (
                               <div className="flex items-center justify-end gap-1.5">

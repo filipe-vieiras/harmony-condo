@@ -27,13 +27,13 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
 
   // Calcular alertas pendentes para badges na navegação
   const pendingFinesCount = fines.filter((f) => {
-    if (currentUser.role === 'SINDICO') return f.status === 'EM_RECURSO';
-    if (currentUser.role === 'MORADOR') return f.unidade === currentUser.unidade && f.status === 'PENDENTE_CIENCIA';
+    if (currentUser?.role === 'SINDICO') return f.status === 'EM_RECURSO';
+    if (currentUser?.role === 'MORADOR') return f.unidade === currentUser.unidade && f.status === 'PENDENTE_CIENCIA';
     return false;
   }).length;
 
   const pendingReservationsCount = reservations.filter((r) => {
-    if (currentUser.role === 'SINDICO') return r.status === 'PENDENTE';
+    if (currentUser?.role === 'SINDICO') return r.status === 'PENDENTE';
     return false;
   }).length;
 
@@ -61,7 +61,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       href: '/veiculos',
       icon: Car,
       roles: ['SINDICO', 'PORTARIA', 'CONSELHO', 'MORADOR'],
-      badge: currentUser.role === 'PORTARIA' ? 'Portaria' : undefined,
+      badge: currentUser?.role === 'PORTARIA' ? 'Portaria' : undefined,
     },
     {
       label: 'Notificações & Multas',
@@ -93,7 +93,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
   ];
 
   const visibleItems = navItems.filter((item) =>
-    item.roles.includes(currentUser.role)
+    item.roles.includes(currentUser?.role ?? 'MORADOR')
   );
 
   return (
@@ -107,10 +107,10 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
             <span>Perfil Ativo:</span>
           </div>
           <p className="mt-1 text-xs font-bold text-slate-900">
-            {currentUser.name}
+            {currentUser?.name ?? 'Carregando...'}
           </p>
           <p className="text-[11px] text-slate-600">
-            {currentUser.cargo || `Unidade ${currentUser.unidade}-${currentUser.bloco}`}
+            {currentUser?.cargo || (currentUser?.unidade ? `Unidade ${currentUser.unidade}-${currentUser.bloco}` : '')}
           </p>
         </div>
 

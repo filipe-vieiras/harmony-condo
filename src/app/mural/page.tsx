@@ -29,6 +29,8 @@ export default function MuralPage() {
 
 function MuralContent() {
   const { currentUser, notices, addNotice, deleteNotice } = useApp();
+
+  if (!currentUser) return null;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
   const [showModal, setShowModal] = useState(false);

@@ -41,6 +41,8 @@ function MultaDetalheContent() {
     judgeFineAppeal 
   } = useApp();
 
+  if (!currentUser) return null;
+
   const [textoRecurso, setTextoRecurso] = useState('');
   const [anexoNome, setAnexoNome] = useState('');
   const [respostaSindico, setRespostaSindico] = useState('');

@@ -27,6 +27,8 @@ export default function RelatoriosPage() {
 function RelatoriosContent() {
   const { currentUser, units, vehicles, fines, reservations } = useApp();
 
+  if (!currentUser) return null;
+
   // Acesso restrito a Síndico e Conselho Fiscal
   if (currentUser.role !== 'SINDICO' && currentUser.role !== 'CONSELHO') {
     return (
