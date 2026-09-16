@@ -41,8 +41,6 @@ function MultaDetalheContent() {
     judgeFineAppeal 
   } = useApp();
 
-  if (!currentUser) return null;
-
   const [textoRecurso, setTextoRecurso] = useState('');
   const [anexoNome, setAnexoNome] = useState('');
   const [respostaSindico, setRespostaSindico] = useState('');
@@ -51,6 +49,7 @@ function MultaDetalheContent() {
   const fine = fines.find((f) => f.id === id);
 
   if (!fine) {
+    if (!currentUser) return null;
     return (
       <div className="rounded-2xl bg-white p-12 text-center border border-slate-200">
         <h2 className="text-base font-bold text-slate-900">Notificação não encontrada</h2>
@@ -67,6 +66,7 @@ function MultaDetalheContent() {
   }
 
   // Proteção: Morador só pode ver a sua própria multa!
+    if (!currentUser) return null;
   if (currentUser.role === 'MORADOR' && fine.unidade !== currentUser.unidade) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
@@ -104,6 +104,8 @@ function MultaDetalheContent() {
     judgeFineAppeal(fine.id, deferido, respostaSindico);
     setRespostaSindico('');
   };
+
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-6">

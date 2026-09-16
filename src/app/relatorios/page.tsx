@@ -27,9 +27,8 @@ export default function RelatoriosPage() {
 function RelatoriosContent() {
   const { currentUser, units, vehicles, fines, reservations } = useApp();
 
-  if (!currentUser) return null;
-
   // Acesso restrito a Síndico e Conselho Fiscal
+    if (!currentUser) return null;
   if (currentUser.role !== 'SINDICO' && currentUser.role !== 'CONSELHO') {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
@@ -55,6 +54,8 @@ function RelatoriosContent() {
   const totalReservasAprovadas = reservations.filter((r) => r.status === 'APROVADA').length;
   const totalProprietarios = units.filter((u) => u.tipoOcupacao === 'PROPRIETARIO').length;
   const totalInquilinos = units.filter((u) => u.tipoOcupacao === 'INQUILINO').length;
+
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-6">

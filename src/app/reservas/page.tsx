@@ -54,14 +54,14 @@ function ReservasContent() {
     CANCELADA: { label: 'Cancelada', bg: 'bg-slate-100', text: 'text-slate-700' },
   };
 
-  const handleCreateReservation = (e: React.FormEvent) => {
+  const handleCreateReservation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!termoAceito) {
       alert('É obrigatório aceitar o regulamento e normas de uso do espaço.');
       return;
     }
 
-    const res = requestReservation({
+    const res = await requestReservation({
       espacoId: selectedSpaceId,
       data: dataReserva,
       horarioInicio,

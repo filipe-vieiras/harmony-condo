@@ -27,8 +27,6 @@ export default function VeiculosPage() {
 
 function VeiculosContent() {
   const { currentUser, vehicles, addVehicle, deleteVehicle } = useApp();
-
-  if (!currentUser) return null;
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
 
@@ -46,6 +44,7 @@ function VeiculosContent() {
 
   const filteredVehicles = vehicles.filter((v) => {
     const term = searchTerm.toLowerCase();
+    if (!currentUser) return null;
     return (
       v.placa.toLowerCase().includes(term) ||
       v.modelo.toLowerCase().includes(term) ||
@@ -80,6 +79,8 @@ function VeiculosContent() {
     setCor('');
     setVaga('');
   };
+
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-6">

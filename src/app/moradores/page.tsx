@@ -29,8 +29,6 @@ export default function MoradoresPage() {
 
 function MoradoresContent() {
   const { currentUser, units, addUnit } = useApp();
-
-  if (!currentUser) return null;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBloco, setFilterBloco] = useState<string>('TODOS');
   const [showModal, setShowModal] = useState(false);
@@ -85,6 +83,8 @@ function MoradoresContent() {
     setNovasVagas('');
     setNovosAnimais('');
   };
+
+  if (!currentUser) return false;
 
   return (
     <div className="space-y-6">

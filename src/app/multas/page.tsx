@@ -31,8 +31,6 @@ export default function MultasPage() {
 
 function MultasContent() {
   const { currentUser, fines, addFine } = useApp();
-
-  if (!currentUser) return null;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('TODOS');
   const [showModal, setShowModal] = useState(false);
@@ -51,6 +49,7 @@ function MultasContent() {
   const [fotoDescricao, setFotoDescricao] = useState('');
 
   // Restrição estrita de acesso: PORTARIA NÃO VÊ MULTAS
+    if (!currentUser) return null;
   if (currentUser.role === 'PORTARIA') {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
@@ -69,6 +68,7 @@ function MultasContent() {
 
   // Filtragem: Morador só vê as da sua própria unidade!
   const visibleFines = fines.filter((f) => {
+    if (!currentUser) return null;
     if (currentUser.role === 'MORADOR') {
       return f.unidade === currentUser.unidade;
     }
@@ -95,11 +95,11 @@ function MultasContent() {
     CONCLUIDA: { label: 'Concluída / Paga', bg: 'bg-slate-100', text: 'text-slate-800' },
   };
 
-  const handleCreateFine = (e: React.FormEvent) => {
+  const handleCreateFine = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!unidade || !moradorNome || !descricaoInfracao) return;
 
-    addFine({
+    await addFine({
       bloco,
       unidade,
       moradorNome,
@@ -109,21 +109,6 @@ function MultasContent() {
       descricaoInfracao,
       valor: tipo === 'ADVERTENCIA' ? 0 : parseFloat(valor) || 0,
       tipo,
-      evidencias: fotoUrl
-        ? [
-            {
-              id: `ev-${Date.now()}`,
-              url: fotoUrl,
-              descricao: fotoDescricao || 'Registro fotográfico anexado pela administração.',
-            },
-          ]
-        : [
-            {
-              id: `ev-${Date.now()}`,
-              url: 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=800&auto=format&fit=crop&q=60',
-              descricao: 'Registro formalizado no livro da portaria e zeladoria.',
-            },
-          ],
     });
 
     setShowModal(false);
@@ -133,6 +118,8 @@ function MultasContent() {
     setFotoUrl('');
     setFotoDescricao('');
   };
+
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-6">
@@ -228,6 +215,8 @@ function MultasContent() {
         ) : (
           filteredFines.map((fine) => {
             const st = statusLabels[fine.status] || { label: fine.status, bg: 'bg-slate-100', text: 'text-slate-800' };
+
+            if (!currentUser) return null;
 
             return (
               <div

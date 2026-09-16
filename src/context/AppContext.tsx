@@ -13,33 +13,34 @@ import {
   Reservation,
   InAppNotification,
 } from '@/types';
+import { INITIAL_SPACES } from '@/lib/mockData';
 import {
-  INITIAL_UNITS,
-  INITIAL_VEHICLES,
-  INITIAL_NOTICES,
-  INITIAL_FINES,
-  INITIAL_SPACES,
-  INITIAL_RESERVATIONS,
-  INITIAL_NOTIFICATIONS,
-} from '@/lib/mockData';
+  fetchUnits, insertUnit, updateUnitDB,
+  fetchVehicles, insertVehicle, deleteVehicleDB,
+  fetchNotices, insertNotice, deleteNoticeDB,
+  fetchFines, insertFine, updateFineDB,
+  fetchSpaces,
+  fetchReservations, insertReservation, updateReservationDB,
+  fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
+} from '@/lib/supabase/db';
 
 interface AppContextType {
   currentUser: User | null;
   isLoading: boolean;
   units: Unit[];
-  addUnit: (unit: Omit<Unit, 'id'>) => void;
-  updateUnit: (id: string, unit: Partial<Unit>) => void;
+  addUnit: (unit: Omit<Unit, 'id'>) => Promise<void>;
+  updateUnit: (id: string, unit: Partial<Unit>) => Promise<void>;
   vehicles: Vehicle[];
-  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => void;
-  deleteVehicle: (id: string) => void;
+  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<void>;
+  deleteVehicle: (id: string) => Promise<void>;
   notices: Notice[];
-  addNotice: (notice: Omit<Notice, 'id' | 'data'>) => void;
-  deleteNotice: (id: string) => void;
+  addNotice: (notice: Omit<Notice, 'id' | 'data'>) => Promise<void>;
+  deleteNotice: (id: string) => Promise<void>;
   fines: FineNotice[];
-  addFine: (fine: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status'>) => void;
-  confirmFineScience: (fineId: string) => void;
-  submitFineAppeal: (fineId: string, texto: string, anexoNome?: string) => void;
-  judgeFineAppeal: (fineId: string, deferido: boolean, resposta: string) => void;
+  addFine: (fine: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status' | 'evidencias' | 'ciencia' | 'recurso'>) => Promise<void>;
+  confirmFineScience: (fineId: string) => Promise<void>;
+  submitFineAppeal: (fineId: string, texto: string, anexoNome?: string) => Promise<void>;
+  judgeFineAppeal: (fineId: string, deferido: boolean, resposta: string) => Promise<void>;
   spaces: CommonSpace[];
   reservations: Reservation[];
   requestReservation: (data: {
@@ -48,12 +49,12 @@ interface AppContextType {
     horarioInicio: string;
     horarioFim: string;
     convidadosEstimados: number;
-  }) => { success: boolean; message: string };
-  judgeReservation: (reservationId: string, aprovado: boolean, motivoRecusa?: string) => void;
+  }) => Promise<{ success: boolean; message: string }>;
+  judgeReservation: (reservationId: string, aprovado: boolean, motivoRecusa?: string) => Promise<void>;
   notifications: InAppNotification[];
   unreadNotificationCount: number;
-  markNotificationAsRead: (id: string) => void;
-  markAllNotificationsAsRead: () => void;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -64,15 +65,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [units, setUnits] = useState<Unit[]>(INITIAL_UNITS);
-  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
-  const [notices, setNotices] = useState<Notice[]>(INITIAL_NOTICES);
-  const [fines, setFines] = useState<FineNotice[]>(INITIAL_FINES);
-  const [spaces] = useState<CommonSpace[]>(INITIAL_SPACES);
-  const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
-  const [notifications, setNotifications] = useState<InAppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [fines, setFines] = useState<FineNotice[]>([]);
+  const [spaces, setSpaces] = useState<CommonSpace[]>(INITIAL_SPACES);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
 
-  // Carrega o perfil do usuário autenticado no Supabase
+  // Carrega o perfil do usuário autenticado
   const loadUserProfile = useCallback(async (authUserId: string) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -81,7 +82,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .single();
 
     if (error || !data) {
-      // Usuário autenticado mas sem perfil (não deveria acontecer em produção)
       console.error('Perfil não encontrado:', error);
       setCurrentUser(null);
       return;
@@ -99,6 +99,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [supabase]);
 
+  // Carrega todos os dados do banco quando o usuário está logado
+  const loadAllData = useCallback(async () => {
+    const [u, v, n, f, s, r, notifs] = await Promise.all([
+      fetchUnits(supabase),
+      fetchVehicles(supabase),
+      fetchNotices(supabase),
+      fetchFines(supabase),
+      fetchSpaces(supabase),
+      fetchReservations(supabase),
+      fetchNotifications(supabase),
+    ]);
+    setUnits(u);
+    setVehicles(v);
+    setNotices(n);
+    setFines(f);
+    if (s.length > 0) setSpaces(s);
+    setReservations(r);
+    setNotifications(notifs);
+  }, [supabase]);
+
   // Escuta mudanças de sessão (login/logout)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -111,160 +131,135 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     );
-
     return () => subscription.unsubscribe();
   }, [supabase, loadUserProfile]);
+
+  // Carrega dados do banco assim que o usuário estiver disponível
+  useEffect(() => {
+    if (currentUser) {
+      loadAllData();
+    }
+  }, [currentUser, loadAllData]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setCurrentUser(null);
+    setUnits([]); setVehicles([]); setNotices([]);
+    setFines([]); setReservations([]); setNotifications([]);
   };
 
-  // ── CRUD local (mantido para funcionamento sem configuração completa do DB) ──
+  // ── UNITS ──
 
-  const addUnit = (unitData: Omit<Unit, 'id'>) => {
-    const newUnit: Unit = {
-      ...unitData,
-      id: `unit-${unitData.numero.toLowerCase()}-${unitData.bloco.toLowerCase()}`,
-    };
-    setUnits((prev) => [newUnit, ...prev]);
+  const addUnit = async (unitData: Omit<Unit, 'id'>) => {
+    const created = await insertUnit(supabase, unitData);
+    if (created) setUnits((prev) => [created, ...prev]);
   };
 
-  const updateUnit = (id: string, unitData: Partial<Unit>) => {
-    setUnits((prev) => prev.map((u) => (u.id === id ? { ...u, ...unitData } : u)));
+  const updateUnit = async (id: string, unitData: Partial<Unit>) => {
+    const updated = await updateUnitDB(supabase, id, unitData);
+    if (updated) setUnits((prev) => prev.map((u) => (u.id === id ? updated : u)));
   };
 
-  const addVehicle = (vehicleData: Omit<Vehicle, 'id'>) => {
-    const newVeh: Vehicle = { ...vehicleData, id: `veh-${Date.now()}` };
-    setVehicles((prev) => [newVeh, ...prev]);
+  // ── VEHICLES ──
+
+  const addVehicle = async (vehicleData: Omit<Vehicle, 'id'>) => {
+    const created = await insertVehicle(supabase, vehicleData);
+    if (created) setVehicles((prev) => [created, ...prev]);
   };
 
-  const deleteVehicle = (id: string) => {
+  const deleteVehicle = async (id: string) => {
+    await deleteVehicleDB(supabase, id);
     setVehicles((prev) => prev.filter((v) => v.id !== id));
   };
 
-  const addNotice = (noticeData: Omit<Notice, 'id' | 'data'>) => {
-    const newNotice: Notice = {
-      ...noticeData,
-      id: `not-${Date.now()}`,
-      data: new Date().toISOString().split('T')[0],
-    };
-    setNotices((prev) => [newNotice, ...prev]);
+  // ── NOTICES ──
 
-    const newNotif: InAppNotification = {
-      id: `notif-${Date.now()}`,
+  const addNotice = async (noticeData: Omit<Notice, 'id' | 'data'>) => {
+    const created = await insertNotice(supabase, noticeData, currentUser?.name ?? 'Sistema');
+    if (!created) return;
+    setNotices((prev) => [created, ...prev]);
+    await insertNotification(supabase, {
       titulo: 'Novo Comunicado no Mural',
       mensagem: `${noticeData.titulo} (${noticeData.categoria})`,
       tipo: 'AVISO',
-      data: 'Agora mesmo',
-      lida: false,
       linkDestino: '/mural',
-    };
-    setNotifications((prev) => [newNotif, ...prev]);
+    });
   };
 
-  const deleteNotice = (id: string) => {
+  const deleteNotice = async (id: string) => {
+    await deleteNoticeDB(supabase, id);
     setNotices((prev) => prev.filter((n) => n.id !== id));
   };
 
-  const addFine = (fineData: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status'>) => {
+  // ── FINES ──
+
+  const addFine = async (
+    fineData: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status' | 'evidencias' | 'ciencia' | 'recurso'>
+  ) => {
     const count = fines.length + 1;
     const protocolNumber = `NOT-2026/${String(count).padStart(3, '0')}`;
-    const newFine: FineNotice = {
-      ...fineData,
-      id: `fine-${Date.now()}`,
-      numeroProtocolo: protocolNumber,
-      dataEmissao: new Date().toISOString().split('T')[0],
-      status: 'PENDENTE_CIENCIA',
-    };
-    setFines((prev) => [newFine, ...prev]);
-
-    const notifMorador: InAppNotification = {
-      id: `notif-${Date.now()}`,
+    const created = await insertFine(supabase, fineData, protocolNumber);
+    if (!created) return;
+    setFines((prev) => [created, ...prev]);
+    await insertNotification(supabase, {
       titulo: `Notificação Disciplinar ${protocolNumber}`,
-      mensagem: `Registrada notificação para a Unidade ${newFine.unidade} Bloco ${newFine.bloco}. É obrigatório confirmar ciência.`,
+      mensagem: `Registrada notificação para a Unidade ${fineData.unidade} Bloco ${fineData.bloco}. Confirme ciência no portal.`,
       tipo: 'MULTA',
-      data: 'Hoje',
-      lida: false,
-      unidadeAlvo: newFine.unidade,
-      linkDestino: `/multas/${newFine.id}`,
-    };
-    setNotifications((prev) => [notifMorador, ...prev]);
+      unidadeAlvo: fineData.unidade,
+      linkDestino: `/multas/${created.id}`,
+    });
   };
 
-  const confirmFineScience = (fineId: string) => {
-    const timestamp = new Date().toLocaleString('pt-BR');
-    setFines((prev) =>
-      prev.map((f) =>
-        f.id === fineId
-          ? {
-              ...f,
-              status: 'CIENCIA_REGISTRADA' as const,
-              ciencia: {
-                data: timestamp,
-                ip: '189.120.45.10 (Registrado via Portal)',
-                usuarioNome: currentUser?.name ?? 'Usuário',
-              },
-            }
-          : f
-      )
-    );
+  const confirmFineScience = async (fineId: string) => {
+    const timestamp = new Date().toISOString();
+    const updated = await updateFineDB(supabase, fineId, {
+      status: 'CIENCIA_REGISTRADA',
+      ciencia_data: timestamp,
+      ciencia_usuario_nome: currentUser?.name ?? 'Usuário',
+    });
+    if (updated) setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
   };
 
-  const submitFineAppeal = (fineId: string, texto: string, anexoNome?: string) => {
-    const timestamp = new Date().toLocaleString('pt-BR');
-    setFines((prev) =>
-      prev.map((f) =>
-        f.id === fineId
-          ? {
-              ...f,
-              status: 'EM_RECURSO' as const,
-              recurso: { data: timestamp, texto, anexoNome, status: 'EM_ANALISE' as const },
-            }
-          : f
-      )
-    );
-
-    const notifSindico: InAppNotification = {
-      id: `notif-appeal-${Date.now()}`,
+  const submitFineAppeal = async (fineId: string, texto: string, anexoNome?: string) => {
+    const timestamp = new Date().toISOString();
+    const updated = await updateFineDB(supabase, fineId, {
+      status: 'EM_RECURSO',
+      recurso_data: timestamp,
+      recurso_texto: texto,
+      recurso_status: 'EM_ANALISE',
+      recurso_anexo_nome: anexoNome ?? null,
+    });
+    if (!updated) return;
+    setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
+    await insertNotification(supabase, {
       titulo: 'Novo Recurso de Multa Protocolado',
-      mensagem: `Morador da Unidade ${currentUser?.unidade || '304'} interpôs recurso.`,
+      mensagem: `Morador da Unidade ${currentUser?.unidade || '?'} interpôs recurso.`,
       tipo: 'MULTA',
-      data: 'Hoje',
-      lida: false,
       perfilAlvo: 'SINDICO',
       linkDestino: `/multas/${fineId}`,
-    };
-    setNotifications((prev) => [notifSindico, ...prev]);
+    });
   };
 
-  const judgeFineAppeal = (fineId: string, deferido: boolean, resposta: string) => {
-    const timestamp = new Date().toLocaleString('pt-BR');
-    setFines((prev) =>
-      prev.map((f) =>
-        f.id === fineId && f.recurso
-          ? {
-              ...f,
-              status: deferido ? ('RECURSO_DEFERIDO' as const) : ('RECURSO_INDEFERIDO' as const),
-              recurso: {
-                ...f.recurso,
-                resposta,
-                dataResposta: timestamp,
-                status: deferido ? ('DEFERIDO' as const) : ('INDEFERIDO' as const),
-                analisadoPor: currentUser?.name ?? 'Síndico',
-              },
-            }
-          : f
-      )
-    );
+  const judgeFineAppeal = async (fineId: string, deferido: boolean, resposta: string) => {
+    const timestamp = new Date().toISOString();
+    const updated = await updateFineDB(supabase, fineId, {
+      status: deferido ? 'RECURSO_DEFERIDO' : 'RECURSO_INDEFERIDO',
+      recurso_resposta: resposta,
+      recurso_data_resposta: timestamp,
+      recurso_status: deferido ? 'DEFERIDO' : 'INDEFERIDO',
+      recurso_analisado_por: currentUser?.name ?? 'Síndico',
+    });
+    if (updated) setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
   };
 
-  const requestReservation = ({
+  // ── RESERVATIONS ──
+
+  const requestReservation = async ({
     espacoId, data, horarioInicio, horarioFim, convidadosEstimados,
   }: {
     espacoId: string; data: string; horarioInicio: string;
     horarioFim: string; convidadosEstimados: number;
-  }) => {
+  }): Promise<{ success: boolean; message: string }> => {
     const targetSpace = spaces.find((s) => s.id === espacoId);
     if (!targetSpace) return { success: false, message: 'Espaço comum não encontrado.' };
 
@@ -276,74 +271,68 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: 'Este espaço já possui uma reserva confirmada ou pendente para esta data.' };
     }
 
-    const newReservation: Reservation = {
-      id: `res-${Date.now()}`,
+    const created = await insertReservation(supabase, {
       espacoId,
       espacoNome: targetSpace.nome,
-      bloco: currentUser?.bloco || 'A',
-      unidade: currentUser?.unidade || '304',
+      bloco: currentUser?.bloco ?? 'A',
+      unidade: currentUser?.unidade ?? '?',
       moradorNome: currentUser?.name ?? 'Morador',
       data, horarioInicio, horarioFim, convidadosEstimados,
       status: 'PENDENTE',
-      dataSolicitacao: new Date().toLocaleString('pt-BR'),
-    };
-    setReservations((prev) => [newReservation, ...prev]);
+    });
+    if (!created) return { success: false, message: 'Erro ao salvar reserva. Tente novamente.' };
 
-    const notifSindico: InAppNotification = {
-      id: `notif-res-${Date.now()}`,
+    setReservations((prev) => [created, ...prev]);
+    await insertNotification(supabase, {
       titulo: 'Nova Solicitação de Reserva',
-      mensagem: `${currentUser?.name} (Unidade ${currentUser?.unidade}) solicitou o ${targetSpace.nome} para ${data}. Requer aprovação.`,
-      tipo: 'RESERVA', data: 'Hoje', lida: false,
-      perfilAlvo: 'SINDICO', linkDestino: '/reservas',
-    };
-    setNotifications((prev) => [notifSindico, ...prev]);
-
-    return { success: true, message: 'Sua solicitação foi enviada com sucesso e aguarda validação e aprovação do Síndico!' };
-  };
-
-  const judgeReservation = (reservationId: string, aprovado: boolean, motivoRecusa?: string) => {
-    const timestamp = new Date().toLocaleString('pt-BR');
-    let targetRes: Reservation | undefined;
-
-    setReservations((prev) => {
-      const updated = prev.map((r) => {
-        if (r.id === reservationId) {
-          targetRes = r;
-          return {
-            ...r,
-            status: aprovado ? ('APROVADA' as const) : ('RECUSADA' as const),
-            motivoRecusa: aprovado ? undefined : motivoRecusa,
-            dataAvaliacao: timestamp,
-            avaliadoPor: `${currentUser?.name ?? 'Síndico'} (${currentUser?.role ?? 'SINDICO'})`,
-          };
-        }
-        return r;
-      });
-      return updated;
+      mensagem: `${currentUser?.name} (Unidade ${currentUser?.unidade}) solicitou ${targetSpace.nome} para ${data}. Requer aprovação.`,
+      tipo: 'RESERVA',
+      perfilAlvo: 'SINDICO',
+      linkDestino: '/reservas',
     });
 
+    return { success: true, message: 'Sua solicitação foi enviada e aguarda aprovação do Síndico!' };
+  };
+
+  const judgeReservation = async (reservationId: string, aprovado: boolean, motivoRecusa?: string) => {
+    const timestamp = new Date().toISOString();
+    const targetRes = reservations.find((r) => r.id === reservationId);
+    const updated = await updateReservationDB(supabase, reservationId, {
+      status: aprovado ? 'APROVADA' : 'RECUSADA',
+      motivo_recusa: aprovado ? null : (motivoRecusa ?? null),
+      data_avaliacao: timestamp,
+      avaliado_por: `${currentUser?.name ?? 'Síndico'} (${currentUser?.role ?? 'SINDICO'})`,
+    });
+    if (!updated) return;
+    setReservations((prev) => prev.map((r) => (r.id === reservationId ? updated : r)));
+
     if (targetRes) {
-      const notifMorador: InAppNotification = {
-        id: `notif-eval-${Date.now()}`,
-        titulo: aprovado ? 'Reserva Aprovada pelo Síndico!' : 'Reserva Não Aprovada',
+      await insertNotification(supabase, {
+        titulo: aprovado ? 'Reserva Aprovada!' : 'Reserva Não Aprovada',
         mensagem: aprovado
-          ? `Sua reserva do ${targetRes.espacoNome} para ${targetRes.data} foi confirmada com sucesso!`
-          : `Sua solicitação de reserva para ${targetRes.data} foi recusada: ${motivoRecusa || 'Incompatibilidade com o regimento.'}`,
-        tipo: 'RESERVA', data: 'Hoje', lida: false,
-        unidadeAlvo: targetRes.unidade, linkDestino: '/reservas',
-      };
-      setNotifications((prev) => [notifMorador, ...prev]);
+          ? `Sua reserva do ${targetRes.espacoNome} para ${targetRes.data} foi confirmada!`
+          : `Sua solicitação para ${targetRes.data} foi recusada: ${motivoRecusa ?? 'Incompatibilidade com o regimento.'}`,
+        tipo: 'RESERVA',
+        unidadeAlvo: targetRes.unidade,
+        linkDestino: '/reservas',
+      });
     }
   };
 
-  const markNotificationAsRead = (id: string) => {
+  // ── NOTIFICATIONS ──
+
+  const markNotificationAsRead = async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, lida: true } : n)));
+    await markNotifReadDB(supabase, id);
   };
 
-  const markAllNotificationsAsRead = () => {
+  const markAllNotificationsAsRead = async () => {
+    const unreadIds = notifications.filter((n) => !n.lida).map((n) => n.id);
     setNotifications((prev) => prev.map((n) => ({ ...n, lida: true })));
+    await markAllNotifsReadDB(supabase, unreadIds);
   };
 
+  // Filtra notificações visíveis pelo perfil do usuário
   const visibleNotifications = notifications.filter((n) => {
     if (currentUser?.role === 'SINDICO') return true;
     if (n.perfilAlvo && n.perfilAlvo !== currentUser?.role) return false;

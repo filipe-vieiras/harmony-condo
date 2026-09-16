@@ -29,8 +29,6 @@ export default function MuralPage() {
 
 function MuralContent() {
   const { currentUser, notices, addNotice, deleteNotice } = useApp();
-
-  if (!currentUser) return null;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
   const [showModal, setShowModal] = useState(false);
@@ -50,15 +48,15 @@ function MuralContent() {
     return matchesSearch && matchesCat;
   });
 
-  const handleCreateNotice = (e: React.FormEvent) => {
+  const handleCreateNotice = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!titulo || !conteudo) return;
 
-    addNotice({
+    await addNotice({
       titulo,
       conteudo,
       categoria,
-      autor: currentUser.cargo || currentUser.name,
+      autor: currentUser?.cargo || currentUser?.name || 'Sistema',
       fixado,
       anexoNome: anexoNome || undefined,
     });
@@ -69,6 +67,8 @@ function MuralContent() {
     setAnexoNome('');
     setFixado(false);
   };
+
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-6">

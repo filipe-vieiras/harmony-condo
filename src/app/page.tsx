@@ -39,12 +39,11 @@ function DashboardContent() {
     judgeReservation 
   } = useApp();
 
-  if (!currentUser) return null;
-
   const [searchPlate, setSearchPlate] = useState('');
 
   // Filtros de acordo com o papel ativo
   const pendingReservations = reservations.filter((r) => r.status === 'PENDENTE');
+  if (!currentUser) return null;
   const myReservations = reservations.filter((r) => r.unidade === currentUser.unidade);
   const myFines = fines.filter((f) => f.unidade === currentUser.unidade);
   const pendingScienceFines = myFines.filter((f) => f.status === 'PENDENTE_CIENCIA');
@@ -58,6 +57,8 @@ function DashboardContent() {
         v.unidade.includes(searchPlate)
       )
     : [];
+
+  if (!currentUser) return false;
 
   return (
     <div className="space-y-6">
