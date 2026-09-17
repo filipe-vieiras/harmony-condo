@@ -14,7 +14,10 @@ import {
   InAppNotification,
   DocumentLink,
   AuditLog,
+  PendingInvite,
+  Zelador,
 } from '@/types';
+import { isAdmin } from '@/lib/roles';
 import { INITIAL_SPACES, INITIAL_DOCS } from '@/lib/mockData';
 import {
   fetchUnits, insertUnit, updateUnitDB,
@@ -24,8 +27,11 @@ import {
   fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB,
   fetchReservations, insertReservation, updateReservationDB,
   fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
-  fetchDocuments, insertDocument, deleteDocumentDB,
+  fetchDocuments, insertDocument, updateDocumentDB, deleteDocumentDB,
   fetchAuditLogs, insertAuditLog,
+  fetchPendingInvites, insertPendingInvite, deletePendingInviteDB,
+  fetchZelador, updateZeladorDB,
+  fetchProfiles,
 } from '@/lib/supabase/db';
 
 interface AppContextType {
@@ -51,7 +57,15 @@ interface AppContextType {
   deleteSpace: (id: string) => Promise<void>;
   documents: DocumentLink[];
   addDocument: (doc: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => Promise<void>;
+  updateDocument: (id: string, doc: Partial<Omit<DocumentLink, 'id' | 'dataAtualizacao'>>) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
+  zelador: Zelador | null;
+  updateZelador: (data: Zelador) => Promise<void>;
+  systemUsers: User[];
+  pendingInvites: PendingInvite[];
+  createStaffInvite: (data: { nome: string; email: string; role: Role }) => Promise<{ success: boolean; message: string }>;
+  cancelPendingInvite: (id: string) => Promise<void>;
+  sendPendingInvites: (ids: string[]) => Promise<{ success: boolean; message: string }>;
   auditLogs: AuditLog[];
   fetchAuditLogsData: (modulo?: string) => Promise<void>;
   reservations: Reservation[];
@@ -86,6 +100,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [documents, setDocuments] = useState<DocumentLink[]>(INITIAL_DOCS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [zelador, setZelador] = useState<Zelador | null>(null);
+  const [systemUsers, setSystemUsers] = useState<User[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
   // Carrega o perfil do usuário autenticado
   const loadUserProfile = useCallback(async (authUserId: string) => {
@@ -115,7 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Carrega todos os dados do banco quando o usuário está logado
   const loadAllData = useCallback(async () => {
-    const [u, v, n, f, s, r, notifs, docs, logs] = await Promise.all([
+    const [u, v, n, f, s, r, notifs, docs, logs, zel, invites, users] = await Promise.all([
       fetchUnits(supabase),
       fetchVehicles(supabase),
       fetchNotices(supabase),
@@ -125,6 +142,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchNotifications(supabase),
       fetchDocuments(supabase),
       fetchAuditLogs(supabase),
+      fetchZelador(supabase),
+      fetchPendingInvites(supabase),
+      fetchProfiles(supabase),
     ]);
     setUnits(u);
     setVehicles(v);
@@ -135,6 +155,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNotifications(notifs);
     if (docs.length > 0) setDocuments(docs);
     setAuditLogs(logs);
+    setZelador(zel);
+    setPendingInvites(invites);
+    setSystemUsers(users);
   }, [supabase]);
 
   // Escuta mudanças de sessão (login/logout)
@@ -165,6 +188,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUnits([]); setVehicles([]); setNotices([]);
     setFines([]); setReservations([]); setNotifications([]);
     setDocuments(INITIAL_DOCS); setAuditLogs([]);
+    setZelador(null); setSystemUsers([]); setPendingInvites([]);
   };
 
   // ── AUDIT HELPER ──
@@ -204,6 +228,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           moradoresCount: created.moradores.length,
         }
       );
+
+      // Morador prioritário (TITULAR ou INQUILINO) com e-mail entra na fila de convites.
+      const prioritario = created.moradores.find(
+        (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
+      );
+      if (prioritario?.email) {
+        const invite = await insertPendingInvite(supabase, {
+          nome: prioritario.nome,
+          email: prioritario.email,
+          role: 'MORADOR',
+          bloco: created.bloco,
+          unidade: created.numero,
+          unitId: created.id,
+          criadoPor: currentUser?.name,
+        });
+        if (invite) {
+          setPendingInvites((prev) => [invite, ...prev]);
+          await updateUnitDB(supabase, created.id, { statusConvite: 'PENDENTE' });
+          setUnits((prev) => prev.map((u) => (u.id === created.id ? { ...u, statusConvite: 'PENDENTE' } : u)));
+        }
+      }
     }
   };
 
@@ -364,11 +409,93 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateDocument = async (id: string, docData: Partial<Omit<DocumentLink, 'id' | 'dataAtualizacao'>>) => {
+    const updated = await updateDocumentDB(supabase, id, docData);
+    if (updated) {
+      setDocuments((prev) => prev.map((d) => (d.id === id ? updated : d)));
+      await recordAudit(`Atualizou documento: ${updated.titulo}`, 'DOCUMENTOS', { id });
+    }
+  };
+
   const deleteDocument = async (id: string) => {
     const target = documents.find((d) => d.id === id);
     await deleteDocumentDB(supabase, id);
     setDocuments((prev) => prev.filter((d) => d.id !== id));
     await recordAudit(`Excluiu documento: ${target?.titulo ?? id}`, 'DOCUMENTOS', { id });
+  };
+
+  // ── ZELADOR ──
+
+  const updateZelador = async (data: Zelador) => {
+    const updated = await updateZeladorDB(supabase, data);
+    if (updated) {
+      setZelador(updated);
+      await recordAudit(`Atualizou dados do zelador: ${updated.nome}`, 'SISTEMA', { nome: updated.nome });
+    }
+  };
+
+  // ── USUÁRIOS & CONVITES ──
+
+  const createStaffInvite = async (data: { nome: string; email: string; role: Role }): Promise<{ success: boolean; message: string }> => {
+    if (data.role === 'SINDICO' || data.role === 'ADM') {
+      const jaExisteAtivo = systemUsers.some((u) => u.role === data.role);
+      const jaExistePendente = pendingInvites.some((i) => i.role === data.role && i.status === 'PENDENTE');
+      if (jaExisteAtivo || jaExistePendente) {
+        return { success: false, message: `Já existe um usuário ${jaExistePendente ? 'com convite pendente' : 'ativo'} com o perfil ${data.role}.` };
+      }
+    }
+
+    const invite = await insertPendingInvite(supabase, {
+      nome: data.nome,
+      email: data.email,
+      role: data.role,
+      criadoPor: currentUser?.name,
+    });
+    if (!invite) return { success: false, message: 'Erro ao registrar o convite. Tente novamente.' };
+
+    setPendingInvites((prev) => [invite, ...prev]);
+    await recordAudit(`Cadastrou convite de acesso para ${data.nome} (${data.role})`, 'SISTEMA', { email: data.email, role: data.role });
+    return { success: true, message: 'Convite adicionado à fila. Envie quando estiver pronto.' };
+  };
+
+  const cancelPendingInvite = async (id: string) => {
+    await deletePendingInviteDB(supabase, id);
+    setPendingInvites((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const sendPendingInvites = async (ids: string[]): Promise<{ success: boolean; message: string }> => {
+    if (ids.length === 0) return { success: false, message: 'Selecione ao menos um convite.' };
+
+    const response = await fetch('/api/convites/enviar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error ?? 'Erro ao enviar convites.' };
+    }
+
+    const { results } = await response.json() as { results: { id: string; ok: boolean; mensagem?: string }[] };
+    const enviados = results.filter((r) => r.ok).length;
+    const comErro = results.filter((r) => !r.ok).length;
+
+    await recordAudit(`Enviou lote de convites de acesso (${enviados} enviado(s), ${comErro} com erro)`, 'SISTEMA', { ids });
+
+    const [invites, users, unitsAtualizadas] = await Promise.all([
+      fetchPendingInvites(supabase),
+      fetchProfiles(supabase),
+      fetchUnits(supabase),
+    ]);
+    setPendingInvites(invites);
+    setSystemUsers(users);
+    setUnits(unitsAtualizadas);
+
+    if (comErro === 0) {
+      return { success: true, message: `${enviados} convite(s) enviado(s) com sucesso.` };
+    }
+    return { success: enviados > 0, message: `${enviados} enviado(s), ${comErro} com erro (veja a fila para detalhes).` };
   };
 
   // ── RESERVATIONS ──
@@ -465,7 +592,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Filtra notificações visíveis pelo perfil do usuário
   const visibleNotifications = notifications.filter((n) => {
-    if (currentUser?.role === 'SINDICO') return true;
+    if (isAdmin(currentUser?.role)) return true;
     if (n.perfilAlvo && n.perfilAlvo !== currentUser?.role) return false;
     if (n.unidadeAlvo && n.unidadeAlvo !== currentUser?.unidade) return false;
     return true;
@@ -498,7 +625,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteSpace,
         documents,
         addDocument,
+        updateDocument,
         deleteDocument,
+        zelador,
+        updateZelador,
+        systemUsers,
+        pendingInvites,
+        createStaffInvite,
+        cancelPendingInvite,
+        sendPendingInvites,
         auditLogs,
         fetchAuditLogsData,
         reservations,

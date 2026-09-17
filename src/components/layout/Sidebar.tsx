@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
+import { isAdmin, ADMIN_ROLES } from '@/lib/roles';
 import {
   LayoutDashboard,
   Megaphone,
@@ -15,6 +16,7 @@ import {
   Link2,
   Printer,
   Sparkles,
+  UserCog,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,44 +25,48 @@ interface SidebarProps {
 
 export function Sidebar({ onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
-  const { currentUser, fines, reservations } = useApp();
+  const { currentUser, fines, reservations, pendingInvites } = useApp();
 
   // Calcular alertas pendentes para badges na navegação
   const pendingFinesCount = fines.filter((f) => {
-    if (currentUser?.role === 'SINDICO') return f.status === 'EM_RECURSO';
+    if (isAdmin(currentUser?.role)) return f.status === 'EM_RECURSO';
     if (currentUser?.role === 'MORADOR') return f.unidade === currentUser.unidade && f.status === 'PENDENTE_CIENCIA';
     return false;
   }).length;
 
   const pendingReservationsCount = reservations.filter((r) => {
-    if (currentUser?.role === 'SINDICO') return r.status === 'PENDENTE';
+    if (isAdmin(currentUser?.role)) return r.status === 'PENDENTE';
     return false;
   }).length;
+
+  const pendingInvitesCount = isAdmin(currentUser?.role)
+    ? pendingInvites.filter((i) => i.status === 'PENDENTE').length
+    : 0;
 
   const navItems = [
     {
       label: 'Visão Geral',
       href: '/',
       icon: LayoutDashboard,
-      roles: ['SINDICO', 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
     },
     {
       label: 'Mural de Avisos',
       href: '/mural',
       icon: Megaphone,
-      roles: ['SINDICO', 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
     },
     {
       label: 'Moradores & Unidades',
       href: '/moradores',
       icon: Users,
-      roles: ['SINDICO', 'PORTARIA', 'CONSELHO'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO'],
     },
     {
       label: 'Veículos & Garagem',
       href: '/veiculos',
       icon: Car,
-      roles: ['SINDICO', 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
       badge: currentUser?.role === 'PORTARIA' ? 'Portaria' : undefined,
     },
     {
@@ -68,27 +74,34 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       href: '/multas',
       icon: ShieldAlert,
       // Restrito: PORTARIA NÃO VÊ MULTAS (LGPD & Convivência)
-      roles: ['SINDICO', 'MORADOR', 'CONSELHO'],
+      roles: [...ADMIN_ROLES, 'MORADOR', 'CONSELHO'],
       badgeCount: pendingFinesCount,
     },
     {
       label: 'Reserva de Espaços',
       href: '/reservas',
       icon: CalendarDays,
-      roles: ['SINDICO', 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
       badgeCount: pendingReservationsCount,
     },
     {
       label: 'Links & Documentos',
       href: '/links',
       icon: Link2,
-      roles: ['SINDICO', 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
     },
     {
       label: 'Relatórios & Auditoria',
       href: '/relatorios',
       icon: FileSpreadsheet,
-      roles: ['SINDICO', 'CONSELHO'],
+      roles: [...ADMIN_ROLES, 'CONSELHO'],
+    },
+    {
+      label: 'Usuários & Convites',
+      href: '/usuarios',
+      icon: UserCog,
+      roles: [...ADMIN_ROLES],
+      badgeCount: pendingInvitesCount,
     },
   ];
 

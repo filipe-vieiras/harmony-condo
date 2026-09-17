@@ -5,7 +5,8 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { ReservationStatus, CommonSpace } from '@/types';
-import { 
+import { isAdmin } from '@/lib/roles';
+import {
   CalendarDays, 
   Plus, 
   Check, 
@@ -68,7 +69,7 @@ function ReservasContent() {
   const [spaceImagemUrl, setSpaceImagemUrl] = useState('');
   const [spaceAtivo, setSpaceAtivo] = useState(true);
 
-  const isSindico = currentUser?.role === 'SINDICO';
+  const isSindico = isAdmin(currentUser?.role);
 
   const handleOpenNewSpace = () => {
     setEditingSpaceId(null);
@@ -380,7 +381,7 @@ function ReservasContent() {
                   <th className="px-5 py-3.5">Unidade / Morador</th>
                   <th className="px-5 py-3.5">Status</th>
                   <th className="px-5 py-3.5">Avaliação / Parecer</th>
-                  {currentUser?.role === 'SINDICO' && (
+                  {isAdmin(currentUser?.role) && (
                     <th className="px-5 py-3.5 text-right no-print">Aprovação do Síndico</th>
                   )}
                 </tr>
@@ -435,7 +436,7 @@ function ReservasContent() {
                             </span>
                           )}
                         </td>
-                        {currentUser?.role === 'SINDICO' && (
+                        {isAdmin(currentUser?.role) && (
                           <td className="px-5 py-3.5 text-right no-print">
                             {r.status === 'PENDENTE' ? (
                               <div className="flex items-center justify-end gap-1.5">

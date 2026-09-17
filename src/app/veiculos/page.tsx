@@ -5,8 +5,9 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { Vehicle } from '@/types';
-import { 
-  Car, 
+import { isAdmin } from '@/lib/roles';
+import {
+  Car,
   Search, 
   Plus, 
   ShieldCheck, 
@@ -200,7 +201,7 @@ function VeiculosContent() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-right no-print">
-                      {(currentUser.role === 'SINDICO' || currentUser.name === v.proprietarioNome) && (
+                      {(isAdmin(currentUser.role) || currentUser.name === v.proprietarioNome) && (
                         <button
                           onClick={() => deleteVehicle(v.id)}
                           className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"

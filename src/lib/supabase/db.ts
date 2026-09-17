@@ -9,7 +9,29 @@ import type {
   InAppNotification,
   DocumentLink,
   AuditLog,
+  PendingInvite,
+  Zelador,
+  User,
 } from '@/types';
+
+// ──────────────────────────────────────────────
+// PROFILES (usuários do sistema)
+// ──────────────────────────────────────────────
+
+export async function fetchProfiles(supabase: SupabaseClient): Promise<User[]> {
+  const { data, error } = await supabase.from('profiles').select('*').order('name', { ascending: true });
+  if (error) { console.error('fetchProfiles:', error); return []; }
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    name: r.name as string,
+    email: (r.email as string) ?? '',
+    role: r.role as User['role'],
+    cargo: (r.cargo as string) ?? undefined,
+    bloco: (r.bloco as string) ?? undefined,
+    unidade: (r.unidade as string) ?? undefined,
+    telefone: (r.telefone as string) ?? undefined,
+  }));
+}
 
 // ──────────────────────────────────────────────
 // UNITS
@@ -28,6 +50,8 @@ function rowToUnit(r: Record<string, unknown>): Unit {
     vagasGaragem: (r.vagas_garagem as string[]) ?? [],
     animais: (r.animais as string) ?? '',
     observacoes: (r.observacoes as string) ?? undefined,
+    statusConvite: (r.status_convite as Unit['statusConvite']) ?? 'NAO_ENVIADO',
+    usuarioId: (r.usuario_id as string) ?? undefined,
   };
 }
 
@@ -70,6 +94,8 @@ export async function updateUnitDB(supabase: SupabaseClient, id: string, unit: P
   if (unit.animais !== undefined) payload.animais = unit.animais;
   if (unit.observacoes !== undefined) payload.observacoes = unit.observacoes;
   if (unit.moradores !== undefined) payload.moradores = unit.moradores;
+  if (unit.statusConvite !== undefined) payload.status_convite = unit.statusConvite;
+  if (unit.usuarioId !== undefined) payload.usuario_id = unit.usuarioId;
 
   const { data, error } = await supabase.from('units').update(payload).eq('id', id).select().single();
   if (error) { console.error('updateUnitDB:', error); return null; }
@@ -490,6 +516,25 @@ export async function insertDocument(
   return rowToDocument(data);
 }
 
+export async function updateDocumentDB(
+  supabase: SupabaseClient,
+  id: string,
+  doc: Partial<Omit<DocumentLink, 'id' | 'dataAtualizacao'>>
+): Promise<DocumentLink | null> {
+  const payload: Record<string, unknown> = { data_atualizacao: new Date().toISOString() };
+  if (doc.titulo !== undefined) payload.titulo = doc.titulo;
+  if (doc.descricao !== undefined) payload.descricao = doc.descricao;
+  if (doc.categoria !== undefined) payload.categoria = doc.categoria;
+  if (doc.arquivoNome !== undefined) payload.arquivo_nome = doc.arquivoNome;
+  if (doc.tamanhoArquivo !== undefined) payload.tamanho_arquivo = doc.tamanhoArquivo;
+  if (doc.linkExterno !== undefined) payload.link_externo = doc.linkExterno;
+  if (doc.telefone !== undefined) payload.telefone = doc.telefone;
+
+  const { data, error } = await supabase.from('documents').update(payload).eq('id', id).select().single();
+  if (error) { console.error('updateDocumentDB:', error); return null; }
+  return rowToDocument(data);
+}
+
 export async function deleteDocumentDB(supabase: SupabaseClient, id: string): Promise<void> {
   const { error } = await supabase.from('documents').delete().eq('id', id);
   if (error) console.error('deleteDocumentDB:', error);
@@ -535,5 +580,92 @@ export async function insertAuditLog(
     detalhes: log.detalhes ?? {},
   });
   if (error) console.error('insertAuditLog:', error);
+}
+
+// ──────────────────────────────────────────────
+// PENDING INVITES (fila de convites em lote)
+// ──────────────────────────────────────────────
+
+function rowToPendingInvite(r: Record<string, unknown>): PendingInvite {
+  return {
+    id: r.id as string,
+    nome: r.nome as string,
+    email: r.email as string,
+    role: r.role as PendingInvite['role'],
+    bloco: (r.bloco as string) ?? undefined,
+    unidade: (r.unidade as string) ?? undefined,
+    unitId: (r.unit_id as string) ?? undefined,
+    status: r.status as PendingInvite['status'],
+    erroMensagem: (r.erro_mensagem as string) ?? undefined,
+    criadoPor: (r.criado_por as string) ?? undefined,
+    criadoEm: r.criado_em as string,
+    enviadoEm: (r.enviado_em as string) ?? undefined,
+  };
+}
+
+export async function fetchPendingInvites(supabase: SupabaseClient): Promise<PendingInvite[]> {
+  const { data, error } = await supabase
+    .from('pending_invites')
+    .select('*')
+    .order('criado_em', { ascending: false });
+  if (error) { console.error('fetchPendingInvites:', error); return []; }
+  return (data ?? []).map(rowToPendingInvite);
+}
+
+export async function insertPendingInvite(
+  supabase: SupabaseClient,
+  invite: Omit<PendingInvite, 'id' | 'status' | 'criadoEm' | 'enviadoEm' | 'erroMensagem'>
+): Promise<PendingInvite | null> {
+  const { data, error } = await supabase.from('pending_invites').insert({
+    nome: invite.nome,
+    email: invite.email,
+    role: invite.role,
+    bloco: invite.bloco,
+    unidade: invite.unidade,
+    unit_id: invite.unitId,
+    criado_por: invite.criadoPor,
+    status: 'PENDENTE',
+  }).select().single();
+  if (error) { console.error('insertPendingInvite:', error); return null; }
+  return rowToPendingInvite(data);
+}
+
+export async function deletePendingInviteDB(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from('pending_invites').delete().eq('id', id);
+  if (error) console.error('deletePendingInviteDB:', error);
+}
+
+// ──────────────────────────────────────────────
+// ZELADOR (cadastro estruturado, sem login)
+// ──────────────────────────────────────────────
+
+export async function fetchZelador(supabase: SupabaseClient): Promise<Zelador | null> {
+  const { data, error } = await supabase.from('zelador').select('*').eq('id', 1).single();
+  if (error) { console.error('fetchZelador:', error); return null; }
+  return {
+    nome: data.nome ?? '',
+    telefone: data.telefone ?? '',
+    horarioAtendimento: data.horario_atendimento ?? '',
+    observacoes: data.observacoes ?? undefined,
+    atualizadoEm: data.atualizado_em ?? undefined,
+  };
+}
+
+export async function updateZeladorDB(supabase: SupabaseClient, zelador: Zelador): Promise<Zelador | null> {
+  const { data, error } = await supabase.from('zelador').update({
+    nome: zelador.nome,
+    telefone: zelador.telefone,
+    horario_atendimento: zelador.horarioAtendimento,
+    observacoes: zelador.observacoes,
+    atualizado_em: new Date().toISOString(),
+  }).eq('id', 1).select().single();
+  if (error) { console.error('updateZeladorDB:', error); return null; }
+  return {
+    nome: data.nome ?? '',
+    telefone: data.telefone ?? '',
+    horarioAtendimento: data.horario_atendimento ?? '',
+    observacoes: data.observacoes ?? undefined,
+    atualizadoEm: data.atualizado_em ?? undefined,
+  };
 }
 

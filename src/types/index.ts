@@ -1,4 +1,4 @@
-export type Role = 'SINDICO' | 'PORTARIA' | 'CONSELHO' | 'MORADOR';
+export type Role = 'SINDICO' | 'ADM' | 'PORTARIA' | 'CONSELHO' | 'MORADOR';
 
 export interface User {
   id: string;
@@ -16,7 +16,11 @@ export interface UnitResident {
   tipo: 'TITULAR' | 'DEPENDENTE' | 'INQUILINO';
   telefone: string;
   rgCpf?: string;
+  /** E-mail do morador. Só faz sentido para o morador prioritário (TITULAR ou INQUILINO) — é ele quem recebe o convite de acesso. */
+  email?: string;
 }
+
+export type ConviteStatus = 'NAO_ENVIADO' | 'PENDENTE' | 'ENVIADO' | 'ATIVO';
 
 export interface Unit {
   id: string;
@@ -30,6 +34,10 @@ export interface Unit {
   vagasGaragem: string[];
   animais: string;
   observacoes?: string;
+  /** Status do convite de acesso ao portal para o morador prioritário desta unidade. */
+  statusConvite?: ConviteStatus;
+  /** id do usuário (auth/profile) vinculado, quando o convite já foi aceito. */
+  usuarioId?: string;
 }
 
 export interface Vehicle {
@@ -170,4 +178,30 @@ export interface AuditLog {
   modulo: 'UNIDADES' | 'RESERVAS' | 'MULTAS' | 'ESPACOS' | 'DOCUMENTOS' | 'SISTEMA';
   detalhes?: Record<string, unknown>;
   createdAt: string;
+}
+
+export type PendingInviteStatus = 'PENDENTE' | 'ENVIADO' | 'ERRO';
+
+export interface PendingInvite {
+  id: string;
+  nome: string;
+  email: string;
+  role: Role;
+  bloco?: string;
+  unidade?: string;
+  unitId?: string;
+  status: PendingInviteStatus;
+  erroMensagem?: string;
+  criadoPor?: string;
+  criadoEm: string;
+  enviadoEm?: string;
+}
+
+/** Dados de contato do zelador atual — cadastro estruturado, sem login no sistema. */
+export interface Zelador {
+  nome: string;
+  telefone: string;
+  horarioAtendimento: string;
+  observacoes?: string;
+  atualizadoEm?: string;
 }

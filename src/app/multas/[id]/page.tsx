@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
-import { 
-  ShieldAlert, 
+import { isAdmin } from '@/lib/roles';
+import {
+  ShieldAlert,
   ArrowLeft, 
   CheckCircle2, 
   Clock, 
@@ -383,7 +384,7 @@ function MultaDetalheContent() {
                     {fine.recurso.resposta}
                   </p>
                 </div>
-              ) : currentUser.role === 'SINDICO' ? (
+              ) : isAdmin(currentUser.role) ? (
                 /* Painel de Julgamento para o Síndico */
                 <div className="rounded-2xl border border-[#0B2545]/20 bg-[#0B2545]/5 p-5 space-y-3 no-print">
                   <h4 className="text-xs font-bold text-[#0B2545] uppercase tracking-wider">

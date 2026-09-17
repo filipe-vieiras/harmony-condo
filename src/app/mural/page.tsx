@@ -5,7 +5,8 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { NoticeCategory } from '@/types';
-import { 
+import { isAdmin } from '@/lib/roles';
+import {
   Megaphone, 
   Search, 
   Plus, 
@@ -103,7 +104,7 @@ function MuralContent() {
             <span>Imprimir Mural</span>
           </button>
 
-          {currentUser.role === 'SINDICO' && (
+          {isAdmin(currentUser.role) && (
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074]"
@@ -189,7 +190,7 @@ function MuralContent() {
                     <span>{n.data}</span>
                   </span>
 
-                  {currentUser.role === 'SINDICO' && (
+                  {isAdmin(currentUser.role) && (
                     <button
                       onClick={() => deleteNotice(n.id)}
                       className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition no-print"

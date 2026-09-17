@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { Unit } from '@/types';
+import { isAdmin } from '@/lib/roles';
 import { 
   Users, 
   Search, 
@@ -96,6 +97,8 @@ function MoradoresContent() {
       tipo: (novoTipo === 'PROPRIETARIO' ? 'TITULAR' : 'INQUILINO') as 'TITULAR' | 'INQUILINO',
       telefone: titularTelefone,
       rgCpf: titularRgCpf || undefined,
+      // E-mail do morador prioritário — é para ele que vai o convite de acesso ao portal.
+      email: titularEmail || undefined,
     };
 
     const validDemaisMoradores = demaisMoradores
@@ -178,7 +181,7 @@ function MoradoresContent() {
             <span>Imprimir Relação</span>
           </button>
 
-          {currentUser.role === 'SINDICO' && (
+          {isAdmin(currentUser.role) && (
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074]"
@@ -277,6 +280,20 @@ function MoradoresContent() {
                 <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                 <span className="truncate">{u.proprietarioEmail}</span>
               </div>
+
+              {u.statusConvite && u.statusConvite !== 'NAO_ENVIADO' && (
+                <span
+                  className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    u.statusConvite === 'ATIVO'
+                      ? 'bg-emerald-50 text-emerald-800'
+                      : u.statusConvite === 'ENVIADO'
+                      ? 'bg-sky-50 text-sky-800'
+                      : 'bg-amber-50 text-amber-800'
+                  }`}
+                >
+                  {u.statusConvite === 'ATIVO' ? 'Acesso ativo' : u.statusConvite === 'ENVIADO' ? 'Convite enviado' : 'Convite pendente de envio'}
+                </span>
+              )}
             </div>
 
             {/* Demais Moradores da Propriedade */}

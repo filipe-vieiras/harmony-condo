@@ -4,8 +4,9 @@ import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
-import { 
-  FileSpreadsheet, 
+import { isAdmin } from '@/lib/roles';
+import {
+  FileSpreadsheet,
   Printer, 
   Lock, 
   TrendingUp, 
@@ -32,7 +33,7 @@ function RelatoriosContent() {
 
   // Acesso restrito a Síndico e Conselho Fiscal
   if (!currentUser) return null;
-  if (currentUser.role !== 'SINDICO' && currentUser.role !== 'CONSELHO') {
+  if (!isAdmin(currentUser.role) && currentUser.role !== 'CONSELHO') {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">

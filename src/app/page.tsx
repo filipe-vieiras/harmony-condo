@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { useApp } from '@/context/AppContext';
+import { isAdmin } from '@/lib/roles';
 import {
   Users,
   Car,
@@ -77,7 +78,7 @@ function DashboardContent() {
             Olá, {currentUser.name}
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-cyan-100">
-            {currentUser.role === 'SINDICO' && 'Painel de controle geral: gestão administrativa, ocorrências disciplinares e validação de reservas.'}
+            {isAdmin(currentUser.role) && 'Painel de controle geral: gestão administrativa, ocorrências disciplinares e validação de reservas.'}
             {currentUser.role === 'PORTARIA' && 'Guarita de controle: identificação instantânea de veículos, consulta de moradores e agenda das áreas comuns.'}
             {currentUser.role === 'CONSELHO' && 'Auditoria e acompanhamento fiscal: fiscalização de multas, reservas e transparência condominial.'}
             {currentUser.role === 'MORADOR' && `Gestão da Unidade ${currentUser.unidade || '304'} Bloco ${currentUser.bloco || 'A'}: seus comunicados, multas e reservas.`}
@@ -213,7 +214,7 @@ function DashboardContent() {
             {currentUser.role === 'MORADOR' ? myReservations.length : reservations.length}
           </p>
           <p className="mt-0.5 text-xs text-slate-500">
-            {currentUser.role === 'SINDICO' 
+            {isAdmin(currentUser.role) 
               ? `${pendingReservations.length} aguardando aprovação`
               : 'Espaços solicitados'}
           </p>
@@ -222,7 +223,7 @@ function DashboardContent() {
       </div>
 
       {/* ÁREA DE AÇÃO RÁPIDA: Solicitações de Reserva Pendentes para o Síndico */}
-      {currentUser.role === 'SINDICO' && pendingReservations.length > 0 && (
+      {isAdmin(currentUser.role) && pendingReservations.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">

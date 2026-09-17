@@ -6,7 +6,8 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { FineStatus } from '@/types';
-import { 
+import { isAdmin } from '@/lib/roles';
+import {
   ShieldAlert, 
   Search, 
   Plus, 
@@ -156,7 +157,7 @@ function MultasContent() {
             <span>Imprimir Livro de Multas</span>
           </button>
 
-          {currentUser.role === 'SINDICO' && (
+          {isAdmin(currentUser.role) && (
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-red-700"
