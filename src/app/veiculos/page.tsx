@@ -9,14 +9,16 @@ import { isAdmin } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
   Car,
-  Search, 
-  Plus, 
-  ShieldCheck, 
-  Phone, 
-  Trash2, 
-  Printer, 
+  Search,
+  Plus,
+  ShieldCheck,
+  Phone,
+  Trash2,
+  Printer,
   X,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function VeiculosPage() {
@@ -31,6 +33,8 @@ function VeiculosContent() {
   const { currentUser, vehicles, addVehicle, deleteVehicle } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form states
   const [placa, setPlaca] = useState('');
@@ -59,11 +63,12 @@ function VeiculosContent() {
     );
   });
 
-  const handleCreateVehicle = (e: React.FormEvent) => {
+  const handleCreateVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!placa || !modelo) return;
+    if (!placa || !modelo || isSaving) return;
+    setIsSaving(true);
 
-    addVehicle({
+    const res = await addVehicle({
       placa: placa.toUpperCase().trim(),
       marca,
       modelo,
@@ -76,12 +81,17 @@ function VeiculosContent() {
       status,
     });
 
-    setShowModal(false);
-    setPlaca('');
-    setMarca('');
-    setModelo('');
-    setCor('');
-    setVaga('');
+    setIsSaving(false);
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+
+    if (res.success) {
+      setShowModal(false);
+      setPlaca('');
+      setMarca('');
+      setModelo('');
+      setCor('');
+      setVaga('');
+    }
   };
 
   if (!currentUser) return null;
@@ -128,6 +138,29 @@ function VeiculosContent() {
           </button>
         </div>
       </div>
+
+      {/* Mensagem de Feedback */}
+      {feedbackMsg && (
+        <div
+          className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
+            feedbackMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+              : 'bg-red-50 text-red-900 border border-red-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {feedbackMsg.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            )}
+            <span>{feedbackMsg.text}</span>
+          </div>
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Destaque para a Portaria */}
       {currentUser.role === 'PORTARIA' && (
@@ -206,7 +239,11 @@ function VeiculosContent() {
                     <td className="px-5 py-3.5 text-right no-print">
                       {(isAdmin(currentUser.role) || currentUser.name === v.proprietarioNome) && (
                         <button
-                          onClick={() => deleteVehicle(v.id)}
+                          onClick={async () => {
+                            if (!confirm(`Remover o veículo ${v.placa}?`)) return;
+                            const res = await deleteVehicle(v.id);
+                            setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+                          }}
                           className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
                           title="Remover veículo"
                           aria-label={`Remover veículo ${v.placa}`}
@@ -366,16 +403,18 @@ function VeiculosContent() {
               <div className="mt-5 flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white hover:bg-[#134074]"
+                  disabled={isSaving}
+                  className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white hover:bg-[#134074] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Salvar Veículo
+                  {isSaving ? 'Salvando...' : 'Salvar Veículo'}
                 </button>
               </div>
             </form>

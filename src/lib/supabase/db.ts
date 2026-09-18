@@ -156,9 +156,13 @@ export async function insertVehicle(supabase: SupabaseClient, v: Omit<Vehicle, '
   return rowToVehicle(data);
 }
 
-export async function deleteVehicleDB(supabase: SupabaseClient, id: string): Promise<void> {
-  const { error } = await supabase.from('vehicles').delete().eq('id', id);
-  if (error) console.error('deleteVehicleDB:', error);
+export async function deleteVehicleDB(supabase: SupabaseClient, id: string): Promise<boolean> {
+  // Um DELETE bloqueado por RLS não retorna erro — só afeta 0 linhas (a
+  // policy de SELECT usada internamente já filtra a linha antes do delete).
+  // Por isso é preciso checar quantas linhas voltaram, não só o campo error.
+  const { data, error } = await supabase.from('vehicles').delete().eq('id', id).select();
+  if (error) { console.error('deleteVehicleDB:', error); return false; }
+  return (data?.length ?? 0) > 0;
 }
 
 // ──────────────────────────────────────────────

@@ -43,8 +43,8 @@ interface AppContextType {
   deleteUnit: (id: string) => Promise<{ success: boolean; message: string }>;
   sendInviteForUnit: (unitId: string) => Promise<{ success: boolean; message: string }>;
   vehicles: Vehicle[];
-  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<void>;
-  deleteVehicle: (id: string) => Promise<void>;
+  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<{ success: boolean; message: string }>;
+  deleteVehicle: (id: string) => Promise<{ success: boolean; message: string }>;
   notices: Notice[];
   addNotice: (notice: Omit<Notice, 'id' | 'data'>) => Promise<void>;
   deleteNotice: (id: string) => Promise<void>;
@@ -205,11 +205,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setCurrentUser(null);
-    setUnits([]); setVehicles([]); setNotices([]);
-    setFines([]); setReservations([]); setNotifications([]);
-    setDocuments(INITIAL_DOCS); setAuditLogs([]);
-    setZelador(null); setSystemUsers([]); setPendingInvites([]);
+    // Navegação completa (não só limpar o estado): a tela atual não tem
+    // nenhuma lógica de redirecionar sozinha quando currentUser vira null —
+    // sem isso, a SPA fica presa mostrando "Carregando..." pra sempre, já
+    // que nunca mais haverá um usuário pra resolver esse estado.
+    window.location.href = '/login';
   };
 
   // ── AUDIT HELPER ──
@@ -478,14 +478,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── VEHICLES ──
 
-  const addVehicle = async (vehicleData: Omit<Vehicle, 'id'>) => {
+  const addVehicle = async (vehicleData: Omit<Vehicle, 'id'>): Promise<{ success: boolean; message: string }> => {
     const created = await insertVehicle(supabase, vehicleData);
-    if (created) setVehicles((prev) => [created, ...prev]);
+    if (!created) return { success: false, message: 'Erro ao cadastrar o veículo. Tente novamente.' };
+
+    setVehicles((prev) => [created, ...prev]);
+    return { success: true, message: `Veículo ${created.placa} cadastrado com sucesso.` };
   };
 
-  const deleteVehicle = async (id: string) => {
-    await deleteVehicleDB(supabase, id);
+  const deleteVehicle = async (id: string): Promise<{ success: boolean; message: string }> => {
+    const target = vehicles.find((v) => v.id === id);
+    const deleted = await deleteVehicleDB(supabase, id);
+    if (!deleted) {
+      return { success: false, message: 'Não foi possível remover o veículo. Verifique se você tem permissão.' };
+    }
     setVehicles((prev) => prev.filter((v) => v.id !== id));
+    return { success: true, message: `Veículo ${target?.placa ?? ''} removido com sucesso.` };
   };
 
   // ── NOTICES ──
