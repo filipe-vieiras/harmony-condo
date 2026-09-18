@@ -66,7 +66,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
               className="h-10 w-auto object-contain"
             />
             <div className="hidden sm:block">
-              <span className="text-xs font-semibold uppercase tracking-widest text-[#00A8E8]">
+              <span className="text-xs font-semibold uppercase tracking-widest text-[#0A6E9C]">
                 Portal Condominial
               </span>
             </div>
@@ -108,7 +108,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
                   {unreadNotificationCount > 0 && (
                     <button
                       onClick={markAllNotificationsAsRead}
-                      className="text-xs text-[#00A8E8] hover:underline font-medium"
+                      className="text-xs text-[#0A6E9C] hover:underline font-medium"
                     >
                       Marcar lidas
                     </button>
@@ -151,7 +151,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
                               {n.linkDestino && (
                                 <Link
                                   href={n.linkDestino}
-                                  className="font-medium text-[#00A8E8] hover:underline"
+                                  className="font-medium text-[#0A6E9C] hover:underline"
                                   onClick={() => setShowNotifications(false)}
                                 >
                                   Ver detalhes →

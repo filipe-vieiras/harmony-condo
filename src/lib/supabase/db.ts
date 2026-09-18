@@ -65,7 +65,10 @@ export async function fetchUnits(supabase: SupabaseClient): Promise<Unit[]> {
   return (data ?? []).map(rowToUnit);
 }
 
-export async function insertUnit(supabase: SupabaseClient, unit: Omit<Unit, 'id'>): Promise<Unit | null> {
+export async function insertUnit(
+  supabase: SupabaseClient,
+  unit: Omit<Unit, 'id'>
+): Promise<{ unit: Unit | null; errorCode?: string; errorMessage?: string }> {
   const { data, error } = await supabase.from('units').insert({
     bloco: unit.bloco,
     numero: unit.numero,
@@ -78,8 +81,11 @@ export async function insertUnit(supabase: SupabaseClient, unit: Omit<Unit, 'id'
     observacoes: unit.observacoes,
     moradores: unit.moradores ?? [],
   }).select().single();
-  if (error) { console.error('insertUnit:', error); return null; }
-  return rowToUnit(data);
+  if (error) {
+    console.error('insertUnit:', error);
+    return { unit: null, errorCode: error.code, errorMessage: error.message };
+  }
+  return { unit: rowToUnit(data) };
 }
 
 export async function updateUnitDB(supabase: SupabaseClient, id: string, unit: Partial<Omit<Unit, 'id'>>): Promise<Unit | null> {
@@ -100,6 +106,11 @@ export async function updateUnitDB(supabase: SupabaseClient, id: string, unit: P
   const { data, error } = await supabase.from('units').update(payload).eq('id', id).select().single();
   if (error) { console.error('updateUnitDB:', error); return null; }
   return rowToUnit(data);
+}
+
+export async function deleteUnitDB(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from('units').delete().eq('id', id);
+  if (error) console.error('deleteUnitDB:', error);
 }
 
 // ──────────────────────────────────────────────
@@ -627,6 +638,22 @@ export async function insertPendingInvite(
     status: 'PENDENTE',
   }).select().single();
   if (error) { console.error('insertPendingInvite:', error); return null; }
+  return rowToPendingInvite(data);
+}
+
+export async function updatePendingInviteDB(
+  supabase: SupabaseClient,
+  id: string,
+  patch: Partial<Pick<PendingInvite, 'nome' | 'email' | 'bloco' | 'unidade'>>
+): Promise<PendingInvite | null> {
+  const payload: Record<string, unknown> = {};
+  if (patch.nome !== undefined) payload.nome = patch.nome;
+  if (patch.email !== undefined) payload.email = patch.email;
+  if (patch.bloco !== undefined) payload.bloco = patch.bloco;
+  if (patch.unidade !== undefined) payload.unidade = patch.unidade;
+
+  const { data, error } = await supabase.from('pending_invites').update(payload).eq('id', id).select().single();
+  if (error) { console.error('updatePendingInviteDB:', error); return null; }
   return rowToPendingInvite(data);
 }
 

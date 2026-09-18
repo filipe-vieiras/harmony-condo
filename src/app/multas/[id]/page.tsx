@@ -165,7 +165,7 @@ function MultaDetalheContent() {
           </div>
 
           <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/80 text-right sm:text-right">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Unidade Notificada</span>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Unidade Notificada</span>
             <p className="text-lg font-bold text-[#0B2545]">
               Apartamento {fine.unidade} - Bloco {fine.bloco}
             </p>
@@ -176,7 +176,7 @@ function MultaDetalheContent() {
         {/* Artigo e Fato Gerador */}
         <div className="mt-6 space-y-4 text-xs sm:text-sm">
           <div className="rounded-2xl bg-slate-50/80 p-4 border border-slate-200">
-            <span className="font-bold text-slate-900 block mb-1 text-xs uppercase tracking-wider text-[#00A8E8]">
+            <span className="font-bold text-slate-900 block mb-1 text-xs uppercase tracking-wider text-[#0A6E9C]">
               Dispositivo Legal Infringido (Regimento Interno)
             </span>
             <p className="font-semibold text-slate-800">{fine.artigoRegimento}</p>
@@ -297,23 +297,26 @@ function MultaDetalheContent() {
                 </button>
               </div>
 
+              <label htmlFor="recurso-texto" className="sr-only">Justificativa do recurso</label>
               <textarea
+                id="recurso-texto"
                 rows={4}
                 required
                 value={textoRecurso}
                 onChange={(e) => setTextoRecurso(e.target.value)}
                 placeholder="Apresente seus argumentos e motivos para o cancelamento ou relevação da sanção..."
-                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-[#00A8E8] focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
               />
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Anexo Comprobatório (Opcional)</label>
+                <label htmlFor="recurso-anexo" className="block text-xs font-semibold text-slate-700">Anexo Comprobatório (Opcional)</label>
                 <input
+                  id="recurso-anexo"
                   type="text"
                   placeholder="Ex: Comprovante_Prestador.pdf ou Foto_Local.jpg"
                   value={anexoNome}
                   onChange={(e) => setAnexoNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 
@@ -355,7 +358,7 @@ function MultaDetalheContent() {
                 </p>
 
                 {fine.recurso.anexoNome && (
-                  <div className="mt-2 flex items-center gap-1 text-xs text-[#00A8E8] font-semibold">
+                  <div className="mt-2 flex items-center gap-1 text-xs text-[#0A6E9C] font-semibold">
                     <FileText className="h-3.5 w-3.5" />
                     <span>Anexo Protocolado: {fine.recurso.anexoNome}</span>
                   </div>
@@ -394,12 +397,14 @@ function MultaDetalheContent() {
                     Analise os argumentos do condômino e profira o julgamento fundamentado:
                   </p>
 
+                  <label htmlFor="julgamento-resposta" className="sr-only">Justificativa da decisão</label>
                   <textarea
+                    id="julgamento-resposta"
                     rows={3}
                     placeholder="Justificativa da decisão..."
                     value={respostaSindico}
                     onChange={(e) => setRespostaSindico(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-[#00A8E8] focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
 
                   <div className="flex items-center justify-end gap-2 pt-2">
@@ -424,7 +429,7 @@ function MultaDetalheContent() {
               ) : null}
             </div>
           ) : (
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-slate-500">
               Nenhum recurso interposto até o momento.
             </p>
           )}

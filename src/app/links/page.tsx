@@ -6,6 +6,7 @@ import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { DocumentLink } from '@/types';
 import { isAdmin } from '@/lib/roles';
+import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
   Link2,
   FileText,
@@ -50,6 +51,9 @@ function LinksContent() {
   const [zObs, setZObs] = useState('');
 
   const isSindico = isAdmin(currentUser?.role);
+
+  useEscapeToClose(showModal, () => setShowModal(false));
+  useEscapeToClose(showZeladorModal, () => setShowZeladorModal(false));
 
   const handleOpenZeladorModal = () => {
     setZNome(zelador?.nome ?? '');
@@ -167,7 +171,7 @@ function LinksContent() {
               )}
               <span>{feedbackMsg.text}</span>
             </div>
-            <button onClick={() => setFeedbackMsg(null)} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -198,6 +202,7 @@ function LinksContent() {
                       <button
                         onClick={() => handleDelete(c.id, c.titulo)}
                         title="Excluir Contato"
+                        aria-label={`Excluir contato ${c.titulo}`}
                         className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 no-print"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -211,10 +216,10 @@ function LinksContent() {
 
                 <div className="mt-4 border-t border-slate-100 pt-3 flex items-center justify-between">
                   <div>
-                    <span className="text-xs text-slate-400 block font-semibold">Contato:</span>
+                    <span className="text-xs text-slate-500 block font-semibold">Contato:</span>
                     <a
                       href={`tel:${c.telefone?.replace(/[^0-9]/g, '')}`}
-                      className="text-base font-bold text-[#0B2545] hover:text-[#00A8E8] transition"
+                      className="text-base font-bold text-[#0B2545] hover:text-[#0A6E9C] transition"
                     >
                       {c.telefone || 'Consulte a portaria'}
                     </a>
@@ -224,7 +229,7 @@ function LinksContent() {
                       href={c.linkExterno}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-[#00A8E8] hover:underline flex items-center gap-1"
+                      className="text-xs text-[#0A6E9C] hover:underline flex items-center gap-1"
                     >
                       <span>Mais info</span>
                       <ExternalLink className="h-3 w-3" />
@@ -248,7 +253,8 @@ function LinksContent() {
                     <button
                       onClick={handleOpenZeladorModal}
                       title="Editar Dados do Zelador"
-                      className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#00A8E8] no-print"
+                      aria-label="Editar dados do zelador"
+                      className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -264,16 +270,16 @@ function LinksContent() {
               </p>
 
               <div className="mt-4 border-t border-slate-100 pt-3">
-                <span className="text-xs text-slate-400 block font-semibold">Contato:</span>
+                <span className="text-xs text-slate-500 block font-semibold">Contato:</span>
                 {zelador?.telefone ? (
                   <a
                     href={`tel:${zelador.telefone.replace(/[^0-9]/g, '')}`}
-                    className="text-base font-bold text-[#0B2545] hover:text-[#00A8E8] transition"
+                    className="text-base font-bold text-[#0B2545] hover:text-[#0A6E9C] transition"
                   >
                     {zelador.telefone}
                   </a>
                 ) : (
-                  <span className="text-xs text-slate-400">Sem telefone cadastrado</span>
+                  <span className="text-xs text-slate-500">Sem telefone cadastrado</span>
                 )}
               </div>
             </div>
@@ -299,7 +305,7 @@ function LinksContent() {
                   href="https://google.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00A8E8] hover:underline"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A6E9C] hover:underline"
                 >
                   <span>Acessar Portal do Condômino</span>
                   <ExternalLink className="h-3.5 w-3.5" />
@@ -318,7 +324,7 @@ function LinksContent() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {officialDocuments.length === 0 ? (
-              <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-400">
+              <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
                 Nenhum documento regulatório cadastrado.
               </div>
             ) : (
@@ -333,13 +339,14 @@ function LinksContent() {
                         {doc.categoria}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-400">
+                        <span className="text-[11px] text-slate-500">
                           Atualizado em {doc.dataAtualizacao}
                         </span>
                         {isSindico && (
                           <button
                             onClick={() => handleDelete(doc.id, doc.titulo)}
                             title="Excluir Documento"
+                            aria-label={`Excluir documento ${doc.titulo}`}
                             className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 no-print"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -355,7 +362,7 @@ function LinksContent() {
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
-                    <span className="text-slate-400 font-mono text-[11px]">
+                    <span className="text-slate-500 font-mono text-[11px]">
                       {doc.tamanhoArquivo || 'Link Externo'}
                     </span>
 
@@ -379,14 +386,20 @@ function LinksContent() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs no-print">
           <div className="fixed inset-0" onClick={() => setShowModal(false)} />
-          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="doc-modal-title"
+            className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-[#00A8E8]" />
-                <h3 className="text-base font-bold text-slate-900">Cadastrar Novo Documento / Link</h3>
+                <h3 id="doc-modal-title" className="text-base font-bold text-slate-900">Cadastrar Novo Documento / Link</h3>
               </div>
               <button
                 onClick={() => setShowModal(false)}
+                aria-label="Fechar"
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -395,24 +408,26 @@ function LinksContent() {
 
             <form onSubmit={handleSaveDocument} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Título do Documento / Canal</label>
+                <label htmlFor="doc-titulo" className="block text-xs font-semibold text-slate-700">Título do Documento / Canal</label>
                 <input
+                  id="doc-titulo"
                   type="text"
                   required
                   placeholder="Ex: Ata da Assembleia Geral Ordinária 2026, Polícia Militar"
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Categoria</label>
+                  <label htmlFor="doc-categoria" className="block text-xs font-semibold text-slate-700">Categoria</label>
                   <select
+                    id="doc-categoria"
                     value={categoria}
                     onChange={(e) => setCategoria(e.target.value as DocumentLink['categoria'])}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none font-semibold text-slate-800"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 font-semibold text-slate-800"
                   >
                     <option value="ATA">Ata de Assembleia</option>
                     <option value="REGIMENTO">Regimento Interno</option>
@@ -424,54 +439,58 @@ function LinksContent() {
 
                 {categoria === 'EMERGENCIA' ? (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">Telefone / Ramal</label>
+                    <label htmlFor="doc-telefone" className="block text-xs font-semibold text-slate-700">Telefone / Ramal</label>
                     <input
+                      id="doc-telefone"
                       type="text"
                       placeholder="Ex: 190 ou (11) 99999-9999"
                       value={telefone}
                       onChange={(e) => setTelefone(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                     />
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">Formato / Tamanho (opcional)</label>
+                    <label htmlFor="doc-tamanho" className="block text-xs font-semibold text-slate-700">Formato / Tamanho (opcional)</label>
                     <input
+                      id="doc-tamanho"
                       type="text"
                       placeholder="Ex: PDF (1.5 MB)"
                       value={tamanhoArquivo}
                       onChange={(e) => setTamanhoArquivo(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                     />
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Descrição / Instruções</label>
+                <label htmlFor="doc-descricao" className="block text-xs font-semibold text-slate-700">Descrição / Instruções</label>
                 <textarea
+                  id="doc-descricao"
                   rows={2}
                   required
                   placeholder="Ex: Decisões aprovadas na assembleia de eleição do síndico e previsão orçamentária."
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">
+                <label htmlFor="doc-link" className="block text-xs font-semibold text-slate-700">
                   Link Externo do Documento (Google Drive, OneDrive, etc.)
                 </label>
                 <input
+                  id="doc-link"
                   type="url"
                   required
                   placeholder="https://drive.google.com/file/d/... ou https://..."
                   value={linkExterno}
                   onChange={(e) => setLinkExterno(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-slate-500">
                   Insira a URL pública ou compartilhada do arquivo para os moradores acessarem.
                 </span>
               </div>
@@ -500,14 +519,20 @@ function LinksContent() {
       {showZeladorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs no-print">
           <div className="fixed inset-0" onClick={() => setShowZeladorModal(false)} />
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="zelador-modal-title"
+            className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Wrench className="h-5 w-5 text-amber-600" />
-                <h3 className="text-base font-bold text-slate-900">Dados do Zelador Atual</h3>
+                <h3 id="zelador-modal-title" className="text-base font-bold text-slate-900">Dados do Zelador Atual</h3>
               </div>
               <button
                 onClick={() => setShowZeladorModal(false)}
+                aria-label="Fechar"
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -516,46 +541,50 @@ function LinksContent() {
 
             <form onSubmit={handleSaveZelador} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Nome</label>
+                <label htmlFor="zelador-nome" className="block text-xs font-semibold text-slate-700">Nome</label>
                 <input
+                  id="zelador-nome"
                   type="text"
                   required
                   placeholder="Ex: Sr. Antonio"
                   value={zNome}
                   onChange={(e) => setZNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Telefone / Ramal</label>
+                <label htmlFor="zelador-telefone" className="block text-xs font-semibold text-slate-700">Telefone / Ramal</label>
                 <input
+                  id="zelador-telefone"
                   type="text"
                   required
                   placeholder="Ex: (11) 98777-6655 / Ramal 91"
                   value={zTelefone}
                   onChange={(e) => setZTelefone(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Horário de Atendimento</label>
+                <label htmlFor="zelador-horario" className="block text-xs font-semibold text-slate-700">Horário de Atendimento</label>
                 <input
+                  id="zelador-horario"
                   type="text"
                   required
                   placeholder="Ex: Das 08h às 17h, de segunda a sábado"
                   value={zHorario}
                   onChange={(e) => setZHorario(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Observações (opcional)</label>
+                <label htmlFor="zelador-obs" className="block text-xs font-semibold text-slate-700">Observações (opcional)</label>
                 <textarea
+                  id="zelador-obs"
                   rows={2}
                   placeholder="Ex: Ausente aos domingos e feriados."
                   value={zObs}
                   onChange={(e) => setZObs(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 

@@ -7,8 +7,9 @@ import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { FineStatus } from '@/types';
 import { isAdmin } from '@/lib/roles';
+import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
-  ShieldAlert, 
+  ShieldAlert,
   Search, 
   Plus, 
   Eye, 
@@ -48,6 +49,8 @@ function MultasContent() {
   const [tipo, setTipo] = useState<'ADVERTENCIA' | 'MULTA'>('MULTA');
   const [fotoUrl, setFotoUrl] = useState('');
   const [fotoDescricao, setFotoDescricao] = useState('');
+
+  useEscapeToClose(showModal, () => setShowModal(false));
 
   // Restrição estrita de acesso: PORTARIA NÃO VÊ MULTAS
     if (!currentUser) return null;
@@ -292,14 +295,20 @@ function MultasContent() {
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
             onClick={() => setShowModal(false)}
           />
-          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="multa-modal-title"
+            className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2 text-red-600">
                 <ShieldAlert className="h-5 w-5" />
-                <h3 className="text-base font-bold text-slate-900">Emitir Notificação / Multa</h3>
+                <h3 id="multa-modal-title" className="text-base font-bold text-slate-900">Emitir Notificação / Multa</h3>
               </div>
               <button
                 onClick={() => setShowModal(false)}
+                aria-label="Fechar"
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -309,128 +318,140 @@ function MultasContent() {
             <form onSubmit={handleCreateFine} className="mt-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Tipo de Sanção</label>
+                  <label htmlFor="multa-tipo" className="block text-xs font-semibold text-slate-700">Tipo de Sanção</label>
                   <select
+                    id="multa-tipo"
                     value={tipo}
-                    onChange={(e) => setTipo(e.target.value as any)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                    onChange={(e) => setTipo(e.target.value as 'ADVERTENCIA' | 'MULTA')}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                   >
                     <option value="MULTA">Multa Financeira</option>
                     <option value="ADVERTENCIA">Advertência Escrita</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Valor (R$)</label>
+                  <label htmlFor="multa-valor" className="block text-xs font-semibold text-slate-700">Valor (R$)</label>
                   <input
+                    id="multa-valor"
                     type="number"
                     step="0.01"
                     disabled={tipo === 'ADVERTENCIA'}
                     value={tipo === 'ADVERTENCIA' ? '0.00' : valor}
                     onChange={(e) => setValor(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none disabled:bg-slate-100"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-100"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Apto Infrator</label>
+                  <label htmlFor="multa-unidade" className="block text-xs font-semibold text-slate-700">Apto Infrator</label>
                   <input
+                    id="multa-unidade"
                     type="text"
                     required
                     placeholder="Ex: 304"
                     value={unidade}
                     onChange={(e) => setUnidade(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Bloco</label>
+                  <label htmlFor="multa-bloco" className="block text-xs font-semibold text-slate-700">Bloco</label>
                   <select
+                    id="multa-bloco"
                     value={bloco}
                     onChange={(e) => setBloco(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                   >
                     <option value="A">Bloco A</option>
                     <option value="B">Bloco B</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Prazo Recurso</label>
+                  <label htmlFor="multa-prazo" className="block text-xs font-semibold text-slate-700">Prazo Recurso</label>
                   <input
+                    id="multa-prazo"
                     type="date"
                     required
                     value={prazoRecursoData}
                     onChange={(e) => setPrazoRecursoData(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Nome do Morador Responsável</label>
+                <label htmlFor="multa-morador" className="block text-xs font-semibold text-slate-700">Nome do Morador Responsável</label>
                 <input
+                  id="multa-morador"
                   type="text"
                   required
                   placeholder="Nome do condômino titular"
                   value={moradorNome}
                   onChange={(e) => setMoradorNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Artigo do Regimento / Convenção</label>
+                <label htmlFor="multa-artigo" className="block text-xs font-semibold text-slate-700">Artigo do Regimento / Convenção</label>
                 <input
+                  id="multa-artigo"
                   type="text"
                   required
                   placeholder="Ex: Artigo 42 - Barulho após horário de silêncio"
                   value={artigoRegimento}
                   onChange={(e) => setArtigoRegimento(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Data e Hora do Ocorrido</label>
+                <label htmlFor="multa-data" className="block text-xs font-semibold text-slate-700">Data e Hora do Ocorrido</label>
                 <input
+                  id="multa-data"
                   type="datetime-local"
                   required
                   value={dataInfracao}
                   onChange={(e) => setDataInfracao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Descrição Detalhada do Fato</label>
+                <label htmlFor="multa-descricao" className="block text-xs font-semibold text-slate-700">Descrição Detalhada do Fato</label>
                 <textarea
+                  id="multa-descricao"
                   rows={3}
                   required
                   placeholder="Descreva o ocorrido com clareza, mencionando relatos ou testemunhas..."
                   value={descricaoInfracao}
                   onChange={(e) => setDescricaoInfracao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 />
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label htmlFor="multa-foto-url" className="block text-xs font-semibold text-slate-700">
                   Evidência Fotográfica (URL de Imagem)
                 </label>
                 <input
+                  id="multa-foto-url"
                   type="url"
                   placeholder="https://exemplo.com/foto-evidencia.jpg"
                   value={fotoUrl}
                   onChange={(e) => setFotoUrl(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 />
+                <label htmlFor="multa-foto-legenda" className="sr-only">Legenda da foto</label>
                 <input
+                  id="multa-foto-legenda"
                   type="text"
                   placeholder="Legenda da foto (Ex: Foto da câmera da garagem G1 às 23h40)"
                   value={fotoDescricao}
                   onChange={(e) => setFotoDescricao(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-red-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 />
               </div>
 

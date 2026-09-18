@@ -1,15 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Lock, Mail, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const senhaCriada = searchParams.get('senhaCriada') === '1';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +49,7 @@ export default function LoginPage() {
     }
     setIsLoading(true);
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/api/auth/callback?next=/`,
+      redirectTo: `${window.location.origin}/api/auth/callback?next=/definir-senha`,
     });
     setIsLoading(false);
     setError(null);
@@ -72,8 +83,14 @@ export default function LoginPage() {
         <div className="rounded-3xl border border-white/10 bg-white/95 p-8 shadow-2xl backdrop-blur-xl">
 
           <form className="space-y-4" onSubmit={handleLogin}>
+            {senhaCriada && (
+              <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <p className="text-xs text-emerald-800">Senha criada com sucesso! Faça login com sua nova senha.</p>
+              </div>
+            )}
             <div>
-              <label className="block text-xs font-semibold text-slate-700">
+              <label htmlFor="email" className="block text-xs font-semibold text-slate-700">
                 E-mail Cadastrado
               </label>
               <div className="relative mt-1">
@@ -93,7 +110,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700">
+              <label htmlFor="password" className="block text-xs font-semibold text-slate-700">
                 Senha de Acesso
               </label>
               <div className="relative mt-1">
@@ -123,7 +140,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="font-medium text-[#00A8E8] hover:underline"
+                className="font-medium text-[#0A6E9C] hover:underline"
               >
                 Esqueceu a senha?
               </button>
@@ -146,7 +163,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-[11px] text-slate-400">
+          <p className="mt-6 text-center text-[11px] text-slate-500">
             Não tem acesso? Entre em contato com o síndico do condomínio.
           </p>
         </div>

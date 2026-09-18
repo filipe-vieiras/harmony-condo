@@ -36,11 +36,13 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const origin = request.nextUrl.origin;
 
+  // Aceita reenviar um convite que já tinha ficado com status ERRO (ex: limite de
+  // e-mail do Supabase), sem exigir criar um registro novo na fila para tentar de novo.
   const { data: invites, error: fetchError } = await supabase
     .from('pending_invites')
     .select('*')
     .in('id', ids)
-    .eq('status', 'PENDENTE');
+    .in('status', ['PENDENTE', 'ERRO']);
 
   if (fetchError) {
     return NextResponse.json({ error: 'Erro ao carregar convites pendentes.' }, { status: 500 });
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(invite.email, {
       data: { name: invite.nome, role: invite.role, bloco: invite.bloco, unidade: invite.unidade },
-      redirectTo: `${origin}/api/auth/callback?next=/`,
+      redirectTo: `${origin}/api/auth/callback?next=/definir-senha`,
     });
 
     if (inviteError || !inviteData?.user) {

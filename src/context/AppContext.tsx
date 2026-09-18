@@ -20,7 +20,7 @@ import {
 import { isAdmin } from '@/lib/roles';
 import { INITIAL_SPACES, INITIAL_DOCS } from '@/lib/mockData';
 import {
-  fetchUnits, insertUnit, updateUnitDB,
+  fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
   fetchVehicles, insertVehicle, deleteVehicleDB,
   fetchNotices, insertNotice, deleteNoticeDB,
   fetchFines, insertFine, updateFineDB,
@@ -29,7 +29,7 @@ import {
   fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
   fetchDocuments, insertDocument, updateDocumentDB, deleteDocumentDB,
   fetchAuditLogs, insertAuditLog,
-  fetchPendingInvites, insertPendingInvite, deletePendingInviteDB,
+  fetchPendingInvites, insertPendingInvite, updatePendingInviteDB, deletePendingInviteDB,
   fetchZelador, updateZeladorDB,
   fetchProfiles,
 } from '@/lib/supabase/db';
@@ -38,8 +38,10 @@ interface AppContextType {
   currentUser: User | null;
   isLoading: boolean;
   units: Unit[];
-  addUnit: (unit: Omit<Unit, 'id'>) => Promise<void>;
-  updateUnit: (id: string, unit: Partial<Unit>) => Promise<void>;
+  addUnit: (unit: Omit<Unit, 'id'>) => Promise<{ success: boolean; message: string }>;
+  updateUnit: (id: string, unit: Partial<Unit>) => Promise<{ success: boolean; message: string }>;
+  deleteUnit: (id: string) => Promise<{ success: boolean; message: string }>;
+  sendInviteForUnit: (unitId: string) => Promise<{ success: boolean; message: string }>;
   vehicles: Vehicle[];
   addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<void>;
   deleteVehicle: (id: string) => Promise<void>;
@@ -66,6 +68,7 @@ interface AppContextType {
   createStaffInvite: (data: { nome: string; email: string; role: Role }) => Promise<{ success: boolean; message: string }>;
   cancelPendingInvite: (id: string) => Promise<void>;
   sendPendingInvites: (ids: string[]) => Promise<{ success: boolean; message: string }>;
+  deleteSystemUser: (userId: string) => Promise<{ success: boolean; message: string }>;
   auditLogs: AuditLog[];
   fetchAuditLogsData: (modulo?: string) => Promise<void>;
   reservations: Reservation[];
@@ -85,6 +88,17 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+// Traduz erros técnicos comuns do Supabase para uma mensagem que faz sentido pro síndico.
+function traduzirErroEnvio(message: string): string {
+  if (message.toLowerCase().includes('rate limit')) {
+    return 'Limite de envio de e-mails do Supabase atingido. Aguarde alguns minutos e tente novamente, ou configure um servidor SMTP próprio nas configurações de Auth do projeto para remover esse limite.';
+  }
+  if (message.toLowerCase().includes('already registered')) {
+    return 'Já existe uma conta cadastrada com esse e-mail.';
+  }
+  return message;
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -214,52 +228,245 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── UNITS ──
 
-  const addUnit = async (unitData: Omit<Unit, 'id'>) => {
-    const created = await insertUnit(supabase, unitData);
-    if (created) {
-      setUnits((prev) => [created, ...prev]);
-      await recordAudit(
-        `Cadastrou Unidade ${created.numero} (Bloco ${created.bloco})`,
-        'UNIDADES',
-        {
-          unidade: created.numero,
-          bloco: created.bloco,
-          proprietario: created.proprietarioNome,
-          moradoresCount: created.moradores.length,
-        }
-      );
+  const addUnit = async (unitData: Omit<Unit, 'id'>): Promise<{ success: boolean; message: string }> => {
+    const blocoNumeroDuplicado = units.some(
+      (u) => u.bloco === unitData.bloco && u.numero.trim().toLowerCase() === unitData.numero.trim().toLowerCase()
+    );
+    if (blocoNumeroDuplicado) {
+      return { success: false, message: `Já existe uma unidade cadastrada com o número ${unitData.numero} no Bloco ${unitData.bloco}.` };
+    }
 
-      // Morador prioritário (TITULAR ou INQUILINO) com e-mail entra na fila de convites.
-      const prioritario = created.moradores.find(
+    const prioritarioNovo = unitData.moradores.find(
+      (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
+    );
+    if (prioritarioNovo?.email) {
+      const emailJaVinculado = units.some((u) =>
+        u.moradores.some((m) => m.email && m.email.toLowerCase() === prioritarioNovo.email!.toLowerCase())
+      );
+      if (emailJaVinculado) {
+        return { success: false, message: `O e-mail ${prioritarioNovo.email} já está vinculado a outra unidade.` };
+      }
+    }
+
+    const { unit: created, errorCode } = await insertUnit(supabase, unitData);
+    if (!created) {
+      if (errorCode === '23505') {
+        return { success: false, message: `Já existe uma unidade cadastrada com o número ${unitData.numero} no Bloco ${unitData.bloco}.` };
+      }
+      return { success: false, message: 'Erro ao cadastrar a unidade. Tente novamente.' };
+    }
+
+    setUnits((prev) => [created, ...prev]);
+    await recordAudit(
+      `Cadastrou Unidade ${created.numero} (Bloco ${created.bloco})`,
+      'UNIDADES',
+      {
+        unidade: created.numero,
+        bloco: created.bloco,
+        proprietario: created.proprietarioNome,
+        moradoresCount: created.moradores.length,
+      }
+    );
+
+    // Morador prioritário (TITULAR ou INQUILINO) com e-mail: cadastro já dispara
+    // o convite de acesso na hora, sem precisar de um passo manual depois.
+    const prioritario = created.moradores.find(
+      (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
+    );
+    if (!prioritario?.email) {
+      return { success: true, message: `Unidade ${created.numero} cadastrada com sucesso.` };
+    }
+
+    const invite = await insertPendingInvite(supabase, {
+      nome: prioritario.nome,
+      email: prioritario.email,
+      role: 'MORADOR',
+      bloco: created.bloco,
+      unidade: created.numero,
+      unitId: created.id,
+      criadoPor: currentUser?.name,
+    });
+    if (!invite) {
+      return { success: true, message: `Unidade ${created.numero} cadastrada, mas houve erro ao registrar o convite. Envie manualmente pelo card.` };
+    }
+
+    setPendingInvites((prev) => [invite, ...prev]);
+    await updateUnitDB(supabase, created.id, { statusConvite: 'PENDENTE' });
+    setUnits((prev) => prev.map((u) => (u.id === created.id ? { ...u, statusConvite: 'PENDENTE' } : u)));
+
+    const sendResult = await sendPendingInvites([invite.id]);
+    return {
+      success: true,
+      message: sendResult.success
+        ? `Unidade ${created.numero} cadastrada e convite enviado para ${prioritario.email}.`
+        : `Unidade ${created.numero} cadastrada, mas o convite não pôde ser enviado: ${traduzirErroEnvio(sendResult.message)}`,
+    };
+  };
+
+  const updateUnit = async (id: string, unitData: Partial<Unit>): Promise<{ success: boolean; message: string }> => {
+    if (unitData.bloco !== undefined || unitData.numero !== undefined) {
+      const atual = units.find((u) => u.id === id);
+      const novoBloco = unitData.bloco ?? atual?.bloco ?? '';
+      const novoNumero = (unitData.numero ?? atual?.numero ?? '').trim().toLowerCase();
+      const blocoNumeroDuplicado = units.some(
+        (u) => u.id !== id && u.bloco === novoBloco && u.numero.trim().toLowerCase() === novoNumero
+      );
+      if (blocoNumeroDuplicado) {
+        return { success: false, message: `Já existe uma unidade cadastrada com o número ${unitData.numero ?? atual?.numero} no Bloco ${novoBloco}.` };
+      }
+    }
+
+    if (unitData.moradores) {
+      const prioritarioNovo = unitData.moradores.find(
         (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
       );
-      if (prioritario?.email) {
-        const invite = await insertPendingInvite(supabase, {
-          nome: prioritario.nome,
-          email: prioritario.email,
-          role: 'MORADOR',
-          bloco: created.bloco,
-          unidade: created.numero,
-          unitId: created.id,
-          criadoPor: currentUser?.name,
-        });
-        if (invite) {
-          setPendingInvites((prev) => [invite, ...prev]);
-          await updateUnitDB(supabase, created.id, { statusConvite: 'PENDENTE' });
-          setUnits((prev) => prev.map((u) => (u.id === created.id ? { ...u, statusConvite: 'PENDENTE' } : u)));
+      if (prioritarioNovo?.email) {
+        const emailJaVinculado = units.some(
+          (u) => u.id !== id && u.moradores.some((m) => m.email && m.email.toLowerCase() === prioritarioNovo.email!.toLowerCase())
+        );
+        if (emailJaVinculado) {
+          return { success: false, message: `O e-mail ${prioritarioNovo.email} já está vinculado a outra unidade.` };
         }
       }
     }
+
+    const updated = await updateUnitDB(supabase, id, unitData);
+    if (!updated) return { success: false, message: 'Erro ao atualizar a unidade. Tente novamente.' };
+
+    setUnits((prev) => prev.map((u) => (u.id === id ? updated : u)));
+    await recordAudit(`Atualizou cadastro da Unidade ${updated.numero} (Bloco ${updated.bloco})`, 'UNIDADES', {
+      id,
+    });
+
+    // Mantém a fila de convites sincronizada com a edição: corrige um convite já
+    // enfileirado se o morador prioritário mudou, ou dispara um novo convite na
+    // hora se agora passou a ter e-mail e ainda não havia convite algum.
+    const prioritario = updated.moradores.find(
+      (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
+    );
+    if (!prioritario?.email) {
+      return { success: true, message: `Unidade ${updated.numero} atualizada com sucesso.` };
+    }
+
+    const existingInvite = pendingInvites.find((i) => i.unitId === id && i.status === 'PENDENTE');
+    if (existingInvite) {
+      if (
+        existingInvite.nome !== prioritario.nome ||
+        existingInvite.email !== prioritario.email ||
+        existingInvite.bloco !== updated.bloco ||
+        existingInvite.unidade !== updated.numero
+      ) {
+        const patched = await updatePendingInviteDB(supabase, existingInvite.id, {
+          nome: prioritario.nome,
+          email: prioritario.email,
+          bloco: updated.bloco,
+          unidade: updated.numero,
+        });
+        if (patched) setPendingInvites((prev) => prev.map((i) => (i.id === existingInvite.id ? patched : i)));
+      }
+      return { success: true, message: `Unidade ${updated.numero} atualizada com sucesso.` };
+    }
+
+    if (!updated.statusConvite || updated.statusConvite === 'NAO_ENVIADO') {
+      const invite = await insertPendingInvite(supabase, {
+        nome: prioritario.nome,
+        email: prioritario.email,
+        role: 'MORADOR',
+        bloco: updated.bloco,
+        unidade: updated.numero,
+        unitId: updated.id,
+        criadoPor: currentUser?.name,
+      });
+      if (invite) {
+        setPendingInvites((prev) => [invite, ...prev]);
+        const withStatus = await updateUnitDB(supabase, id, { statusConvite: 'PENDENTE' });
+        if (withStatus) setUnits((prev) => prev.map((u) => (u.id === id ? withStatus : u)));
+        const sendResult = await sendPendingInvites([invite.id]);
+        return {
+          success: true,
+          message: sendResult.success
+            ? `Unidade ${updated.numero} atualizada e convite enviado para ${prioritario.email}.`
+            : `Unidade ${updated.numero} atualizada, mas o convite não pôde ser enviado: ${traduzirErroEnvio(sendResult.message)}`,
+        };
+      }
+    }
+
+    return { success: true, message: `Unidade ${updated.numero} atualizada com sucesso.` };
   };
 
-  const updateUnit = async (id: string, unitData: Partial<Unit>) => {
-    const updated = await updateUnitDB(supabase, id, unitData);
-    if (updated) {
-      setUnits((prev) => prev.map((u) => (u.id === id ? updated : u)));
-      await recordAudit(`Atualizou cadastro da Unidade ${updated.numero} (Bloco ${updated.bloco})`, 'UNIDADES', {
-        id,
+  const deleteUnit = async (id: string): Promise<{ success: boolean; message: string }> => {
+    const target = units.find((u) => u.id === id);
+
+    let response: Response;
+    try {
+      response = await fetch('/api/unidades/excluir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitId: id }),
       });
+    } catch (err) {
+      console.error('deleteUnit (network):', err);
+      return { success: false, message: 'Erro de conexão ao excluir a unidade. Verifique sua internet e tente novamente.' };
     }
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      console.error('deleteUnit:', response.status, body.error);
+      return { success: false, message: body.error ?? `Erro ao excluir a unidade (código ${response.status}).` };
+    }
+
+    const { usuarioRemovido } = await response.json() as { usuarioRemovido: boolean };
+
+    setUnits((prev) => prev.filter((u) => u.id !== id));
+    // pending_invites.unit_id tem ON DELETE CASCADE no banco; só precisa refletir no estado local.
+    setPendingInvites((prev) => prev.filter((i) => i.unitId !== id));
+    if (target?.usuarioId) {
+      setSystemUsers((prev) => prev.filter((u) => u.id !== target.usuarioId));
+    }
+
+    await recordAudit(
+      `Excluiu Unidade ${target?.numero ?? id} (Bloco ${target?.bloco ?? '?'})${usuarioRemovido ? ' e revogou o acesso do morador ao portal' : ''}`,
+      'UNIDADES',
+      { id, usuarioRemovido }
+    );
+
+    return { success: true, message: `Unidade ${target?.numero ?? ''} excluída com sucesso.` };
+  };
+
+  const sendInviteForUnit = async (unitId: string): Promise<{ success: boolean; message: string }> => {
+    // Reaproveita um convite já enfileirado (mesmo que tenha ficado com erro antes,
+    // ex: limite de e-mail do Supabase) em vez de duplicar um novo registro na fila.
+    let invite = pendingInvites.find(
+      (i) => i.unitId === unitId && (i.status === 'PENDENTE' || i.status === 'ERRO')
+    );
+
+    if (!invite) {
+      const unit = units.find((u) => u.id === unitId);
+      const prioritario = unit?.moradores.find(
+        (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
+      );
+      if (!unit || !prioritario?.email) {
+        return { success: false, message: 'Cadastre um e-mail para o morador principal antes de enviar o convite.' };
+      }
+
+      const created = await insertPendingInvite(supabase, {
+        nome: prioritario.nome,
+        email: prioritario.email,
+        role: 'MORADOR',
+        bloco: unit.bloco,
+        unidade: unit.numero,
+        unitId: unit.id,
+        criadoPor: currentUser?.name,
+      });
+      if (!created) return { success: false, message: 'Erro ao registrar o convite. Tente novamente.' };
+
+      invite = created;
+      setPendingInvites((prev) => [created, ...prev]);
+      const withStatus = await updateUnitDB(supabase, unit.id, { statusConvite: 'PENDENTE' });
+      if (withStatus) setUnits((prev) => prev.map((u) => (u.id === unit.id ? withStatus : u)));
+    }
+
+    return sendPendingInvites([invite.id]);
   };
 
   // ── VEHICLES ──
@@ -498,6 +705,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: enviados > 0, message: `${enviados} enviado(s), ${comErro} com erro (veja a fila para detalhes).` };
   };
 
+  const deleteSystemUser = async (userId: string): Promise<{ success: boolean; message: string }> => {
+    const target = systemUsers.find((u) => u.id === userId);
+
+    let response: Response;
+    try {
+      response = await fetch('/api/usuarios/excluir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+    } catch (err) {
+      console.error('deleteSystemUser (network):', err);
+      return { success: false, message: 'Erro de conexão ao excluir o usuário. Tente novamente.' };
+    }
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      console.error('deleteSystemUser:', response.status, body.error);
+      return { success: false, message: body.error ?? `Erro ao excluir o usuário (código ${response.status}).` };
+    }
+
+    setSystemUsers((prev) => prev.filter((u) => u.id !== userId));
+    setUnits((prev) => prev.map((u) => (u.usuarioId === userId ? { ...u, usuarioId: undefined, statusConvite: 'NAO_ENVIADO' } : u)));
+
+    await recordAudit(`Excluiu o acesso de ${target?.name ?? userId} (${target?.role ?? '?'})`, 'SISTEMA', { userId });
+
+    return { success: true, message: `Acesso de ${target?.name ?? 'usuário'} excluído com sucesso.` };
+  };
+
   // ── RESERVATIONS ──
 
   const requestReservation = async ({
@@ -608,6 +844,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         units,
         addUnit,
         updateUnit,
+        deleteUnit,
+        sendInviteForUnit,
         vehicles,
         addVehicle,
         deleteVehicle,
@@ -634,6 +872,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createStaffInvite,
         cancelPendingInvite,
         sendPendingInvites,
+        deleteSystemUser,
         auditLogs,
         fetchAuditLogsData,
         reservations,

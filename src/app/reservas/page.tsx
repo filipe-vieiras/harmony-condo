@@ -6,8 +6,9 @@ import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { ReservationStatus, CommonSpace } from '@/types';
 import { isAdmin } from '@/lib/roles';
+import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
-  CalendarDays, 
+  CalendarDays,
   Plus, 
   Check, 
   X, 
@@ -70,6 +71,9 @@ function ReservasContent() {
   const [spaceAtivo, setSpaceAtivo] = useState(true);
 
   const isSindico = isAdmin(currentUser?.role);
+
+  useEscapeToClose(showModal, () => setShowModal(false));
+  useEscapeToClose(showSpaceModal, () => setShowSpaceModal(false));
 
   const handleOpenNewSpace = () => {
     setEditingSpaceId(null);
@@ -251,7 +255,7 @@ function ReservasContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -288,6 +292,7 @@ function ReservasContent() {
                       <button
                         onClick={() => handleOpenEditSpace(spc)}
                         title="Editar Espaço"
+                        aria-label={`Editar espaço ${spc.nome}`}
                         className="rounded-lg bg-white/90 p-1.5 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-[#0B2545]"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -295,6 +300,7 @@ function ReservasContent() {
                       <button
                         onClick={() => handleToggleSpaceAtivo(spc)}
                         title={isAtivo ? 'Desativar Espaço' : 'Ativar Espaço'}
+                        aria-label={`${isAtivo ? 'Desativar' : 'Ativar'} espaço ${spc.nome}`}
                         className="rounded-lg bg-white/90 p-1.5 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-amber-600"
                       >
                         {isAtivo ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5 text-emerald-600" />}
@@ -302,6 +308,7 @@ function ReservasContent() {
                       <button
                         onClick={() => handleDeleteSpace(spc.id, spc.nome)}
                         title="Excluir Espaço"
+                        aria-label={`Excluir espaço ${spc.nome}`}
                         className="rounded-lg bg-white/90 p-1.5 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-red-600"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -389,7 +396,7 @@ function ReservasContent() {
               <tbody className="divide-y divide-slate-100">
                 {reservations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-slate-400">
+                    <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
                       Nenhuma reserva registrada até o momento.
                     </td>
                   </tr>
@@ -461,7 +468,7 @@ function ReservasContent() {
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-[11px] text-slate-400">Processado</span>
+                              <span className="text-[11px] text-slate-500">Processado</span>
                             )}
                           </td>
                         )}
@@ -482,11 +489,17 @@ function ReservasContent() {
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
             onClick={() => setShowModal(false)}
           />
-          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reserva-modal-title"
+            className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Solicitar Reserva de Espaço</h3>
+              <h3 id="reserva-modal-title" className="text-base font-bold text-slate-900">Solicitar Reserva de Espaço</h3>
               <button
                 onClick={() => setShowModal(false)}
+                aria-label="Fechar"
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -495,11 +508,12 @@ function ReservasContent() {
 
             <form onSubmit={handleCreateReservation} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Espaço Comum</label>
+                <label htmlFor="reserva-espaco" className="block text-xs font-semibold text-slate-700">Espaço Comum</label>
                 <select
+                  id="reserva-espaco"
                   value={selectedSpaceId}
                   onChange={(e) => setSelectedSpaceId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 >
                   {spaces.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -511,47 +525,51 @@ function ReservasContent() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Data Desejada</label>
+                  <label htmlFor="reserva-data" className="block text-xs font-semibold text-slate-700">Data Desejada</label>
                   <input
+                    id="reserva-data"
                     type="date"
                     required
                     value={dataReserva}
                     onChange={(e) => setDataReserva(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Início</label>
+                  <label htmlFor="reserva-inicio" className="block text-xs font-semibold text-slate-700">Início</label>
                   <input
+                    id="reserva-inicio"
                     type="time"
                     required
                     value={horarioInicio}
                     onChange={(e) => setHorarioInicio(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Término</label>
+                  <label htmlFor="reserva-fim" className="block text-xs font-semibold text-slate-700">Término</label>
                   <input
+                    id="reserva-fim"
                     type="time"
                     required
                     value={horarioFim}
                     onChange={(e) => setHorarioFim(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Estimativa de Convidados</label>
+                <label htmlFor="reserva-convidados" className="block text-xs font-semibold text-slate-700">Estimativa de Convidados</label>
                 <input
+                  id="reserva-convidados"
                   type="number"
                   min="1"
                   max="100"
                   required
                   value={convidados}
                   onChange={(e) => setConvidados(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 
@@ -606,16 +624,22 @@ function ReservasContent() {
             className="fixed inset-0"
             onClick={() => setShowSpaceModal(false)}
           />
-          <div className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="espaco-modal-title"
+            className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-[#00A8E8]" />
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 id="espaco-modal-title" className="text-base font-bold text-slate-900">
                   {editingSpaceId ? 'Editar Espaço Comum' : 'Cadastrar Novo Espaço Comum'}
                 </h3>
               </div>
               <button
                 onClick={() => setShowSpaceModal(false)}
+                aria-label="Fechar"
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -624,88 +648,95 @@ function ReservasContent() {
 
             <form onSubmit={handleSaveSpace} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Nome do Espaço</label>
+                <label htmlFor="espaco-nome" className="block text-xs font-semibold text-slate-700">Nome do Espaço</label>
                 <input
+                  id="espaco-nome"
                   type="text"
                   required
                   placeholder="Ex: Espaço Gourmet & Lounge, Churrasqueira B"
                   value={spaceNome}
                   onChange={(e) => setSpaceNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Descrição</label>
+                <label htmlFor="espaco-descricao" className="block text-xs font-semibold text-slate-700">Descrição</label>
                 <textarea
+                  id="espaco-descricao"
                   rows={2}
                   required
                   placeholder="Ex: Ambiente climatizado com churrasqueira a carvão, mesas de apoio, freezer e chopeira."
                   value={spaceDescricao}
                   onChange={(e) => setSpaceDescricao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Capacidade Máx.</label>
+                  <label htmlFor="espaco-capacidade" className="block text-xs font-semibold text-slate-700">Capacidade Máx.</label>
                   <input
+                    id="espaco-capacidade"
                     type="number"
                     min="1"
                     required
                     value={spaceCapacidadeMax}
                     onChange={(e) => setSpaceCapacidadeMax(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Horário Permitido</label>
+                  <label htmlFor="espaco-horario" className="block text-xs font-semibold text-slate-700">Horário Permitido</label>
                   <input
+                    id="espaco-horario"
                     type="text"
                     required
                     placeholder="09:00 às 22:00"
                     value={spaceHorario}
                     onChange={(e) => setSpaceHorario(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Taxa de Limpeza (R$)</label>
+                  <label htmlFor="espaco-taxa" className="block text-xs font-semibold text-slate-700">Taxa de Limpeza (R$)</label>
                   <input
+                    id="espaco-taxa"
                     type="number"
                     min="0"
                     step="0.01"
                     required
                     value={spaceTaxaLimpeza}
                     onChange={(e) => setSpaceTaxaLimpeza(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Link Externo da Imagem / Foto</label>
+                <label htmlFor="espaco-imagem" className="block text-xs font-semibold text-slate-700">Link Externo da Imagem / Foto</label>
                 <input
+                  id="espaco-imagem"
                   type="url"
                   placeholder="https://exemplo.com/foto-do-espaco.jpg"
                   value={spaceImagemUrl}
                   onChange={(e) => setSpaceImagemUrl(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-slate-500">
                   Insira o link direto de uma imagem hospedada externamente (Google Drive, Unsplash, etc.)
                 </span>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Regras de Utilização (uma por linha)</label>
+                <label htmlFor="espaco-regras" className="block text-xs font-semibold text-slate-700">Regras de Utilização (uma por linha)</label>
                 <textarea
+                  id="espaco-regras"
                   rows={3}
                   placeholder="Ex: Proibido som alto após as 22h00&#10;Entregar as chaves limpas no dia seguinte"
                   value={spaceRegras}
                   onChange={(e) => setSpaceRegras(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none font-mono"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 font-mono"
                 />
               </div>
 

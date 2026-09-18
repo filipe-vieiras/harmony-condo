@@ -6,6 +6,7 @@ import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { Vehicle } from '@/types';
 import { isAdmin } from '@/lib/roles';
+import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
   Car,
   Search, 
@@ -42,6 +43,8 @@ function VeiculosContent() {
   const [proprietarioNome, setProprietarioNome] = useState(currentUser?.name || '');
   const [telefoneContato, setTelefoneContato] = useState(currentUser?.telefone || '');
   const [status, setStatus] = useState<'ATIVO' | 'VISITANTE'>('ATIVO');
+
+  useEscapeToClose(showModal, () => setShowModal(false));
 
   const filteredVehicles = vehicles.filter((v) => {
     const term = searchTerm.toLowerCase();
@@ -166,7 +169,7 @@ function VeiculosContent() {
             <tbody className="divide-y divide-slate-100">
               {filteredVehicles.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-5 py-8 text-center text-slate-500">
                     Nenhum veículo encontrado correspondente à pesquisa.
                   </td>
                 </tr>
@@ -206,6 +209,7 @@ function VeiculosContent() {
                           onClick={() => deleteVehicle(v.id)}
                           className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
                           title="Remover veículo"
+                          aria-label={`Remover veículo ${v.placa}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -226,11 +230,17 @@ function VeiculosContent() {
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
             onClick={() => setShowModal(false)}
           />
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="veiculo-modal-title"
+            className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Cadastrar Novo Veículo</h3>
+              <h3 id="veiculo-modal-title" className="text-base font-bold text-slate-900">Cadastrar Novo Veículo</h3>
               <button
                 onClick={() => setShowModal(false)}
+                aria-label="Fechar"
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -239,83 +249,90 @@ function VeiculosContent() {
 
             <form onSubmit={handleCreateVehicle} className="mt-4 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Placa do Veículo</label>
+                <label htmlFor="veiculo-placa" className="block text-xs font-semibold text-slate-700">Placa do Veículo</label>
                 <input
+                  id="veiculo-placa"
                   type="text"
                   required
                   placeholder="Ex: BRA2E19"
                   value={placa}
                   onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-mono uppercase font-bold focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-mono uppercase font-bold focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Marca</label>
+                  <label htmlFor="veiculo-marca" className="block text-xs font-semibold text-slate-700">Marca</label>
                   <input
+                    id="veiculo-marca"
                     type="text"
                     required
                     placeholder="Ex: Toyota"
                     value={marca}
                     onChange={(e) => setMarca(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Modelo</label>
+                  <label htmlFor="veiculo-modelo" className="block text-xs font-semibold text-slate-700">Modelo</label>
                   <input
+                    id="veiculo-modelo"
                     type="text"
                     required
                     placeholder="Ex: Corolla"
                     value={modelo}
                     onChange={(e) => setModelo(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Cor</label>
+                  <label htmlFor="veiculo-cor" className="block text-xs font-semibold text-slate-700">Cor</label>
                   <input
+                    id="veiculo-cor"
                     type="text"
                     placeholder="Ex: Preto"
                     value={cor}
                     onChange={(e) => setCor(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Vaga de Garagem</label>
+                  <label htmlFor="veiculo-vaga" className="block text-xs font-semibold text-slate-700">Vaga de Garagem</label>
                   <input
+                    id="veiculo-vaga"
                     type="text"
                     placeholder="Ex: G2-45"
                     value={vaga}
                     onChange={(e) => setVaga(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Apartamento</label>
+                  <label htmlFor="veiculo-apto" className="block text-xs font-semibold text-slate-700">Apartamento</label>
                   <input
+                    id="veiculo-apto"
                     type="text"
                     required
                     placeholder="304"
                     value={unidade}
                     onChange={(e) => setUnidade(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Bloco</label>
+                  <label htmlFor="veiculo-bloco" className="block text-xs font-semibold text-slate-700">Bloco</label>
                   <select
+                    id="veiculo-bloco"
                     value={bloco}
                     onChange={(e) => setBloco(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   >
                     <option value="A">Bloco A</option>
                     <option value="B">Bloco B</option>
@@ -324,23 +341,25 @@ function VeiculosContent() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Proprietário / Motorista</label>
+                <label htmlFor="veiculo-proprietario" className="block text-xs font-semibold text-slate-700">Proprietário / Motorista</label>
                 <input
+                  id="veiculo-proprietario"
                   type="text"
                   required
                   value={proprietarioNome}
                   onChange={(e) => setProprietarioNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Telefone de Contato</label>
+                <label htmlFor="veiculo-telefone" className="block text-xs font-semibold text-slate-700">Telefone de Contato</label>
                 <input
+                  id="veiculo-telefone"
                   type="text"
                   value={telefoneContato}
                   onChange={(e) => setTelefoneContato(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
 

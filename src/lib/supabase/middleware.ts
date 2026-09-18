@@ -25,11 +25,18 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // A rota de callback (convite, redefinição de senha, magic link) precisa
+  // rodar mesmo sem sessão ainda — é ela quem troca o código pela sessão.
+  // Bloqueá-la aqui impede qualquer convite ou reset de senha de funcionar.
+  if (request.nextUrl.pathname.startsWith('/api/auth/callback')) {
+    return supabaseResponse;
+  }
+
   // Mantém a sessão JWT atualizada em todas as requisições
   const { data: { user } } = await supabase.auth.getUser();
 
   // Rotas protegidas: redireciona para /login se não autenticado
-  const isPublicPath = request.nextUrl.pathname === '/login';
+  const isPublicPath = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/definir-senha';
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
@@ -37,7 +44,9 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Já autenticado tentando acessar /login → redireciona para home
-  if (user && isPublicPath) {
+  // (/definir-senha fica de fora: é exatamente lá que o usuário chega logado
+  // pela primeira vez, e precisa poder ficar na página pra criar a senha).
+  if (user && request.nextUrl.pathname === '/login') {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);

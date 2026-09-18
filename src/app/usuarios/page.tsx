@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useApp } from '@/context/AppContext';
 import { Role } from '@/types';
 import { isAdmin, ROLE_LABELS, SINGLETON_ROLES } from '@/lib/roles';
+import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
   UserCog,
   Plus,
@@ -35,6 +36,7 @@ function UsuariosContent() {
     createStaffInvite,
     cancelPendingInvite,
     sendPendingInvites,
+    deleteSystemUser,
   } = useApp();
 
   const [showModal, setShowModal] = useState(false);
@@ -44,6 +46,8 @@ function UsuariosContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sending, setSending] = useState(false);
+
+  useEscapeToClose(showModal, () => setShowModal(false));
 
   if (!currentUser) return null;
 
@@ -84,7 +88,9 @@ function UsuariosContent() {
     }
   };
 
-  const pendentes = pendingInvites.filter((i) => i.status === 'PENDENTE');
+  // Inclui ERRO junto com PENDENTE: reenviar um convite que falhou (ex: limite de
+  // e-mail do Supabase) reaproveita o mesmo registro em vez de duplicar.
+  const pendentes = pendingInvites.filter((i) => i.status === 'PENDENTE' || i.status === 'ERRO');
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -99,6 +105,12 @@ function UsuariosContent() {
     const res = await sendPendingInvites(selectedIds);
     setSending(false);
     setSelectedIds([]);
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+  };
+
+  const handleDeleteUser = async (userId: string, nome: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o acesso de ${nome}? Essa ação não pode ser desfeita.`)) return;
+    const res = await deleteSystemUser(userId);
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
 
@@ -147,7 +159,7 @@ function UsuariosContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -168,12 +180,13 @@ function UsuariosContent() {
                 <th className="px-4 py-3">E-mail</th>
                 <th className="px-4 py-3">Perfil</th>
                 <th className="px-4 py-3">Unidade</th>
+                <th className="px-4 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {systemUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-slate-400">Nenhum usuário carregado.</td>
+                  <td colSpan={5} className="py-8 text-center text-slate-500">Nenhum usuário carregado.</td>
                 </tr>
               ) : (
                 systemUsers.map((u) => (
@@ -187,6 +200,18 @@ function UsuariosContent() {
                     </td>
                     <td className="px-4 py-3 text-slate-500">
                       {u.unidade ? `Apto ${u.unidade}-${u.bloco}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {u.id !== currentUser.id && (
+                        <button
+                          onClick={() => handleDeleteUser(u.id, u.name)}
+                          title="Excluir acesso"
+                          aria-label={`Excluir acesso de ${u.name}`}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -222,6 +247,7 @@ function UsuariosContent() {
                   {pendentes.length > 0 && (
                     <input
                       type="checkbox"
+                      aria-label="Selecionar todos os convites"
                       checked={selectedIds.length === pendentes.length}
                       onChange={toggleSelectAll}
                       className="rounded border-slate-300 text-[#0B2545] focus:ring-[#00A8E8]"
@@ -238,7 +264,7 @@ function UsuariosContent() {
             <tbody className="divide-y divide-slate-100">
               {pendingInvites.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={6} className="py-8 text-center text-slate-500">
                     Nenhum convite na fila. Cadastre um morador ou um usuário da equipe para começar.
                   </td>
                 </tr>
@@ -248,9 +274,10 @@ function UsuariosContent() {
                   return (
                     <tr key={i.id} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3">
-                        {i.status === 'PENDENTE' && (
+                        {(i.status === 'PENDENTE' || i.status === 'ERRO') && (
                           <input
                             type="checkbox"
+                            aria-label={`Selecionar convite de ${i.nome}`}
                             checked={selectedIds.includes(i.id)}
                             onChange={() => toggleSelected(i.id)}
                             className="rounded border-slate-300 text-[#0B2545] focus:ring-[#00A8E8]"
@@ -259,7 +286,7 @@ function UsuariosContent() {
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-900">
                         {i.nome}
-                        {i.unidade && <span className="ml-1.5 text-[11px] text-slate-400">Apto {i.unidade}-{i.bloco}</span>}
+                        {i.unidade && <span className="ml-1.5 text-[11px] text-slate-500">Apto {i.unidade}-{i.bloco}</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-600">{i.email}</td>
                       <td className="px-4 py-3">
@@ -278,6 +305,7 @@ function UsuariosContent() {
                           <button
                             onClick={() => cancelPendingInvite(i.id)}
                             title={i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite'}
+                            aria-label={`${i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite de'} ${i.nome}`}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -297,44 +325,52 @@ function UsuariosContent() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
           <div className="fixed inset-0" onClick={() => setShowModal(false)} />
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="usuario-modal-title"
+            className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <UserCog className="h-5 w-5 text-[#00A8E8]" />
-                <h3 className="text-base font-bold text-slate-900">Novo Usuário da Equipe</h3>
+                <h3 id="usuario-modal-title" className="text-base font-bold text-slate-900">Novo Usuário da Equipe</h3>
               </div>
-              <button onClick={() => setShowModal(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+              <button onClick={() => setShowModal(false)} aria-label="Fechar" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleCreateInvite} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Nome Completo</label>
+                <label htmlFor="usuario-nome" className="block text-xs font-semibold text-slate-700">Nome Completo</label>
                 <input
+                  id="usuario-nome"
                   type="text"
                   required
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700">E-mail</label>
+                <label htmlFor="usuario-email" className="block text-xs font-semibold text-slate-700">E-mail</label>
                 <input
+                  id="usuario-email"
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700">Perfil de Acesso</label>
+                <label htmlFor="usuario-perfil" className="block text-xs font-semibold text-slate-700">Perfil de Acesso</label>
                 <select
+                  id="usuario-perfil"
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-[#00A8E8] focus:outline-none"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 >
                   {STAFF_ROLES.map((r) => (
                     <option key={r} value={r} disabled={isRoleTaken(r)}>
@@ -342,7 +378,7 @@ function UsuariosContent() {
                     </option>
                   ))}
                 </select>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-slate-500">
                   Síndico e Administradora só podem ter um titular ativo por vez.
                 </span>
               </div>
