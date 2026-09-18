@@ -10,7 +10,9 @@ import {
   UserCog,
   Plus,
   X,
-  Send,
+  Link2,
+  Copy,
+  Check,
   Trash2,
   Lock,
   CheckCircle2,
@@ -46,6 +48,7 @@ function UsuariosContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sending, setSending] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEscapeToClose(showModal, () => setShowModal(false));
 
@@ -108,6 +111,20 @@ function UsuariosContent() {
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
 
+  const handleCopyLink = async (id: string, link?: string) => {
+    if (!link) {
+      setFeedbackMsg({ type: 'error', text: 'Link de acesso não encontrado. Gere novamente.' });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 2000);
+    } catch {
+      setFeedbackMsg({ type: 'error', text: 'Não foi possível copiar o link automaticamente.' });
+    }
+  };
+
   const handleDeleteUser = async (userId: string, nome: string) => {
     if (!confirm(`Tem certeza que deseja excluir o acesso de ${nome}? Essa ação não pode ser desfeita.`)) return;
     const res = await deleteSystemUser(userId);
@@ -115,9 +132,9 @@ function UsuariosContent() {
   };
 
   const statusBadge: Record<string, { label: string; bg: string; text: string; icon: React.ReactNode }> = {
-    PENDENTE: { label: 'Pendente de envio', bg: 'bg-amber-50', text: 'text-amber-800', icon: <Clock className="h-3 w-3" /> },
-    ENVIADO: { label: 'Convite enviado', bg: 'bg-sky-50', text: 'text-sky-800', icon: <CheckCircle2 className="h-3 w-3" /> },
-    ERRO: { label: 'Erro no envio', bg: 'bg-red-50', text: 'text-red-800', icon: <AlertTriangle className="h-3 w-3" /> },
+    PENDENTE: { label: 'Link pendente de gerar', bg: 'bg-amber-50', text: 'text-amber-800', icon: <Clock className="h-3 w-3" /> },
+    ENVIADO: { label: 'Link gerado', bg: 'bg-sky-50', text: 'text-sky-800', icon: <CheckCircle2 className="h-3 w-3" /> },
+    ERRO: { label: 'Erro ao gerar', bg: 'bg-red-50', text: 'text-red-800', icon: <AlertTriangle className="h-3 w-3" /> },
   };
 
   return (
@@ -233,8 +250,8 @@ function UsuariosContent() {
               disabled={selectedIds.length === 0 || sending}
               className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074] disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Send className="h-3.5 w-3.5 text-[#00A8E8]" />
-              <span>{sending ? 'Enviando...' : `Enviar Convites Selecionados (${selectedIds.length})`}</span>
+              <Link2 className="h-3.5 w-3.5 text-[#00A8E8]" />
+              <span>{sending ? 'Gerando...' : `Gerar Links Selecionados (${selectedIds.length})`}</span>
             </button>
           )}
         </div>
@@ -301,16 +318,38 @@ function UsuariosContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {i.status !== 'ENVIADO' && (
-                          <button
-                            onClick={() => cancelPendingInvite(i.id)}
-                            title={i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite'}
-                            aria-label={`${i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite de'} ${i.nome}`}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end gap-1.5">
+                          {i.status === 'ENVIADO' && (
+                            <button
+                              onClick={() => handleCopyLink(i.id, i.linkAcesso)}
+                              title="Copiar link de acesso"
+                              aria-label={`Copiar link de acesso de ${i.nome}`}
+                              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 transition"
+                            >
+                              {copiedId === i.id ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                  <span>Copiado!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3.5 w-3.5" />
+                                  <span>Copiar Link</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                          {i.status !== 'ENVIADO' && (
+                            <button
+                              onClick={() => cancelPendingInvite(i.id)}
+                              title={i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite'}
+                              aria-label={`${i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite de'} ${i.nome}`}
+                              className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

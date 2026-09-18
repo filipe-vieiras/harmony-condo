@@ -92,7 +92,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 // Traduz erros técnicos comuns do Supabase para uma mensagem que faz sentido pro síndico.
 function traduzirErroEnvio(message: string): string {
   if (message.toLowerCase().includes('rate limit')) {
-    return 'Limite de envio de e-mails do Supabase atingido. Aguarde alguns minutos e tente novamente, ou configure um servidor SMTP próprio nas configurações de Auth do projeto para remover esse limite.';
+    return 'Limite de geração de links do Supabase atingido. Aguarde alguns minutos e tente novamente.';
   }
   if (message.toLowerCase().includes('already registered')) {
     return 'Já existe uma conta cadastrada com esse e-mail.';
@@ -298,8 +298,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {
       success: true,
       message: sendResult.success
-        ? `Unidade ${created.numero} cadastrada e convite enviado para ${prioritario.email}.`
-        : `Unidade ${created.numero} cadastrada, mas o convite não pôde ser enviado: ${traduzirErroEnvio(sendResult.message)}`,
+        ? `Unidade ${created.numero} cadastrada. Link de acesso gerado para ${prioritario.email} — copie e envie para o morador.`
+        : `Unidade ${created.numero} cadastrada, mas o link de acesso não pôde ser gerado: ${traduzirErroEnvio(sendResult.message)}`,
     };
   };
 
@@ -385,8 +385,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return {
           success: true,
           message: sendResult.success
-            ? `Unidade ${updated.numero} atualizada e convite enviado para ${prioritario.email}.`
-            : `Unidade ${updated.numero} atualizada, mas o convite não pôde ser enviado: ${traduzirErroEnvio(sendResult.message)}`,
+            ? `Unidade ${updated.numero} atualizada. Link de acesso gerado para ${prioritario.email} — copie e envie para o morador.`
+            : `Unidade ${updated.numero} atualizada, mas o link de acesso não pôde ser gerado: ${traduzirErroEnvio(sendResult.message)}`,
         };
       }
     }
@@ -700,9 +700,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUnits(unitsAtualizadas);
 
     if (comErro === 0) {
-      return { success: true, message: `${enviados} convite(s) enviado(s) com sucesso.` };
+      return { success: true, message: `${enviados} link(s) de acesso gerado(s) com sucesso.` };
     }
-    return { success: enviados > 0, message: `${enviados} enviado(s), ${comErro} com erro (veja a fila para detalhes).` };
+    return { success: enviados > 0, message: `${enviados} gerado(s), ${comErro} com erro (veja a fila para detalhes).` };
   };
 
   const deleteSystemUser = async (userId: string): Promise<{ success: boolean; message: string }> => {

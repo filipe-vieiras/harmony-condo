@@ -611,6 +611,7 @@ function rowToPendingInvite(r: Record<string, unknown>): PendingInvite {
     criadoPor: (r.criado_por as string) ?? undefined,
     criadoEm: r.criado_em as string,
     enviadoEm: (r.enviado_em as string) ?? undefined,
+    linkAcesso: (r.link_acesso as string) ?? undefined,
   };
 }
 

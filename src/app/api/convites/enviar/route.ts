@@ -7,6 +7,7 @@ interface SendResult {
   id: string;
   ok: boolean;
   mensagem?: string;
+  link?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -67,19 +68,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(invite.email, {
-      data: { name: invite.nome, role: invite.role, bloco: invite.bloco, unidade: invite.unidade },
-      redirectTo: `${origin}/api/auth/callback?next=/definir-senha`,
+    // Gera o link de convite sem enviar e-mail (o app não depende de SMTP): o
+    // Síndico copia e encaminha manualmente (WhatsApp, etc.) pelo próprio app.
+    const { data: linkData, error: inviteError } = await admin.auth.admin.generateLink({
+      type: 'invite',
+      email: invite.email,
+      options: {
+        data: { name: invite.nome, role: invite.role, bloco: invite.bloco, unidade: invite.unidade },
+        redirectTo: `${origin}/api/auth/callback?next=/definir-senha`,
+      },
     });
 
-    if (inviteError || !inviteData?.user) {
-      const msg = inviteError?.message ?? 'Falha ao enviar convite.';
+    if (inviteError || !linkData?.user) {
+      const msg = inviteError?.message ?? 'Falha ao gerar o link de convite.';
       await supabase.from('pending_invites').update({ status: 'ERRO', erro_mensagem: msg }).eq('id', invite.id);
       results.push({ id: invite.id, ok: false, mensagem: msg });
       continue;
     }
 
-    const newUserId = inviteData.user.id;
+    const newUserId = linkData.user.id;
+    const actionLink = linkData.properties.action_link;
 
     const { error: profileError } = await admin.from('profiles').insert({
       id: newUserId,
@@ -102,13 +110,13 @@ export async function POST(request: NextRequest) {
     }
 
     const nowIso = new Date().toISOString();
-    await supabase.from('pending_invites').update({ status: 'ENVIADO', enviado_em: nowIso }).eq('id', invite.id);
+    await supabase.from('pending_invites').update({ status: 'ENVIADO', enviado_em: nowIso, link_acesso: actionLink }).eq('id', invite.id);
 
     if (invite.unit_id) {
       await supabase.from('units').update({ status_convite: 'ENVIADO', usuario_id: newUserId }).eq('id', invite.unit_id);
     }
 
-    results.push({ id: invite.id, ok: true });
+    results.push({ id: invite.id, ok: true, link: actionLink });
   }
 
   return NextResponse.json({ results });

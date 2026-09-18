@@ -5,6 +5,13 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Lock, Mail, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
+function traduzirErroReset(message: string): string {
+  if (message.toLowerCase().includes('rate limit')) {
+    return 'Limite de envio de e-mails do Supabase atingido. Aguarde alguns minutos e tente novamente.';
+  }
+  return 'Não foi possível enviar o link de redefinição de senha. Tente novamente em instantes.';
+}
+
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -20,11 +27,13 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const senhaCriada = searchParams.get('senhaCriada') === '1';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMsg(null);
     setIsLoading(true);
 
     const { error: authError } = await supabase.auth.signInWithPassword({
@@ -48,12 +57,19 @@ function LoginForm() {
       return;
     }
     setIsLoading(true);
-    await supabase.auth.resetPasswordForEmail(email, {
+    setError(null);
+    setSuccessMsg(null);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/api/auth/callback?next=/definir-senha`,
     });
     setIsLoading(false);
-    setError(null);
-    alert(`Link de redefinição de senha enviado para ${email}`);
+
+    if (resetError) {
+      setError(traduzirErroReset(resetError.message));
+      return;
+    }
+
+    setSuccessMsg(`Link de redefinição de senha enviado para ${email}.`);
   };
 
   return (
@@ -133,6 +149,13 @@ function LoginForm() {
               <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                 <p className="text-xs text-red-700">{error}</p>
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <p className="text-xs text-emerald-800">{successMsg}</p>
               </div>
             )}
 

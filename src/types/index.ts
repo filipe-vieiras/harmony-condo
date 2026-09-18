@@ -195,6 +195,8 @@ export interface PendingInvite {
   criadoPor?: string;
   criadoEm: string;
   enviadoEm?: string;
+  /** Link de definição de senha gerado para o Síndico copiar e enviar manualmente. */
+  linkAcesso?: string;
 }
 
 /** Dados de contato do zelador atual — cadastro estruturado, sem login no sistema. */

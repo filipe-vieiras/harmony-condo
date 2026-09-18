@@ -23,7 +23,9 @@ import {
   Trash2,
   UserPlus,
   Pencil,
-  Send,
+  Link2,
+  Copy,
+  Check,
   CheckCircle2,
   AlertTriangle,
   Lock,
@@ -38,12 +40,13 @@ export default function MoradoresPage() {
 }
 
 function MoradoresContent() {
-  const { currentUser, units, addUnit, updateUnit, deleteUnit, sendInviteForUnit } = useApp();
+  const { currentUser, units, pendingInvites, addUnit, updateUnit, deleteUnit, sendInviteForUnit } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBloco, setFilterBloco] = useState<string>('TODOS');
   const [showModal, setShowModal] = useState(false);
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
+  const [copiedUnitId, setCopiedUnitId] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -175,6 +178,21 @@ function MoradoresContent() {
     const res = await sendInviteForUnit(u.id);
     setSendingInviteId(null);
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+  };
+
+  const handleCopyLink = async (u: Unit) => {
+    const invite = pendingInvites.find((i) => i.unitId === u.id && i.status === 'ENVIADO' && i.linkAcesso);
+    if (!invite?.linkAcesso) {
+      setFeedbackMsg({ type: 'error', text: 'Link de acesso não encontrado. Gere novamente.' });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(invite.linkAcesso);
+      setCopiedUnitId(u.id);
+      setTimeout(() => setCopiedUnitId((current) => (current === u.id ? null : current)), 2000);
+    } catch {
+      setFeedbackMsg({ type: 'error', text: 'Não foi possível copiar o link automaticamente. Copie manualmente pela fila de convites em Usuários.' });
+    }
   };
 
   const handleSaveUnit = async (e: React.FormEvent) => {
@@ -449,14 +467,14 @@ function MoradoresContent() {
                       disabled={sendingInviteId === u.id}
                       className="flex items-center gap-1.5 rounded-full bg-[#0B2545] px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
                     >
-                      <Send className="h-3 w-3 text-[#00A8E8]" />
-                      <span>{sendingInviteId === u.id ? 'Enviando...' : 'Enviar Convite'}</span>
+                      <Link2 className="h-3 w-3 text-[#00A8E8]" />
+                      <span>{sendingInviteId === u.id ? 'Gerando...' : 'Gerar Link de Acesso'}</span>
                     </button>
                   ) : null;
                 }
 
                 return (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
                         u.statusConvite === 'ATIVO'
@@ -466,16 +484,34 @@ function MoradoresContent() {
                           : 'bg-amber-50 text-amber-800'
                       }`}
                     >
-                      {u.statusConvite === 'ATIVO' ? 'Acesso ativo' : u.statusConvite === 'ENVIADO' ? 'Convite enviado' : 'Convite pendente de envio'}
+                      {u.statusConvite === 'ATIVO' ? 'Acesso ativo' : u.statusConvite === 'ENVIADO' ? 'Link de acesso gerado' : 'Link pendente de gerar'}
                     </span>
+                    {u.statusConvite === 'ENVIADO' && isAdmin(currentUser.role) && (
+                      <button
+                        onClick={() => handleCopyLink(u)}
+                        className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700 transition hover:bg-slate-200 no-print"
+                      >
+                        {copiedUnitId === u.id ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-600" />
+                            <span>Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3 text-slate-500" />
+                            <span>Copiar Link</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                     {podeEnviar && (
                       <button
                         onClick={() => handleSendInvite(u)}
                         disabled={sendingInviteId === u.id}
                         className="flex items-center gap-1.5 rounded-full bg-[#0B2545] px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
                       >
-                        <Send className="h-3 w-3 text-[#00A8E8]" />
-                        <span>{sendingInviteId === u.id ? 'Enviando...' : 'Enviar Convite'}</span>
+                        <Link2 className="h-3 w-3 text-[#00A8E8]" />
+                        <span>{sendingInviteId === u.id ? 'Gerando...' : 'Gerar Novo Link'}</span>
                       </button>
                     )}
                   </div>
