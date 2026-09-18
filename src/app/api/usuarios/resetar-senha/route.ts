@@ -39,7 +39,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 });
   }
 
-  const origin = request.nextUrl.origin;
+  // No Vercel, request.nextUrl.origin às vezes reflete a URL interna do
+  // deploy (com hash), não o domínio público — por isso SITE_URL tem
+  // prioridade quando configurada (ver .env.local / env do Vercel).
+  const origin = process.env.SITE_URL ?? request.nextUrl.origin;
 
   // Assim como no convite: redireciona direto pra /definir-senha (não pra
   // /api/auth/callback), porque links gerados via Admin API voltam com o

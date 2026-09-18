@@ -35,7 +35,10 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const origin = request.nextUrl.origin;
+  // No Vercel, request.nextUrl.origin às vezes reflete a URL interna do
+  // deploy (com hash), não o domínio público — por isso SITE_URL tem
+  // prioridade quando configurada (ver .env.local / env do Vercel).
+  const origin = process.env.SITE_URL ?? request.nextUrl.origin;
 
   // Aceita reenviar um convite que já tinha ficado com status ERRO (ex: limite de
   // e-mail do Supabase), sem exigir criar um registro novo na fila para tentar de novo.
@@ -116,9 +119,7 @@ export async function POST(request: NextRequest) {
     }
 
     const nowIso = new Date().toISOString();
-    // DEBUG TEMPORÁRIO: grava a origin calculada em erro_mensagem pra diagnosticar
-    // por que redirect_to está sendo rejeitado pelo Supabase mesmo com o path certo.
-    await supabase.from('pending_invites').update({ status: 'ENVIADO', enviado_em: nowIso, link_acesso: actionLink, erro_mensagem: `DEBUG origin=${origin}` }).eq('id', invite.id);
+    await supabase.from('pending_invites').update({ status: 'ENVIADO', enviado_em: nowIso, link_acesso: actionLink, erro_mensagem: null }).eq('id', invite.id);
 
     if (invite.unit_id) {
       await supabase.from('units').update({ status_convite: 'ENVIADO', usuario_id: newUserId }).eq('id', invite.unit_id);
