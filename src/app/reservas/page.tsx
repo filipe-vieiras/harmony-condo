@@ -56,6 +56,9 @@ function ReservasContent() {
   const [horarioFim, setHorarioFim] = useState('18:00');
   const [convidados, setConvidados] = useState(15);
   const [termoAceito, setTermoAceito] = useState(false);
+  const [reservaMoradorNome, setReservaMoradorNome] = useState('');
+  const [reservaBloco, setReservaBloco] = useState('A');
+  const [reservaUnidade, setReservaUnidade] = useState('');
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Estados para Gestão de Espaços (Síndico)
@@ -71,6 +74,9 @@ function ReservasContent() {
   const [spaceAtivo, setSpaceAtivo] = useState(true);
 
   const isSindico = isAdmin(currentUser?.role);
+  // Equipe sem unidade própria (Síndico/ADM/Portaria) precisa informar de qual
+  // morador é a reserva ao registrar em nome de alguém (ex: pedido por telefone).
+  const isStaff = currentUser?.role !== 'MORADOR';
 
   useEscapeToClose(showModal, () => setShowModal(false));
   useEscapeToClose(showSpaceModal, () => setShowSpaceModal(false));
@@ -164,6 +170,10 @@ function ReservasContent() {
       alert('É obrigatório aceitar o regulamento e normas de uso do espaço.');
       return;
     }
+    if (isStaff && !reservaMoradorNome.trim()) {
+      alert('Informe o nome do morador para quem a reserva está sendo registrada.');
+      return;
+    }
 
     const res = await requestReservation({
       espacoId: selectedSpaceId,
@@ -171,12 +181,15 @@ function ReservasContent() {
       horarioInicio,
       horarioFim,
       convidadosEstimados: Number(convidados),
+      ...(isStaff ? { moradorNome: reservaMoradorNome.trim(), bloco: reservaBloco, unidade: reservaUnidade.trim() } : {}),
     });
 
     if (res.success) {
       setFeedbackMsg({ type: 'success', text: res.message });
       setShowModal(false);
       setTermoAceito(false);
+      setReservaMoradorNome('');
+      setReservaUnidade('');
     } else {
       setFeedbackMsg({ type: 'error', text: res.message });
     }
@@ -522,6 +535,52 @@ function ReservasContent() {
                   ))}
                 </select>
               </div>
+
+              {isStaff && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 p-3.5 space-y-3">
+                  <p className="text-[11px] font-bold text-sky-900">
+                    Registrando em nome de um morador (ex: pedido recebido por telefone)
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-1">
+                      <label htmlFor="reserva-morador-nome" className="block text-xs font-semibold text-slate-700">Nome do Morador</label>
+                      <input
+                        id="reserva-morador-nome"
+                        type="text"
+                        required
+                        placeholder="Nome completo"
+                        value={reservaMoradorNome}
+                        onChange={(e) => setReservaMoradorNome(e.target.value)}
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="reserva-bloco" className="block text-xs font-semibold text-slate-700">Bloco</label>
+                      <select
+                        id="reserva-bloco"
+                        value={reservaBloco}
+                        onChange={(e) => setReservaBloco(e.target.value)}
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                      >
+                        <option value="A">Bloco A</option>
+                        <option value="B">Bloco B</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="reserva-unidade" className="block text-xs font-semibold text-slate-700">Apto</label>
+                      <input
+                        id="reserva-unidade"
+                        type="text"
+                        required
+                        placeholder="Ex: 602"
+                        value={reservaUnidade}
+                        onChange={(e) => setReservaUnidade(e.target.value)}
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-3">
                 <div>

@@ -79,6 +79,9 @@ interface AppContextType {
     horarioInicio: string;
     horarioFim: string;
     convidadosEstimados: number;
+    moradorNome?: string;
+    bloco?: string;
+    unidade?: string;
   }) => Promise<{ success: boolean; message: string }>;
   judgeReservation: (reservationId: string, aprovado: boolean, motivoRecusa?: string) => Promise<void>;
   notifications: InAppNotification[];
@@ -768,10 +771,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── RESERVATIONS ──
 
   const requestReservation = async ({
-    espacoId, data, horarioInicio, horarioFim, convidadosEstimados,
+    espacoId, data, horarioInicio, horarioFim, convidadosEstimados, moradorNome, bloco, unidade,
   }: {
     espacoId: string; data: string; horarioInicio: string;
     horarioFim: string; convidadosEstimados: number;
+    moradorNome?: string; bloco?: string; unidade?: string;
   }): Promise<{ success: boolean; message: string }> => {
     const targetSpace = spaces.find((s) => s.id === espacoId);
     if (!targetSpace) return { success: false, message: 'Espaço comum não encontrado.' };
@@ -784,12 +788,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: 'Este espaço já possui uma reserva confirmada ou pendente para esta data.' };
     }
 
+    // Equipe (Síndico/ADM/Portaria) pode registrar em nome de um morador (ex:
+    // pedido por telefone) — nesse caso os campos vêm preenchidos no formulário
+    // em vez de usar os dados do próprio usuário logado, que não tem unidade.
     const created = await insertReservation(supabase, {
       espacoId,
       espacoNome: targetSpace.nome,
-      bloco: currentUser?.bloco ?? 'A',
-      unidade: currentUser?.unidade ?? '?',
-      moradorNome: currentUser?.name ?? 'Morador',
+      bloco: bloco || currentUser?.bloco || 'A',
+      unidade: unidade || currentUser?.unidade || '?',
+      moradorNome: moradorNome || currentUser?.name || 'Morador',
       data, horarioInicio, horarioFim, convidadosEstimados,
       status: 'PENDENTE',
     });
@@ -798,7 +805,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setReservations((prev) => [created, ...prev]);
     await insertNotification(supabase, {
       titulo: 'Nova Solicitação de Reserva',
-      mensagem: `${currentUser?.name} (Unidade ${currentUser?.unidade}) solicitou ${targetSpace.nome} para ${data}. Requer aprovação.`,
+      mensagem: `${created.moradorNome} (Unidade ${created.unidade}) solicitou ${targetSpace.nome} para ${data}. Requer aprovação.`,
       tipo: 'RESERVA',
       perfilAlvo: 'SINDICO',
       linkDestino: '/reservas',
