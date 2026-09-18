@@ -6,7 +6,11 @@ import { createClient } from '@/lib/supabase/client';
 import { Lock, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function DefinirSenhaPage() {
-  const supabase = createClient();
+  // Criado uma única vez por montagem (não a cada render): essa página
+  // processa o token efêmero do fragmento da URL (#access_token=...) e um
+  // segundo client recriado no meio do processo pode "roubar" essa leitura
+  // única, fazendo o primeiro perder a sessão.
+  const [supabase] = useState(() => createClient());
   const router = useRouter();
 
   const [checkingSession, setCheckingSession] = useState(true);
@@ -19,21 +23,39 @@ export default function DefinirSenhaPage() {
 
   useEffect(() => {
     // O link de convite/redefinição chega com o token no fragmento da URL
-    // (#access_token=...), que o cliente do Supabase detecta e troca por uma
-    // sessão automaticamente ao carregar a página — não passa pelo servidor.
-    // onAuthStateChange cobre o caso em que essa detecção ainda não terminou
-    // no momento do primeiro getSession().
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSessionValida(!!session);
-      setCheckingSession(false);
-    });
+    // (#access_token=...&refresh_token=...). A detecção automática do client
+    // do Supabase (detectSessionInUrl) se mostrou não-confiável aqui — então
+    // processamos o fragmento manualmente e chamamos setSession() direto,
+    // que é a API pública documentada pra estabelecer uma sessão a partir de
+    // tokens já em mãos.
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+    const hashError = hashParams.get('error_description');
 
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ data, error }) => {
+        setSessionValida(!!data.session && !error);
+        setCheckingSession(false);
+        // Limpa o token da barra de endereço — já foi consumido, não precisa
+        // continuar exposto (e reaparecer no histórico do navegador).
+        window.history.replaceState(null, '', window.location.pathname);
+      });
+      return;
+    }
+
+    if (hashError) {
+      setSessionValida(false);
+      setCheckingSession(false);
+      return;
+    }
+
+    // Sem token no fragmento: verifica se já existe uma sessão válida (ex:
+    // usuário recarregou a página depois de já ter processado o link).
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSessionValida(!!session);
       setCheckingSession(false);
     });
-
-    return () => subscription.unsubscribe();
   }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {

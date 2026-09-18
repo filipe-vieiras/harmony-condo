@@ -21,7 +21,7 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

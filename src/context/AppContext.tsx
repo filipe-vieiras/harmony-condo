@@ -102,7 +102,10 @@ function traduzirErroEnvio(message: string): string {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient();
+  // Criado uma única vez por montagem: recriar o client a cada render faria
+  // o useEffect de onAuthStateChange (que depende de `supabase`) desinscrever
+  // e reinscrever o listener repetidamente a cada atualização de estado.
+  const [supabase] = useState(() => createClient());
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
