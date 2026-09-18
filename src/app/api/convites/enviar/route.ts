@@ -70,12 +70,18 @@ export async function POST(request: NextRequest) {
 
     // Gera o link de convite sem enviar e-mail (o app não depende de SMTP): o
     // Síndico copia e encaminha manualmente (WhatsApp, etc.) pelo próprio app.
+    //
+    // redirectTo aponta direto pra /definir-senha (não pra /api/auth/callback):
+    // links gerados via Admin API voltam com o token no fragmento da URL
+    // (#access_token=...), que só o cliente no navegador consegue ler — o
+    // fragmento nunca chega ao servidor, então uma rota server-side como
+    // /api/auth/callback (que espera ?code=) nunca recebe nada e falha.
     const { data: linkData, error: inviteError } = await admin.auth.admin.generateLink({
       type: 'invite',
       email: invite.email,
       options: {
         data: { name: invite.nome, role: invite.role, bloco: invite.bloco, unidade: invite.unidade },
-        redirectTo: `${origin}/api/auth/callback?next=/definir-senha`,
+        redirectTo: `${origin}/definir-senha`,
       },
     });
 

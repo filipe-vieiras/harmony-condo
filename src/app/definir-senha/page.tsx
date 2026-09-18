@@ -18,10 +18,22 @@ export default function DefinirSenhaPage() {
   const [sucesso, setSucesso] = useState(false);
 
   useEffect(() => {
+    // O link de convite/redefinição chega com o token no fragmento da URL
+    // (#access_token=...), que o cliente do Supabase detecta e troca por uma
+    // sessão automaticamente ao carregar a página — não passa pelo servidor.
+    // onAuthStateChange cobre o caso em que essa detecção ainda não terminou
+    // no momento do primeiro getSession().
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionValida(!!session);
+      setCheckingSession(false);
+    });
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSessionValida(!!session);
       setCheckingSession(false);
     });
+
+    return () => subscription.unsubscribe();
   }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {

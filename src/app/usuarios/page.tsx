@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
+  KeyRound,
 } from 'lucide-react';
 
 export default function UsuariosPage() {
@@ -39,6 +40,7 @@ function UsuariosContent() {
     cancelPendingInvite,
     sendPendingInvites,
     deleteSystemUser,
+    generatePasswordResetLink,
   } = useApp();
 
   const [showModal, setShowModal] = useState(false);
@@ -131,6 +133,22 @@ function UsuariosContent() {
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
 
+  const handleResetPassword = async (userId: string) => {
+    const res = await generatePasswordResetLink(userId);
+    if (!res.success || !res.link) {
+      setFeedbackMsg({ type: 'error', text: res.message });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(res.link);
+      setCopiedId(`reset-${userId}`);
+      setTimeout(() => setCopiedId((current) => (current === `reset-${userId}` ? null : current)), 2000);
+      setFeedbackMsg({ type: 'success', text: `${res.message} Link copiado — cole e envie pro usuário.` });
+    } catch {
+      setFeedbackMsg({ type: 'success', text: res.message });
+    }
+  };
+
   const statusBadge: Record<string, { label: string; bg: string; text: string; icon: React.ReactNode }> = {
     PENDENTE: { label: 'Link pendente de gerar', bg: 'bg-amber-50', text: 'text-amber-800', icon: <Clock className="h-3 w-3" /> },
     ENVIADO: { label: 'Link gerado', bg: 'bg-sky-50', text: 'text-sky-800', icon: <CheckCircle2 className="h-3 w-3" /> },
@@ -219,16 +237,36 @@ function UsuariosContent() {
                       {u.unidade ? `Apto ${u.unidade}-${u.bloco}` : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {u.id !== currentUser.id && (
+                      <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => handleDeleteUser(u.id, u.name)}
-                          title="Excluir acesso"
-                          aria-label={`Excluir acesso de ${u.name}`}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                          onClick={() => handleResetPassword(u.id)}
+                          title="Gerar link de redefinição de senha"
+                          aria-label={`Gerar link de redefinição de senha de ${u.name}`}
+                          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {copiedId === `reset-${u.id}` ? (
+                            <>
+                              <Check className="h-3.5 w-3.5 text-emerald-600" />
+                              <span>Copiado!</span>
+                            </>
+                          ) : (
+                            <>
+                              <KeyRound className="h-3.5 w-3.5" />
+                              <span>Redefinir Senha</span>
+                            </>
+                          )}
                         </button>
-                      )}
+                        {u.id !== currentUser.id && (
+                          <button
+                            onClick={() => handleDeleteUser(u.id, u.name)}
+                            title="Excluir acesso"
+                            aria-label={`Excluir acesso de ${u.name}`}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

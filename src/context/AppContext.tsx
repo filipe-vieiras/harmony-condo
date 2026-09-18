@@ -69,6 +69,7 @@ interface AppContextType {
   cancelPendingInvite: (id: string) => Promise<void>;
   sendPendingInvites: (ids: string[]) => Promise<{ success: boolean; message: string }>;
   deleteSystemUser: (userId: string) => Promise<{ success: boolean; message: string }>;
+  generatePasswordResetLink: (userId: string) => Promise<{ success: boolean; message: string; link?: string }>;
   auditLogs: AuditLog[];
   fetchAuditLogsData: (modulo?: string) => Promise<void>;
   reservations: Reservation[];
@@ -734,6 +735,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true, message: `Acesso de ${target?.name ?? 'usuário'} excluído com sucesso.` };
   };
 
+  const generatePasswordResetLink = async (userId: string): Promise<{ success: boolean; message: string; link?: string }> => {
+    const target = systemUsers.find((u) => u.id === userId);
+
+    let response: Response;
+    try {
+      response = await fetch('/api/usuarios/resetar-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+    } catch (err) {
+      console.error('generatePasswordResetLink (network):', err);
+      return { success: false, message: 'Erro de conexão ao gerar o link. Tente novamente.' };
+    }
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      console.error('generatePasswordResetLink:', response.status, body.error);
+      return { success: false, message: body.error ?? `Erro ao gerar o link (código ${response.status}).` };
+    }
+
+    const { link } = await response.json() as { link: string };
+    await recordAudit(`Gerou link de redefinição de senha para ${target?.name ?? userId}`, 'SISTEMA', { userId });
+
+    return { success: true, message: `Link de redefinição gerado para ${target?.name ?? 'o usuário'} — copie e envie manualmente.`, link };
+  };
+
   // ── RESERVATIONS ──
 
   const requestReservation = async ({
@@ -873,6 +901,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cancelPendingInvite,
         sendPendingInvites,
         deleteSystemUser,
+        generatePasswordResetLink,
         auditLogs,
         fetchAuditLogsData,
         reservations,
