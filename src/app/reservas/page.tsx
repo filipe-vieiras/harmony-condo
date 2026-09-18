@@ -143,8 +143,8 @@ function ReservasContent() {
 
   const handleDeleteSpace = async (id: string, nome: string) => {
     if (confirm(`Tem certeza que deseja remover o espaço "${nome}"?`)) {
-      await deleteSpace(id);
-      setFeedbackMsg({ type: 'success', text: `Espaço "${nome}" removido.` });
+      const res = await deleteSpace(id);
+      setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     }
   };
 

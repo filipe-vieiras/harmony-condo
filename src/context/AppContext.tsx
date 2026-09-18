@@ -56,7 +56,7 @@ interface AppContextType {
   spaces: CommonSpace[];
   addSpace: (space: Omit<CommonSpace, 'id'>) => Promise<void>;
   updateSpace: (id: string, space: Partial<Omit<CommonSpace, 'id'>>) => Promise<void>;
-  deleteSpace: (id: string) => Promise<void>;
+  deleteSpace: (id: string) => Promise<{ success: boolean; message: string }>;
   documents: DocumentLink[];
   addDocument: (doc: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => Promise<void>;
   updateDocument: (id: string, doc: Partial<Omit<DocumentLink, 'id' | 'dataAtualizacao'>>) => Promise<void>;
@@ -611,11 +611,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteSpace = async (id: string) => {
+  const deleteSpace = async (id: string): Promise<{ success: boolean; message: string }> => {
     const target = spaces.find((s) => s.id === id);
-    await deleteSpaceDB(supabase, id);
+    const { success, errorCode } = await deleteSpaceDB(supabase, id);
+    if (!success) {
+      const message = errorCode === '23503'
+        ? `O espaço "${target?.nome ?? ''}" tem reservas no histórico e não pode ser excluído — para retirá-lo de circulação sem perder o histórico, desative-o (ícone de olho) em vez de excluir.`
+        : 'Não foi possível remover o espaço. Tente novamente.';
+      return { success: false, message };
+    }
     setSpaces((prev) => prev.filter((s) => s.id !== id));
     await recordAudit(`Removeu espaço comum: ${target?.nome ?? id}`, 'ESPACOS', { id });
+    return { success: true, message: `Espaço "${target?.nome ?? ''}" removido com sucesso.` };
   };
 
   // ── DOCUMENTS ──

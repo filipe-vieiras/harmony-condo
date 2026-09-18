@@ -367,9 +367,15 @@ export async function updateSpaceDB(
   };
 }
 
-export async function deleteSpaceDB(supabase: SupabaseClient, id: string): Promise<void> {
-  const { error } = await supabase.from('spaces').delete().eq('id', id);
-  if (error) console.error('deleteSpaceDB:', error);
+export async function deleteSpaceDB(
+  supabase: SupabaseClient,
+  id: string
+): Promise<{ success: boolean; errorCode?: string }> {
+  // Um DELETE bloqueado por RLS não retorna erro — só afeta 0 linhas (a
+  // policy de SELECT usada internamente já filtra a linha antes do delete).
+  const { data, error } = await supabase.from('spaces').delete().eq('id', id).select();
+  if (error) { console.error('deleteSpaceDB:', error); return { success: false, errorCode: error.code }; }
+  return { success: (data?.length ?? 0) > 0 };
 }
 
 // ──────────────────────────────────────────────
