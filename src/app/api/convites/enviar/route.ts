@@ -116,7 +116,9 @@ export async function POST(request: NextRequest) {
     }
 
     const nowIso = new Date().toISOString();
-    await supabase.from('pending_invites').update({ status: 'ENVIADO', enviado_em: nowIso, link_acesso: actionLink }).eq('id', invite.id);
+    // DEBUG TEMPORÁRIO: grava a origin calculada em erro_mensagem pra diagnosticar
+    // por que redirect_to está sendo rejeitado pelo Supabase mesmo com o path certo.
+    await supabase.from('pending_invites').update({ status: 'ENVIADO', enviado_em: nowIso, link_acesso: actionLink, erro_mensagem: `DEBUG origin=${origin}` }).eq('id', invite.id);
 
     if (invite.unit_id) {
       await supabase.from('units').update({ status_convite: 'ENVIADO', usuario_id: newUserId }).eq('id', invite.unit_id);
