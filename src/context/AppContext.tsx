@@ -16,9 +16,9 @@ import {
   AuditLog,
   PendingInvite,
   Zelador,
+  PortalAdministradora,
 } from '@/types';
 import { isAdmin } from '@/lib/roles';
-import { INITIAL_DOCS } from '@/lib/mockData';
 import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
   fetchVehicles, insertVehicle, deleteVehicleDB,
@@ -31,6 +31,7 @@ import {
   fetchAuditLogs, insertAuditLog,
   fetchPendingInvites, insertPendingInvite, updatePendingInviteDB, deletePendingInviteDB,
   fetchZelador, updateZeladorDB,
+  fetchPortalAdministradora, updatePortalAdministradoraDB,
   fetchProfiles,
 } from '@/lib/supabase/db';
 
@@ -58,11 +59,13 @@ interface AppContextType {
   updateSpace: (id: string, space: Partial<Omit<CommonSpace, 'id'>>) => Promise<void>;
   deleteSpace: (id: string) => Promise<{ success: boolean; message: string }>;
   documents: DocumentLink[];
-  addDocument: (doc: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => Promise<void>;
+  addDocument: (doc: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => Promise<{ success: boolean; message: string }>;
   updateDocument: (id: string, doc: Partial<Omit<DocumentLink, 'id' | 'dataAtualizacao'>>) => Promise<void>;
-  deleteDocument: (id: string) => Promise<void>;
+  deleteDocument: (id: string) => Promise<{ success: boolean; message: string }>;
   zelador: Zelador | null;
   updateZelador: (data: Zelador) => Promise<void>;
+  portalAdministradora: PortalAdministradora | null;
+  updatePortalAdministradora: (data: PortalAdministradora) => Promise<void>;
   systemUsers: User[];
   pendingInvites: PendingInvite[];
   createStaffInvite: (data: { nome: string; email: string; role: Role }) => Promise<{ success: boolean; message: string }>;
@@ -119,9 +122,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [spaces, setSpaces] = useState<CommonSpace[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
-  const [documents, setDocuments] = useState<DocumentLink[]>(INITIAL_DOCS);
+  const [documents, setDocuments] = useState<DocumentLink[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [zelador, setZelador] = useState<Zelador | null>(null);
+  const [portalAdministradora, setPortalAdministradora] = useState<PortalAdministradora | null>(null);
   const [systemUsers, setSystemUsers] = useState<User[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
@@ -153,7 +157,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Carrega todos os dados do banco quando o usuário está logado
   const loadAllData = useCallback(async () => {
-    const [u, v, n, f, s, r, notifs, docs, logs, zel, invites, users] = await Promise.all([
+    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users] = await Promise.all([
       fetchUnits(supabase),
       fetchVehicles(supabase),
       fetchNotices(supabase),
@@ -164,6 +168,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchDocuments(supabase),
       fetchAuditLogs(supabase),
       fetchZelador(supabase),
+      fetchPortalAdministradora(supabase),
       fetchPendingInvites(supabase),
       fetchProfiles(supabase),
     ]);
@@ -174,9 +179,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSpaces(s);
     setReservations(r);
     setNotifications(notifs);
-    if (docs.length > 0) setDocuments(docs);
+    setDocuments(docs);
     setAuditLogs(logs);
     setZelador(zel);
+    setPortalAdministradora(portal);
     setPendingInvites(invites);
     setSystemUsers(users);
   }, [supabase]);
@@ -628,15 +634,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── DOCUMENTS ──
 
-  const addDocument = async (docData: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => {
+  const addDocument = async (docData: Omit<DocumentLink, 'id' | 'dataAtualizacao'>): Promise<{ success: boolean; message: string }> => {
     const created = await insertDocument(supabase, docData);
-    if (created) {
-      setDocuments((prev) => [created, ...prev]);
-      await recordAudit(`Publicou documento: ${created.titulo}`, 'DOCUMENTOS', {
-        titulo: created.titulo,
-        categoria: created.categoria,
-      });
+    if (!created) {
+      return { success: false, message: 'Erro ao cadastrar o documento. Tente novamente.' };
     }
+    setDocuments((prev) => [created, ...prev]);
+    await recordAudit(`Publicou documento: ${created.titulo}`, 'DOCUMENTOS', {
+      titulo: created.titulo,
+      categoria: created.categoria,
+    });
+    return { success: true, message: `Documento "${created.titulo}" cadastrado com sucesso!` };
   };
 
   const updateDocument = async (id: string, docData: Partial<Omit<DocumentLink, 'id' | 'dataAtualizacao'>>) => {
@@ -647,11 +655,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteDocument = async (id: string) => {
+  const deleteDocument = async (id: string): Promise<{ success: boolean; message: string }> => {
     const target = documents.find((d) => d.id === id);
-    await deleteDocumentDB(supabase, id);
+    const deleted = await deleteDocumentDB(supabase, id);
+    if (!deleted) {
+      return { success: false, message: 'Não foi possível remover o documento. Tente novamente.' };
+    }
     setDocuments((prev) => prev.filter((d) => d.id !== id));
     await recordAudit(`Excluiu documento: ${target?.titulo ?? id}`, 'DOCUMENTOS', { id });
+    return { success: true, message: `"${target?.titulo ?? ''}" foi removido com sucesso.` };
   };
 
   // ── ZELADOR ──
@@ -661,6 +673,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updated) {
       setZelador(updated);
       await recordAudit(`Atualizou dados do zelador: ${updated.nome}`, 'SISTEMA', { nome: updated.nome });
+    }
+  };
+
+  // ── PORTAL DA ADMINISTRADORA ──
+
+  const updatePortalAdministradora = async (data: PortalAdministradora) => {
+    const updated = await updatePortalAdministradoraDB(supabase, data);
+    if (updated) {
+      setPortalAdministradora(updated);
+      await recordAudit('Atualizou dados do Portal da Administradora', 'SISTEMA', {});
     }
   };
 
@@ -921,6 +943,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteDocument,
         zelador,
         updateZelador,
+        portalAdministradora,
+        updatePortalAdministradora,
         systemUsers,
         pendingInvites,
         createStaffInvite,

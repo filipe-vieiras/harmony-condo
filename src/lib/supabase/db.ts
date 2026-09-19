@@ -11,6 +11,7 @@ import type {
   AuditLog,
   PendingInvite,
   Zelador,
+  PortalAdministradora,
   User,
 } from '@/types';
 
@@ -556,9 +557,11 @@ export async function updateDocumentDB(
   return rowToDocument(data);
 }
 
-export async function deleteDocumentDB(supabase: SupabaseClient, id: string): Promise<void> {
-  const { error } = await supabase.from('documents').delete().eq('id', id);
-  if (error) console.error('deleteDocumentDB:', error);
+export async function deleteDocumentDB(supabase: SupabaseClient, id: string): Promise<boolean> {
+  // Um DELETE bloqueado por RLS não retorna erro — só afeta 0 linhas.
+  const { data, error } = await supabase.from('documents').delete().eq('id', id).select();
+  if (error) { console.error('deleteDocumentDB:', error); return false; }
+  return (data?.length ?? 0) > 0;
 }
 
 // ──────────────────────────────────────────────
@@ -703,6 +706,37 @@ export async function updateZeladorDB(supabase: SupabaseClient, zelador: Zelador
     telefone: data.telefone ?? '',
     horarioAtendimento: data.horario_atendimento ?? '',
     observacoes: data.observacoes ?? undefined,
+    atualizadoEm: data.atualizado_em ?? undefined,
+  };
+}
+
+// ──────────────────────────────────────────────
+// PORTAL DA ADMINISTRADORA (item fixo, singleton, editável)
+// ──────────────────────────────────────────────
+
+export async function fetchPortalAdministradora(supabase: SupabaseClient): Promise<PortalAdministradora | null> {
+  const { data, error } = await supabase.from('portal_administradora').select('*').eq('id', 1).single();
+  if (error) { console.error('fetchPortalAdministradora:', error); return null; }
+  return {
+    descricao: data.descricao ?? '',
+    linkExterno: data.link_externo ?? '',
+    atualizadoEm: data.atualizado_em ?? undefined,
+  };
+}
+
+export async function updatePortalAdministradoraDB(
+  supabase: SupabaseClient,
+  portal: PortalAdministradora
+): Promise<PortalAdministradora | null> {
+  const { data, error } = await supabase.from('portal_administradora').update({
+    descricao: portal.descricao,
+    link_externo: portal.linkExterno,
+    atualizado_em: new Date().toISOString(),
+  }).eq('id', 1).select().single();
+  if (error) { console.error('updatePortalAdministradoraDB:', error); return null; }
+  return {
+    descricao: data.descricao ?? '',
+    linkExterno: data.link_externo ?? '',
     atualizadoEm: data.atualizado_em ?? undefined,
   };
 }

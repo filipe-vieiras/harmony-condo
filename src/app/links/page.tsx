@@ -33,7 +33,7 @@ export default function LinksPage() {
 }
 
 function LinksContent() {
-  const { currentUser, documents, addDocument, deleteDocument, zelador, updateZelador } = useApp();
+  const { currentUser, documents, addDocument, deleteDocument, zelador, updateZelador, portalAdministradora, updatePortalAdministradora } = useApp();
 
   const [showModal, setShowModal] = useState(false);
   const [titulo, setTitulo] = useState('');
@@ -50,10 +50,15 @@ function LinksContent() {
   const [zHorario, setZHorario] = useState('');
   const [zObs, setZObs] = useState('');
 
+  const [showPortalModal, setShowPortalModal] = useState(false);
+  const [pDescricao, setPDescricao] = useState('');
+  const [pLink, setPLink] = useState('');
+
   const isSindico = isAdmin(currentUser?.role);
 
   useEscapeToClose(showModal, () => setShowModal(false));
   useEscapeToClose(showZeladorModal, () => setShowZeladorModal(false));
+  useEscapeToClose(showPortalModal, () => setShowPortalModal(false));
 
   const handleOpenZeladorModal = () => {
     setZNome(zelador?.nome ?? '');
@@ -68,6 +73,19 @@ function LinksContent() {
     await updateZelador({ nome: zNome, telefone: zTelefone, horarioAtendimento: zHorario, observacoes: zObs || undefined });
     setShowZeladorModal(false);
     setFeedbackMsg({ type: 'success', text: 'Dados do zelador atualizados com sucesso!' });
+  };
+
+  const handleOpenPortalModal = () => {
+    setPDescricao(portalAdministradora?.descricao ?? '');
+    setPLink(portalAdministradora?.linkExterno ?? '');
+    setShowPortalModal(true);
+  };
+
+  const handleSavePortal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await updatePortalAdministradora({ descricao: pDescricao, linkExterno: pLink });
+    setShowPortalModal(false);
+    setFeedbackMsg({ type: 'success', text: 'Portal da Administradora atualizado com sucesso!' });
   };
 
   const emergencyContacts = documents.filter((d) => d.categoria === 'EMERGENCIA');
@@ -87,7 +105,7 @@ function LinksContent() {
     e.preventDefault();
     if (!titulo || !linkExterno) return;
 
-    await addDocument({
+    const res = await addDocument({
       titulo,
       descricao,
       categoria,
@@ -97,14 +115,14 @@ function LinksContent() {
       arquivoNome: `${titulo.toLowerCase().replace(/\s+/g, '_')}.pdf`,
     });
 
-    setFeedbackMsg({ type: 'success', text: `Documento "${titulo}" cadastrado com sucesso!` });
-    setShowModal(false);
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+    if (res.success) setShowModal(false);
   };
 
   const handleDelete = async (id: string, itemTitulo: string) => {
     if (confirm(`Tem certeza que deseja remover "${itemTitulo}"?`)) {
-      await deleteDocument(id);
-      setFeedbackMsg({ type: 'success', text: `"${itemTitulo}" foi removido com sucesso.` });
+      const res = await deleteDocument(id);
+      setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     }
   };
 
@@ -285,31 +303,47 @@ function LinksContent() {
             </div>
 
             {/* Administradora Predial Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md relative group">
               <div className="flex items-start justify-between">
                 <div className="rounded-xl bg-blue-50 p-2.5 text-[#0B2545]">
                   <Building className="h-5 w-5" />
                 </div>
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-[#0B2545]">
-                  Financeiro
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-[#0B2545]">
+                    Financeiro
+                  </span>
+                  {isSindico && (
+                    <button
+                      onClick={handleOpenPortalModal}
+                      title="Editar Portal da Administradora"
+                      aria-label="Editar Portal da Administradora"
+                      className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <h3 className="mt-3 text-sm font-bold text-slate-900">Portal da Administradora</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Emissão de 2ª via de boletos de condomínio e demonstrativos de despesas.
+                {portalAdministradora?.descricao || 'Cadastre a descrição do portal.'}
               </p>
 
               <div className="mt-4 border-t border-slate-100 pt-3">
-                <a
-                  href="https://google.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A6E9C] hover:underline"
-                >
-                  <span>Acessar Portal do Condômino</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
+                {portalAdministradora?.linkExterno ? (
+                  <a
+                    href={portalAdministradora.linkExterno}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A6E9C] hover:underline"
+                  >
+                    <span>Acessar Portal do Condômino</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : (
+                  <span className="text-xs text-slate-500">Link ainda não cadastrado.</span>
+                )}
               </div>
             </div>
           </div>
@@ -592,6 +626,76 @@ function LinksContent() {
                 <button
                   type="button"
                   onClick={() => setShowZeladorModal(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white hover:bg-[#134074]"
+                >
+                  Salvar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição do Portal da Administradora (Síndico/ADM) */}
+      {showPortalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs no-print">
+          <div className="fixed inset-0" onClick={() => setShowPortalModal(false)} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="portal-modal-title"
+            className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Building className="h-5 w-5 text-[#0B2545]" />
+                <h3 id="portal-modal-title" className="text-base font-bold text-slate-900">Portal da Administradora</h3>
+              </div>
+              <button
+                onClick={() => setShowPortalModal(false)}
+                aria-label="Fechar"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePortal} className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="portal-descricao" className="block text-xs font-semibold text-slate-700">Descrição</label>
+                <textarea
+                  id="portal-descricao"
+                  rows={2}
+                  required
+                  placeholder="Ex: Emissão de 2ª via de boletos e demonstrativos de despesas."
+                  value={pDescricao}
+                  onChange={(e) => setPDescricao(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                />
+              </div>
+              <div>
+                <label htmlFor="portal-link" className="block text-xs font-semibold text-slate-700">Link do Portal do Condômino</label>
+                <input
+                  id="portal-link"
+                  type="url"
+                  required
+                  placeholder="https://portal.suaadministradora.com.br"
+                  value={pLink}
+                  onChange={(e) => setPLink(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                />
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowPortalModal(false)}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                 >
                   Cancelar

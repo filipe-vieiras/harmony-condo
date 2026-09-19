@@ -208,3 +208,10 @@ export interface Zelador {
   observacoes?: string;
   atualizadoEm?: string;
 }
+
+/** Item fixo editável (singleton) — não pode ser excluído, só editado. */
+export interface PortalAdministradora {
+  descricao: string;
+  linkExterno: string;
+  atualizadoEm?: string;
+}
