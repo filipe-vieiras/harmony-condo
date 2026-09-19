@@ -613,14 +613,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteSpace = async (id: string): Promise<{ success: boolean; message: string }> => {
     const target = spaces.find((s) => s.id === id);
-    const { success, errorCode } = await deleteSpaceDB(supabase, id);
+    const { success } = await deleteSpaceDB(supabase, id);
     if (!success) {
-      const message = errorCode === '23503'
-        ? `O espaço "${target?.nome ?? ''}" tem reservas no histórico e não pode ser excluído — para retirá-lo de circulação sem perder o histórico, desative-o (ícone de olho) em vez de excluir.`
-        : 'Não foi possível remover o espaço. Tente novamente.';
-      return { success: false, message };
+      return { success: false, message: 'Não foi possível remover o espaço. Tente novamente.' };
     }
     setSpaces((prev) => prev.filter((s) => s.id !== id));
+    // Reservas antigas desse espaço perdem o vínculo (espacoId) no banco, mas
+    // mantêm espacoNome — o histórico continua visível, só reflete aqui
+    // localmente pra não ficar com um espacoId de um espaço que não existe mais.
+    setReservations((prev) => prev.map((r) => (r.espacoId === id ? { ...r, espacoId: undefined } : r)));
     await recordAudit(`Removeu espaço comum: ${target?.nome ?? id}`, 'ESPACOS', { id });
     return { success: true, message: `Espaço "${target?.nome ?? ''}" removido com sucesso.` };
   };

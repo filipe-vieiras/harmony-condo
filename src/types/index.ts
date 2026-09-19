@@ -129,7 +129,8 @@ export type ReservationStatus = 'PENDENTE' | 'APROVADA' | 'RECUSADA' | 'CANCELAD
 
 export interface Reservation {
   id: string;
-  espacoId: string;
+  /** Fica undefined se o espaço original foi excluído depois — espacoNome preserva o histórico. */
+  espacoId?: string;
   espacoNome: string;
   bloco: string;
   unidade: string;

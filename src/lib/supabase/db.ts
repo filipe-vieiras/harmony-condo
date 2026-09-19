@@ -385,7 +385,7 @@ export async function deleteSpaceDB(
 function rowToReservation(r: Record<string, unknown>): Reservation {
   return {
     id: r.id as string,
-    espacoId: r.espaco_id as string,
+    espacoId: (r.espaco_id as string) ?? undefined,
     espacoNome: r.espaco_nome as string,
     bloco: r.bloco as string,
     unidade: r.unidade as string,
