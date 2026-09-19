@@ -18,7 +18,7 @@ import {
   Zelador,
 } from '@/types';
 import { isAdmin } from '@/lib/roles';
-import { INITIAL_SPACES, INITIAL_DOCS } from '@/lib/mockData';
+import { INITIAL_DOCS } from '@/lib/mockData';
 import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
   fetchVehicles, insertVehicle, deleteVehicleDB,
@@ -116,7 +116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [fines, setFines] = useState<FineNotice[]>([]);
-  const [spaces, setSpaces] = useState<CommonSpace[]>(INITIAL_SPACES);
+  const [spaces, setSpaces] = useState<CommonSpace[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [documents, setDocuments] = useState<DocumentLink[]>(INITIAL_DOCS);
@@ -171,7 +171,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setVehicles(v);
     setNotices(n);
     setFines(f);
-    if (s.length > 0) setSpaces(s);
+    setSpaces(s);
     setReservations(r);
     setNotifications(notifs);
     if (docs.length > 0) setDocuments(docs);

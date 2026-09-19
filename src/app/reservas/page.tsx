@@ -275,6 +275,12 @@ function ReservasContent() {
       )}
 
       {/* Galeria de Espaços Disponíveis */}
+      {spaces.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-8 text-center text-xs text-slate-500 no-print">
+          Nenhum espaço comum cadastrado ainda.
+          {isSindico && ' Clique em "Cadastrar Espaço" para adicionar o primeiro.'}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {spaces.map((spc) => {
           const isAtivo = spc.ativo !== false;
@@ -379,6 +385,7 @@ function ReservasContent() {
           );
         })}
       </div>
+      )}
 
       {/* Tabela de Solicitações e Agenda de Reservas */}
       <div className="space-y-4">
