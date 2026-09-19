@@ -39,7 +39,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
 
           {/* Área de Conteúdo Principal */}
-          <main className="flex-1 py-6 lg:pl-6">
+          {/* min-w-0 é essencial aqui: sem isso, um item flex nunca encolhe
+              abaixo da largura do seu conteúdo mais largo (ex: uma tabela),
+              mesmo esse conteúdo tendo overflow-x-auto próprio — o resultado
+              é a página inteira forçando scroll horizontal no celular. */}
+          <main className="min-w-0 flex-1 py-6 lg:pl-6">
             {children}
           </main>
         </div>
