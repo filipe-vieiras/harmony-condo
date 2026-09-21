@@ -310,25 +310,18 @@ function RelatoriosContent() {
             </div>
 
             {/* Parecer do Conselho Fiscal */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-xs flex flex-col justify-between">
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-5 shadow-xs flex flex-col justify-between">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#0B2545] block mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">
                   Parecer Conclusivo do Conselho Fiscal
                 </span>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Os registros disciplinares e cronogramas de reservas do Condomínio Harmony Residence encontram-se devidamente documentados e em estrita consonância com a Lei nº 4.591/64, o Código Civil e a Convenção Condominial.
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Ainda não há parecer registrado para o período. O Conselho Fiscal deve emitir e assinar o parecer conclusivo com base nos registros disciplinares e financeiros acima.
                 </p>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-                <div>
-                  <p className="font-bold text-slate-800">Dra. Renata Lima</p>
-                  <p className="text-[11px]">Presidente do Conselho Fiscal</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-mono text-[10px] text-slate-400">CRC/SP 198.441</p>
-                  <p className="text-[11px] text-emerald-700 font-semibold">✓ Regular</p>
-                </div>
+              <div className="mt-6 pt-4 border-t border-slate-200 text-[11px] text-slate-400">
+                Aguardando assinatura do Conselho Fiscal.
               </div>
             </div>
 

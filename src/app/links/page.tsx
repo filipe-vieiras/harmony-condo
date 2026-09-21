@@ -221,7 +221,7 @@ function LinksContent() {
                         onClick={() => handleDelete(c.id, c.titulo)}
                         title="Excluir Contato"
                         aria-label={`Excluir contato ${c.titulo}`}
-                        className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 no-print"
+                        className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 no-print"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -272,7 +272,7 @@ function LinksContent() {
                       onClick={handleOpenZeladorModal}
                       title="Editar Dados do Zelador"
                       aria-label="Editar dados do zelador"
-                      className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
+                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -317,7 +317,7 @@ function LinksContent() {
                       onClick={handleOpenPortalModal}
                       title="Editar Portal da Administradora"
                       aria-label="Editar Portal da Administradora"
-                      className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
+                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -381,7 +381,7 @@ function LinksContent() {
                             onClick={() => handleDelete(doc.id, doc.titulo)}
                             title="Excluir Documento"
                             aria-label={`Excluir documento ${doc.titulo}`}
-                            className="opacity-0 group-hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 no-print"
+                            className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 no-print"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

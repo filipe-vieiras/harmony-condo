@@ -319,7 +319,13 @@ function DashboardContent() {
           </div>
 
           <div className="space-y-3">
-            {notices.slice(0, 3).map((notice) => (
+            {notices.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-8 text-center">
+                <Megaphone className="mx-auto h-6 w-6 text-slate-300" />
+                <p className="mt-2 text-xs text-slate-500">Nenhum aviso publicado ainda.</p>
+              </div>
+            ) : (
+            notices.slice(0, 3).map((notice) => (
               <div
                 key={notice.id}
                 className={`rounded-2xl border bg-white p-5 shadow-xs transition hover:shadow-md ${
@@ -353,7 +359,8 @@ function DashboardContent() {
                   </div>
                 )}
               </div>
-            ))}
+            ))
+            )}
           </div>
         </div>
 
