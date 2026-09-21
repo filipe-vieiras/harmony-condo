@@ -30,7 +30,7 @@ export default function VeiculosPage() {
 }
 
 function VeiculosContent() {
-  const { currentUser, vehicles, addVehicle, deleteVehicle } = useApp();
+  const { currentUser, vehicles, addVehicle, deleteVehicle, units } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -97,6 +97,7 @@ function VeiculosContent() {
   if (!currentUser) return null;
 
   const isMorador = currentUser.role === 'MORADOR';
+  const minhaUnidade = units.find((u) => u.usuarioId === currentUser.id);
 
   return (
     <div className="space-y-6">
@@ -239,7 +240,7 @@ function VeiculosContent() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-right no-print">
-                      {(isAdmin(currentUser.role) || currentUser.name === v.proprietarioNome) && (
+                      {(isAdmin(currentUser.role) || (isMorador && v.unitId === minhaUnidade?.id)) && (
                         <button
                           onClick={async () => {
                             if (!confirm(`Remover o veículo ${v.placa}?`)) return;
