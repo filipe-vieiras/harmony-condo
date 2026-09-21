@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Lock, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -91,13 +92,14 @@ export default function DefinirSenhaPage() {
     <div className="flex min-h-screen flex-col justify-center bg-gradient-to-br from-[#07162c] via-[#0B2545] to-[#134074] py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <div className="rounded-3xl bg-white/10 p-4 shadow-2xl backdrop-blur-md ring-1 ring-white/20">
-            <img
-              src="/images/logo.png"
-              alt="Harmony Residence Logo"
-              className="h-28 w-auto object-contain drop-shadow-md"
-            />
-          </div>
+          <Image
+            src="/images/logo.png"
+            alt="Harmony Residence Logo"
+            width={562}
+            height={508}
+            preload
+            className="h-28 w-auto rounded-3xl object-contain shadow-2xl ring-1 ring-white/20"
+          />
         </div>
 
         <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
@@ -141,17 +143,18 @@ export default function DefinirSenhaPage() {
                 <label htmlFor="nova-senha" className="block text-xs font-semibold text-slate-700">Nova Senha</label>
                 <div className="relative mt-1">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Lock className="h-4 w-4 text-slate-400" />
+                    <Lock className="h-4 w-4 text-slate-500" />
                   </div>
                   <input
                     id="nova-senha"
                     type="password"
+                    autoComplete="new-password"
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     placeholder="••••••••"
                     required
                     minLength={6}
-                    className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
               </div>
@@ -160,17 +163,18 @@ export default function DefinirSenhaPage() {
                 <label htmlFor="confirmar-senha" className="block text-xs font-semibold text-slate-700">Confirmar Senha</label>
                 <div className="relative mt-1">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Lock className="h-4 w-4 text-slate-400" />
+                    <Lock className="h-4 w-4 text-slate-500" />
                   </div>
                   <input
                     id="confirmar-senha"
                     type="password"
+                    autoComplete="new-password"
                     value={confirmarSenha}
                     onChange={(e) => setConfirmarSenha(e.target.value)}
                     placeholder="••••••••"
                     required
                     minLength={6}
-                    className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                   />
                 </div>
               </div>

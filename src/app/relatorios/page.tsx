@@ -188,7 +188,7 @@ function RelatoriosContent() {
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multas Emitidas</span>
               <p className="mt-2 text-2xl font-bold text-red-600">R$ {totalMultasValor.toFixed(2)}</p>
-              <p className="mt-0.5 text-xs text-slate-400">{fines.length} ocorrência(s) formalizada(s)</p>
+              <p className="mt-0.5 text-xs text-slate-500">{fines.length} ocorrência(s) formalizada(s)</p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
@@ -196,7 +196,7 @@ function RelatoriosContent() {
               <p className="mt-2 text-2xl font-bold text-[#0B2545]">
                 {fines.length > 0 ? `${Math.round((totalMultasComCiencia / fines.length) * 100)}%` : '100%'}
               </p>
-              <p className="mt-0.5 text-xs text-slate-400">{totalMultasComCiencia} de {fines.length} com confirmação</p>
+              <p className="mt-0.5 text-xs text-slate-500">{totalMultasComCiencia} de {fines.length} com confirmação</p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
@@ -204,13 +204,13 @@ function RelatoriosContent() {
               <p className="mt-2 text-2xl font-bold text-emerald-600">
                 {totalRecursosDeferidos} / {totalRecursos}
               </p>
-              <p className="mt-0.5 text-xs text-slate-400">Recursos acolhidos pelo Síndico</p>
+              <p className="mt-0.5 text-xs text-slate-500">Recursos acolhidos pelo Síndico</p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reservas Aprovadas</span>
               <p className="mt-2 text-2xl font-bold text-[#00A8E8]">{totalReservasAprovadas}</p>
-              <p className="mt-0.5 text-xs text-slate-400">Eventos sociais realizados</p>
+              <p className="mt-0.5 text-xs text-slate-500">Eventos sociais realizados</p>
             </div>
           </div>
 
@@ -227,8 +227,8 @@ function RelatoriosContent() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+              <table className="stack-mobile w-full text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-bold text-slate-500 uppercase">
                   <tr>
                     <th className="px-4 py-3">Protocolo</th>
                     <th className="px-4 py-3">Unidade</th>
@@ -242,16 +242,16 @@ function RelatoriosContent() {
                 <tbody className="divide-y divide-slate-100">
                   {fines.map((f) => (
                     <tr key={f.id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 font-mono font-bold text-slate-900">{f.numeroProtocolo}</td>
-                      <td className="px-4 py-3 font-semibold text-[#0B2545]">Apto {f.unidade}-{f.bloco}</td>
-                      <td className="px-4 py-3 max-w-xs truncate text-slate-600" title={f.artigoRegimento}>
+                      <td data-label="Protocolo" className="px-4 py-3 font-mono font-bold text-slate-900">{f.numeroProtocolo}</td>
+                      <td data-label="Unidade" className="px-4 py-3 font-semibold text-[#0B2545]">Apto {f.unidade}-{f.bloco}</td>
+                      <td data-label="Infração / Artigo" className="px-4 py-3 max-w-xs truncate text-slate-600" title={f.artigoRegimento}>
                         {f.artigoRegimento}
                       </td>
-                      <td className="px-4 py-3 text-slate-500">{f.dataEmissao}</td>
-                      <td className="px-4 py-3 font-bold text-slate-900">
+                      <td data-label="Data" className="px-4 py-3 text-slate-500">{f.dataEmissao}</td>
+                      <td data-label="Valor" className="px-4 py-3 font-bold text-slate-900">
                         {f.valor > 0 ? `R$ ${f.valor.toFixed(2)}` : 'Advertência'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="Ciência" className="px-4 py-3">
                         {f.ciencia ? (
                           <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
                             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -261,13 +261,13 @@ function RelatoriosContent() {
                           <span className="text-amber-700 font-medium">Pendente</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="Recurso" className="px-4 py-3">
                         {f.recurso ? (
                           <span className="font-semibold text-slate-800">
                             {f.recurso.status === 'DEFERIDO' ? 'Deferido' : f.recurso.status === 'INDEFERIDO' ? 'Indeferido' : 'Em Análise'}
                           </span>
                         ) : (
-                          <span className="text-slate-400">Não apresentado</span>
+                          <span className="text-slate-500">Não apresentado</span>
                         )}
                       </td>
                     </tr>
@@ -320,7 +320,7 @@ function RelatoriosContent() {
                 </p>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-200 text-[11px] text-slate-400">
+              <div className="mt-6 pt-4 border-t border-slate-200 text-[12px] text-slate-500">
                 Aguardando assinatura do Conselho Fiscal.
               </div>
             </div>
@@ -356,7 +356,7 @@ function RelatoriosContent() {
                 placeholder="Filtrar por ação ou autor..."
                 value={buscaAuditoria}
                 onChange={(e) => setBuscaAuditoria(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-hidden"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-hidden"
               />
             </div>
           </div>
@@ -370,12 +370,12 @@ function RelatoriosContent() {
                   Trilha de Auditoria do Sistema ({logsFiltrados.length} evento{logsFiltrados.length === 1 ? '' : 's'})
                 </h2>
               </div>
-              <span className="text-[11px] text-slate-500">Ordenado por data decrescente</span>
+              <span className="text-[12px] text-slate-500">Ordenado por data decrescente</span>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+              <table className="stack-mobile w-full text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-bold text-slate-500 uppercase">
                   <tr>
                     <th className="px-4 py-3">Data / Hora</th>
                     <th className="px-4 py-3">Responsável</th>
@@ -387,26 +387,26 @@ function RelatoriosContent() {
                 <tbody className="divide-y divide-slate-100">
                   {logsFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
+                      <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
                         Nenhum registro de auditoria encontrado para o filtro selecionado.
                       </td>
                     </tr>
                   ) : (
                     logsFiltrados.map((log) => (
                       <tr key={log.id} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                        <td data-label="Data / Hora" className="px-4 py-3 whitespace-nowrap font-mono text-[12px] text-slate-500">
                           {new Date(log.createdAt).toLocaleString('pt-BR')}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td data-label="Responsável" className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             <span className="font-semibold text-slate-800">{log.usuarioNome}</span>
-                            <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                            <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[12px] font-medium text-slate-600">
                               {log.usuarioRole}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        <td data-label="Módulo" className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[12px] font-bold ${
                             log.modulo === 'MULTAS'
                               ? 'bg-red-50 text-red-700 border border-red-100'
                               : log.modulo === 'RESERVAS'
@@ -422,12 +422,12 @@ function RelatoriosContent() {
                             {log.modulo}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-700 font-medium">
+                        <td data-label="Ação Realizada" className="px-4 py-3 text-slate-700 font-medium">
                           {log.acao}
                         </td>
-                        <td className="px-4 py-3 text-slate-500 max-w-xs truncate" title={log.detalhes ? JSON.stringify(log.detalhes) : ''}>
+                        <td data-label="Detalhes Adicionais" className="px-4 py-3 text-slate-500 max-w-xs truncate" title={log.detalhes ? JSON.stringify(log.detalhes) : ''}>
                           {log.detalhes ? (
-                            <span className="font-mono text-[11px]">
+                            <span className="font-mono text-[12px]">
                               {Object.entries(log.detalhes)
                                 .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
                                 .join(' | ')}

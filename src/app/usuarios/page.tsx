@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { useDialog } from '@/components/ui/DialogProvider';
 import { useApp } from '@/context/AppContext';
 import { Role } from '@/types';
 import { isAdmin, ROLE_LABELS, SINGLETON_ROLES } from '@/lib/roles';
@@ -42,6 +43,7 @@ function UsuariosContent() {
     deleteSystemUser,
     generatePasswordResetLink,
   } = useApp();
+  const { confirm } = useDialog();
 
   const [showModal, setShowModal] = useState(false);
   const [nome, setNome] = useState('');
@@ -128,7 +130,7 @@ function UsuariosContent() {
   };
 
   const handleDeleteUser = async (userId: string, nome: string) => {
-    if (!confirm(`Tem certeza que deseja excluir o acesso de ${nome}? Essa ação não pode ser desfeita.`)) return;
+    if (!(await confirm({ title: `Excluir o acesso de ${nome}?`, message: 'Essa ação não pode ser desfeita.', confirmLabel: 'Excluir acesso', destructive: true }))) return;
     const res = await deleteSystemUser(userId);
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
@@ -194,7 +196,7 @@ function UsuariosContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -208,8 +210,8 @@ function UsuariosContent() {
           </h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+          <table className="stack-mobile w-full text-left text-xs">
+            <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-bold text-slate-500 uppercase">
               <tr>
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">E-mail</th>
@@ -226,23 +228,23 @@ function UsuariosContent() {
               ) : (
                 systemUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 font-semibold text-slate-900">{u.name}</td>
-                    <td className="px-4 py-3 text-slate-600">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                    <td data-label="Nome" className="px-4 py-3 font-semibold text-slate-900">{u.name}</td>
+                    <td data-label="E-mail" className="px-4 py-3 text-slate-600">{u.email}</td>
+                    <td data-label="Perfil" className="px-4 py-3">
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-700">
                         {ROLE_LABELS[u.role]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-500">
+                    <td data-label="Unidade" className="px-4 py-3 text-slate-500">
                       {u.unidade ? `Apto ${u.unidade}-${u.bloco}` : '—'}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td data-label="Ações" className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleResetPassword(u.id)}
                           title="Gerar link de redefinição de senha"
                           aria-label={`Gerar link de redefinição de senha de ${u.name}`}
-                          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+                          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
                         >
                           {copiedId === `reset-${u.id}` ? (
                             <>
@@ -261,7 +263,7 @@ function UsuariosContent() {
                             onClick={() => handleDeleteUser(u.id, u.name)}
                             title="Excluir acesso"
                             aria-label={`Excluir acesso de ${u.name}`}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -295,8 +297,8 @@ function UsuariosContent() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+          <table className="stack-mobile w-full text-left text-xs">
+            <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-bold text-slate-500 uppercase">
               <tr>
                 <th className="px-4 py-3 w-8">
                   {pendentes.length > 0 && (
@@ -339,30 +341,30 @@ function UsuariosContent() {
                           />
                         )}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900">
+                      <td data-label="Nome" className="px-4 py-3 font-semibold text-slate-900">
                         {i.nome}
-                        {i.unidade && <span className="ml-1.5 text-[11px] text-slate-500">Apto {i.unidade}-{i.bloco}</span>}
+                        {i.unidade && <span className="ml-1.5 text-[12px] text-slate-500">Apto {i.unidade}-{i.bloco}</span>}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">{i.email}</td>
-                      <td className="px-4 py-3">
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                      <td data-label="E-mail" className="px-4 py-3 text-slate-600">{i.email}</td>
+                      <td data-label="Perfil" className="px-4 py-3">
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-700">
                           {ROLE_LABELS[i.role]}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${st.bg} ${st.text}`} title={i.erroMensagem}>
+                      <td data-label="Status" className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold ${st.bg} ${st.text}`} title={i.erroMensagem}>
                           {st.icon}
                           <span>{st.label}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td data-label="Ações" className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {i.status === 'ENVIADO' && (
                             <button
                               onClick={() => handleCopyLink(i.id, i.linkAcesso)}
                               title="Copiar link de acesso"
                               aria-label={`Copiar link de acesso de ${i.nome}`}
-                              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 transition"
+                              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-100 transition"
                             >
                               {copiedId === i.id ? (
                                 <>
@@ -382,7 +384,7 @@ function UsuariosContent() {
                               onClick={() => cancelPendingInvite(i.id)}
                               title={i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite'}
                               aria-label={`${i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite de'} ${i.nome}`}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                              className="rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -413,7 +415,7 @@ function UsuariosContent() {
                 <UserCog className="h-5 w-5 text-[#00A8E8]" />
                 <h3 id="usuario-modal-title" className="text-base font-bold text-slate-900">Novo Usuário da Equipe</h3>
               </div>
-              <button onClick={() => setShowModal(false)} aria-label="Fechar" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+              <button onClick={() => setShowModal(false)} aria-label="Fechar" className="rounded-lg p-1 text-slate-500 hover:bg-slate-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -455,7 +457,7 @@ function UsuariosContent() {
                     </option>
                   ))}
                 </select>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[12px] text-slate-500">
                   Síndico e Administradora só podem ter um titular ativo por vez.
                 </span>
               </div>

@@ -1,9 +1,10 @@
 'use client';
 
 import React, { Suspense, useState } from 'react';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Lock, Mail, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 function traduzirErroReset(message: string): string {
   if (message.toLowerCase().includes('rate limit')) {
@@ -25,6 +26,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -78,13 +80,14 @@ function LoginForm() {
 
         {/* LOGO OFICIAL — Requisito: No login */}
         <div className="flex justify-center">
-          <div className="rounded-3xl bg-white/10 p-4 shadow-2xl backdrop-blur-md ring-1 ring-white/20">
-            <img
-              src="/images/logo.png"
-              alt="Harmony Residence Logo"
-              className="h-28 w-auto object-contain drop-shadow-md"
-            />
-          </div>
+          <Image
+            src="/images/logo.png"
+            alt="Harmony Residence Logo"
+            width={562}
+            height={508}
+            preload
+            className="h-28 w-auto rounded-3xl object-contain shadow-2xl ring-1 ring-white/20"
+          />
         </div>
 
         <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
@@ -96,7 +99,7 @@ function LoginForm() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="rounded-3xl border border-white/10 bg-white/95 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="rounded-3xl border border-white/10 bg-white p-8 shadow-2xl">
 
           <form className="space-y-4" onSubmit={handleLogin}>
             {senhaCriada && (
@@ -111,16 +114,18 @@ function LoginForm() {
               </label>
               <div className="relative mt-1">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Mail className="h-4 w-4 text-slate-400" />
+                  <Mail className="h-4 w-4 text-slate-500" />
                 </div>
                 <input
                   type="email"
                   id="email"
+                  autoComplete="email"
+                  inputMode="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu.email@condominio.com"
                   required
-                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
               </div>
             </div>
@@ -131,17 +136,27 @@ function LoginForm() {
               </label>
               <div className="relative mt-1">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <Lock className="h-4 w-4 text-slate-400" />
+                  <Lock className="h-4 w-4 text-slate-500" />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   id="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-11 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-slate-500 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00A8E8]/40"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
@@ -186,7 +201,7 @@ function LoginForm() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-[11px] text-slate-500">
+          <p className="mt-6 text-center text-[12px] text-slate-500">
             Não tem acesso? Entre em contato com o síndico do condomínio.
           </p>
         </div>

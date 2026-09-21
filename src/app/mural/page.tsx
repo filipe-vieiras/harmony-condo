@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { NoticeCategory } from '@/types';
+import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 import { isAdmin } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
@@ -122,13 +123,13 @@ function MuralContent() {
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-center gap-3 no-print">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Pesquisar comunicados por palavra-chave..."
-            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
           />
         </div>
 
@@ -176,11 +177,11 @@ function MuralContent() {
                         : 'bg-slate-100 text-slate-800'
                     }`}
                   >
-                    {n.categoria}
+                    {NOTICE_CATEGORY_LABELS[n.categoria]}
                   </span>
 
                   {n.fixado && (
-                    <span className="flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-[#0A6E9C]">
+                    <span className="flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[12px] font-semibold text-[#0A6E9C]">
                       <Pin className="h-3 w-3" />
                       <span>Fixado</span>
                     </span>
@@ -196,7 +197,7 @@ function MuralContent() {
                   {isAdmin(currentUser.role) && (
                     <button
                       onClick={() => deleteNotice(n.id)}
-                      className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition no-print"
+                      className="rounded-lg p-1 text-slate-500 hover:bg-red-50 hover:text-red-600 transition no-print"
                       title="Excluir comunicado"
                       aria-label="Excluir comunicado"
                     >
@@ -216,7 +217,7 @@ function MuralContent() {
 
               <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
                 <div className="flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5 text-slate-400" />
+                  <User className="h-3.5 w-3.5 text-slate-500" />
                   <span>Publicado por: <strong className="text-slate-800">{n.autor}</strong></span>
                 </div>
 
@@ -252,7 +253,7 @@ function MuralContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>

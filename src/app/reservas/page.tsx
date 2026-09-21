@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
+import { useDialog } from '@/components/ui/DialogProvider';
 import { useApp } from '@/context/AppContext';
 import { ReservationStatus, CommonSpace } from '@/types';
 import { isAdmin } from '@/lib/roles';
@@ -48,6 +49,8 @@ function ReservasContent() {
     requestReservation, 
     judgeReservation 
   } = useApp();
+  const { confirm, askReason } = useDialog();
+  const [reservaFormError, setReservaFormError] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState(spaces[0]?.id || '');
@@ -142,7 +145,7 @@ function ReservasContent() {
   };
 
   const handleDeleteSpace = async (id: string, nome: string) => {
-    if (confirm(`Tem certeza que deseja remover o espaço "${nome}"?`)) {
+    if (await confirm({ title: `Remover o espaço "${nome}"?`, message: 'Reservas futuras desse espaço deixam de fazer sentido. Prefira desativar se for temporário.', confirmLabel: 'Remover espaço', destructive: true })) {
       const res = await deleteSpace(id);
       setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     }
@@ -166,12 +169,13 @@ function ReservasContent() {
 
   const handleCreateReservation = async (e: React.FormEvent) => {
     e.preventDefault();
+    setReservaFormError(null);
     if (!termoAceito) {
-      alert('É obrigatório aceitar o regulamento e normas de uso do espaço.');
+      setReservaFormError('É obrigatório aceitar o regulamento e normas de uso do espaço.');
       return;
     }
     if (isStaff && !reservaMoradorNome.trim()) {
-      alert('Informe o nome do morador para quem a reserva está sendo registrada.');
+      setReservaFormError('Informe o nome do morador para quem a reserva está sendo registrada.');
       return;
     }
 
@@ -241,6 +245,7 @@ function ReservasContent() {
           <button
             onClick={() => {
               setFeedbackMsg(null);
+              setReservaFormError(null);
               setShowModal(true);
             }}
             className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074]"
@@ -268,7 +273,7 @@ function ReservasContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -298,11 +303,11 @@ function ReservasContent() {
                     alt={spc.nome}
                     className="h-full w-full object-cover"
                   />
-                  <div className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-md">
+                  <div className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[12px] font-bold text-white backdrop-blur-md">
                     Capacidade: até {spc.capacidadeMax} pessoas
                   </div>
                   {!isAtivo && (
-                    <div className="absolute top-2 left-2 rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
+                    <div className="absolute top-2 left-2 rounded-lg bg-amber-600 px-2.5 py-1 text-[12px] font-bold text-white shadow-md">
                       Em Manutenção / Inativo
                     </div>
                   )}
@@ -355,7 +360,7 @@ function ReservasContent() {
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600 space-y-1">
+                  <div className="mt-3 rounded-xl bg-slate-50 p-2.5 text-[12px] text-slate-600 space-y-1">
                     <p className="font-bold text-slate-700">Regras Principais:</p>
                     {spc.regras.slice(0, 2).map((r, i) => (
                       <p key={i}>• {r}</p>
@@ -370,12 +375,13 @@ function ReservasContent() {
                   disabled={!isAtivo}
                   onClick={() => {
                     setSelectedSpaceId(spc.id);
+                    setReservaFormError(null);
                     setShowModal(true);
                   }}
                   className={`w-full rounded-xl py-2.5 text-xs font-bold transition ${
                     isAtivo
                       ? 'bg-slate-100 text-[#0B2545] hover:bg-[#0B2545] hover:text-white'
-                      : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'bg-slate-100 text-slate-500 cursor-not-allowed'
                   }`}
                 >
                   {isAtivo ? 'Agendar Este Espaço' : 'Indisponível no Momento'}
@@ -400,8 +406,8 @@ function ReservasContent() {
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+            <table className="stack-mobile w-full text-left text-xs">
+              <thead className="border-b border-slate-200 bg-slate-50/75 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
                 <tr>
                   <th className="px-5 py-3.5">Espaço Comum</th>
                   <th className="px-5 py-3.5">Data & Turno</th>
@@ -426,27 +432,27 @@ function ReservasContent() {
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/60 transition">
-                        <td className="px-5 py-3.5 font-bold text-slate-900">
+                        <td data-label="Espaço Comum" className="px-5 py-3.5 font-bold text-slate-900">
                           {r.espacoNome}
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td data-label="Data & Turno" className="px-5 py-3.5">
                           <div className="font-semibold text-slate-900">{r.data}</div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-[12px] text-slate-500">
                             {r.horarioInicio} às {r.horarioFim}
                           </div>
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td data-label="Unidade / Morador" className="px-5 py-3.5">
                           <div className="font-bold text-[#0B2545]">
                             Apto {r.unidade} - Bloco {r.bloco}
                           </div>
-                          <div className="text-[11px] text-slate-500">{r.moradorNome}</div>
+                          <div className="text-[12px] text-slate-500">{r.moradorNome}</div>
                         </td>
-                        <td className="px-5 py-3.5">
+                        <td data-label="Status" className="px-5 py-3.5">
                           <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${st.bg} ${st.text}`}>
                             {st.label}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-[11px] text-slate-600">
+                        <td data-label="Avaliação / Parecer" className="px-5 py-3.5 text-[12px] text-slate-600">
                           {r.status === 'APROVADA' && (
                             <span className="text-emerald-700 font-semibold">
                               Aprovado por {r.avaliadoPor || 'Administração'} em {r.dataAvaliacao || r.dataSolicitacao}
@@ -464,7 +470,7 @@ function ReservasContent() {
                           )}
                         </td>
                         {isAdmin(currentUser?.role) && (
-                          <td className="px-5 py-3.5 text-right no-print">
+                          <td data-label="Aprovação do Síndico" className="px-5 py-3.5 text-right no-print">
                             {r.status === 'PENDENTE' ? (
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
@@ -476,9 +482,14 @@ function ReservasContent() {
                                   <span>Aprovar</span>
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    const motivo = prompt('Informe a justificativa da recusa:') || 'Data com manutenção programada.';
-                                    judgeReservation(r.id, false, motivo);
+                                  onClick={async () => {
+                                    const motivo = await askReason({
+                                      title: 'Recusar reserva',
+                                      message: `${r.espacoNome} em ${r.data}, Apto ${r.unidade}-${r.bloco}.`,
+                                      label: 'Justificativa da recusa',
+                                      confirmLabel: 'Recusar reserva',
+                                    });
+                                    if (motivo) judgeReservation(r.id, false, motivo);
                                   }}
                                   className="flex items-center gap-1 rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold text-red-700 transition hover:bg-red-50"
                                   title="Recusar reserva"
@@ -488,7 +499,7 @@ function ReservasContent() {
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-[11px] text-slate-500">Processado</span>
+                              <span className="text-[12px] text-slate-500">Processado</span>
                             )}
                           </td>
                         )}
@@ -520,7 +531,7 @@ function ReservasContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -545,7 +556,7 @@ function ReservasContent() {
 
               {isStaff && (
                 <div className="rounded-xl border border-sky-200 bg-sky-50 p-3.5 space-y-3">
-                  <p className="text-[11px] font-bold text-sky-900">
+                  <p className="text-[12px] font-bold text-sky-900">
                     Registrando em nome de um morador (ex: pedido recebido por telefone)
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -645,7 +656,7 @@ function ReservasContent() {
                   <Clock className="h-4 w-4 text-amber-700" />
                   <span>Aprovação Obrigatória:</span>
                 </div>
-                <p className="mt-1 text-[11px] text-amber-800">
+                <p className="mt-1 text-[12px] text-amber-800">
                   Conforme determinado pela convenção, a sua solicitação será enviada ao Síndico com status <strong>PENDENTE</strong>. A reserva só estará confirmada após o deferimento pelo gestor.
                 </p>
               </div>
@@ -658,10 +669,17 @@ function ReservasContent() {
                   onChange={(e) => setTermoAceito(e.target.checked)}
                   className="mt-0.5 rounded border-slate-300 text-[#0B2545] focus:ring-[#00A8E8]"
                 />
-                <span className="text-[11px] text-slate-600 leading-tight">
+                <span className="text-[12px] text-slate-600 leading-tight">
                   Declaro ter lido as regras de uso do espaço, responsabilizando-me pela integridade do mobiliário, higienização e respeito à lei do silêncio às 22h00.
                 </span>
               </label>
+
+              {reservaFormError && (
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                  <span>{reservaFormError}</span>
+                </div>
+              )}
 
               <div className="mt-5 flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
@@ -706,7 +724,7 @@ function ReservasContent() {
               <button
                 onClick={() => setShowSpaceModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -789,7 +807,7 @@ function ReservasContent() {
                   onChange={(e) => setSpaceImagemUrl(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[12px] text-slate-500">
                   Insira o link direto de uma imagem hospedada externamente (Google Drive, Unsplash, etc.)
                 </span>
               </div>

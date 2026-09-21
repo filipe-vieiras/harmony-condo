@@ -4,12 +4,14 @@ import React, { useState } from 'react';
 import { AppProvider } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { DialogProvider } from '@/components/ui/DialogProvider';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <AppProvider>
+      <DialogProvider>
       <div className="flex min-h-screen flex-col bg-[#F4F7FB]">
         {/* Header no topo */}
         <Header 
@@ -48,6 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      </DialogProvider>
     </AppProvider>
   );
 }

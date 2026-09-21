@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
+import { useDialog } from '@/components/ui/DialogProvider';
 import { useApp } from '@/context/AppContext';
 import { DocumentLink } from '@/types';
 import { isAdmin } from '@/lib/roles';
@@ -34,6 +35,7 @@ export default function LinksPage() {
 
 function LinksContent() {
   const { currentUser, documents, addDocument, deleteDocument, zelador, updateZelador, portalAdministradora, updatePortalAdministradora } = useApp();
+  const { confirm } = useDialog();
 
   const [showModal, setShowModal] = useState(false);
   const [titulo, setTitulo] = useState('');
@@ -120,7 +122,7 @@ function LinksContent() {
   };
 
   const handleDelete = async (id: string, itemTitulo: string) => {
-    if (confirm(`Tem certeza que deseja remover "${itemTitulo}"?`)) {
+    if (await confirm({ title: `Remover "${itemTitulo}"?`, message: 'O item deixa de aparecer para todos os moradores.', confirmLabel: 'Remover', destructive: true })) {
       const res = await deleteDocument(id);
       setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     }
@@ -189,7 +191,7 @@ function LinksContent() {
               )}
               <span>{feedbackMsg.text}</span>
             </div>
-            <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -213,7 +215,7 @@ function LinksContent() {
                     <PhoneCall className="h-5 w-5" />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-600">
                       Emergência
                     </span>
                     {isSindico && (
@@ -221,7 +223,7 @@ function LinksContent() {
                         onClick={() => handleDelete(c.id, c.titulo)}
                         title="Excluir Contato"
                         aria-label={`Excluir contato ${c.titulo}`}
-                        className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 no-print"
+                        className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-red-50 hover:text-red-600 no-print"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -264,7 +266,7 @@ function LinksContent() {
                   <Wrench className="h-5 w-5" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-600">
                     Zeladoria
                   </span>
                   {isSindico && (
@@ -272,7 +274,7 @@ function LinksContent() {
                       onClick={handleOpenZeladorModal}
                       title="Editar Dados do Zelador"
                       aria-label="Editar dados do zelador"
-                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
+                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -309,7 +311,7 @@ function LinksContent() {
                   <Building className="h-5 w-5" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-[#0B2545]">
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[12px] font-bold text-[#0B2545]">
                     Financeiro
                   </span>
                   {isSindico && (
@@ -317,7 +319,7 @@ function LinksContent() {
                       onClick={handleOpenPortalModal}
                       title="Editar Portal da Administradora"
                       aria-label="Editar Portal da Administradora"
-                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
+                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -369,11 +371,11 @@ function LinksContent() {
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-[#0B2545]">
+                      <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[12px] font-bold text-[#0B2545]">
                         {doc.categoria}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-[12px] text-slate-500">
                           Atualizado em {doc.dataAtualizacao}
                         </span>
                         {isSindico && (
@@ -381,7 +383,7 @@ function LinksContent() {
                             onClick={() => handleDelete(doc.id, doc.titulo)}
                             title="Excluir Documento"
                             aria-label={`Excluir documento ${doc.titulo}`}
-                            className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 no-print"
+                            className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-red-50 hover:text-red-600 no-print"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -396,7 +398,7 @@ function LinksContent() {
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
-                    <span className="text-slate-500 font-mono text-[11px]">
+                    <span className="text-slate-500 font-mono text-[12px]">
                       {doc.tamanhoArquivo || 'Link Externo'}
                     </span>
 
@@ -434,7 +436,7 @@ function LinksContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -524,7 +526,7 @@ function LinksContent() {
                   onChange={(e) => setLinkExterno(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
                 />
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[12px] text-slate-500">
                   Insira a URL pública ou compartilhada do arquivo para os moradores acessarem.
                 </span>
               </div>
@@ -567,7 +569,7 @@ function LinksContent() {
               <button
                 onClick={() => setShowZeladorModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -660,7 +662,7 @@ function LinksContent() {
               <button
                 onClick={() => setShowPortalModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
