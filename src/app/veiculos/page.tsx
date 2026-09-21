@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
@@ -49,6 +49,14 @@ function VeiculosContent() {
   const [status, setStatus] = useState<'ATIVO' | 'VISITANTE'>('ATIVO');
 
   useEscapeToClose(showModal, () => setShowModal(false));
+
+  // O perfil do usuário carrega de forma assíncrona — se o componente monta
+  // antes disso, o useState inicial fica preso no valor padrão ('101'/'A').
+  // Sincroniza assim que os dados reais do morador chegam.
+  useEffect(() => {
+    if (currentUser?.unidade) setUnidade(currentUser.unidade);
+    if (currentUser?.bloco) setBloco(currentUser.bloco);
+  }, [currentUser?.unidade, currentUser?.bloco]);
 
   const filteredVehicles = vehicles.filter((v) => {
     const term = searchTerm.toLowerCase();
