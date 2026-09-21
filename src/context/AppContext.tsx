@@ -51,9 +51,9 @@ interface AppContextType {
   deleteNotice: (id: string) => Promise<void>;
   fines: FineNotice[];
   addFine: (fine: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status' | 'evidencias' | 'ciencia' | 'recurso'>) => Promise<{ success: boolean; message: string }>;
-  confirmFineScience: (fineId: string) => Promise<void>;
-  submitFineAppeal: (fineId: string, texto: string, anexoNome?: string) => Promise<void>;
-  judgeFineAppeal: (fineId: string, deferido: boolean, resposta: string) => Promise<void>;
+  confirmFineScience: (fineId: string) => Promise<{ success: boolean; message: string }>;
+  submitFineAppeal: (fineId: string, texto: string, anexoNome?: string) => Promise<{ success: boolean; message: string }>;
+  judgeFineAppeal: (fineId: string, deferido: boolean, resposta: string) => Promise<{ success: boolean; message: string }>;
   spaces: CommonSpace[];
   addSpace: (space: Omit<CommonSpace, 'id'>) => Promise<void>;
   updateSpace: (id: string, space: Partial<Omit<CommonSpace, 'id'>>) => Promise<void>;
@@ -548,17 +548,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true, message: `Notificação ${protocolNumber} emitida com sucesso.` };
   };
 
-  const confirmFineScience = async (fineId: string) => {
+  const confirmFineScience = async (fineId: string): Promise<{ success: boolean; message: string }> => {
     const timestamp = new Date().toISOString();
     const updated = await updateFineDB(supabase, fineId, {
       status: 'CIENCIA_REGISTRADA',
       ciencia_data: timestamp,
       ciencia_usuario_nome: currentUser?.name ?? 'Usuário',
     });
-    if (updated) setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
+    if (!updated) return { success: false, message: 'Erro ao registrar ciência. Tente novamente.' };
+    setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
+    return { success: true, message: 'Ciência registrada com sucesso.' };
   };
 
-  const submitFineAppeal = async (fineId: string, texto: string, anexoNome?: string) => {
+  const submitFineAppeal = async (fineId: string, texto: string, anexoNome?: string): Promise<{ success: boolean; message: string }> => {
     const timestamp = new Date().toISOString();
     const updated = await updateFineDB(supabase, fineId, {
       status: 'EM_RECURSO',
@@ -567,7 +569,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       recurso_status: 'EM_ANALISE',
       recurso_anexo_nome: anexoNome ?? null,
     });
-    if (!updated) return;
+    if (!updated) return { success: false, message: 'Erro ao protocolar o recurso. Tente novamente.' };
     setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
     await insertNotification(supabase, {
       titulo: 'Novo Recurso de Multa Protocolado',
@@ -576,9 +578,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       perfilAlvo: 'SINDICO',
       linkDestino: `/multas/${fineId}`,
     });
+    return { success: true, message: 'Recurso protocolado com sucesso.' };
   };
 
-  const judgeFineAppeal = async (fineId: string, deferido: boolean, resposta: string) => {
+  const judgeFineAppeal = async (fineId: string, deferido: boolean, resposta: string): Promise<{ success: boolean; message: string }> => {
     const timestamp = new Date().toISOString();
     const updated = await updateFineDB(supabase, fineId, {
       status: deferido ? 'RECURSO_DEFERIDO' : 'RECURSO_INDEFERIDO',
@@ -587,14 +590,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       recurso_status: deferido ? 'DEFERIDO' : 'INDEFERIDO',
       recurso_analisado_por: currentUser?.name ?? 'Síndico',
     });
-    if (updated) {
-      setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
-      await recordAudit(
-        deferido ? `Deferiu recurso da notificação` : `Indeferiu recurso da notificação`,
-        'MULTAS',
-        { fineId, deferido, resposta }
-      );
-    }
+    if (!updated) return { success: false, message: 'Erro ao registrar a decisão. Tente novamente.' };
+    setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
+    await recordAudit(
+      deferido ? `Deferiu recurso da notificação` : `Indeferiu recurso da notificação`,
+      'MULTAS',
+      { fineId, deferido, resposta }
+    );
+    return { success: true, message: deferido ? 'Recurso deferido — multa anulada.' : 'Recurso indeferido — multa mantida.' };
   };
 
   // ── SPACES ──

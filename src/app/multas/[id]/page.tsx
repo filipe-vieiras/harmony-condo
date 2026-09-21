@@ -47,6 +47,7 @@ function MultaDetalheContent() {
   const [anexoNome, setAnexoNome] = useState('');
   const [respostaSindico, setRespostaSindico] = useState('');
   const [showRecursoForm, setShowRecursoForm] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fine = fines.find((f) => f.id === id);
 
@@ -89,24 +90,27 @@ function MultaDetalheContent() {
     );
   }
 
-  const handleConfirmScience = () => {
-    confirmFineScience(fine.id);
+  const handleConfirmScience = async () => {
+    const res = await confirmFineScience(fine.id);
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
 
-  const handleSendAppeal = (e: React.FormEvent) => {
+  const handleSendAppeal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!textoRecurso.trim()) return;
-    submitFineAppeal(fine.id, textoRecurso, anexoNome || 'Comprovante_Anexo.pdf');
-    setShowRecursoForm(false);
+    const res = await submitFineAppeal(fine.id, textoRecurso, anexoNome || 'Comprovante_Anexo.pdf');
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+    if (res.success) setShowRecursoForm(false);
   };
 
-  const handleJudge = (deferido: boolean) => {
+  const handleJudge = async (deferido: boolean) => {
     if (!respostaSindico.trim()) {
       alert('Por favor, informe a justificativa da decisão.');
       return;
     }
-    judgeFineAppeal(fine.id, deferido, respostaSindico);
-    setRespostaSindico('');
+    const res = await judgeFineAppeal(fine.id, deferido, respostaSindico);
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+    if (res.success) setRespostaSindico('');
   };
 
   if (!currentUser) return null;
@@ -139,6 +143,29 @@ function MultaDetalheContent() {
           <span>Imprimir Notificação Oficial</span>
         </button>
       </div>
+
+      {/* Mensagem de Feedback */}
+      {feedbackMsg && (
+        <div
+          className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
+            feedbackMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+              : 'bg-red-50 text-red-900 border border-red-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {feedbackMsg.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            )}
+            <span>{feedbackMsg.text}</span>
+          </div>
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Card Principal do Auto de Infração */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
