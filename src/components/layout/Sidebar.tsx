@@ -122,7 +122,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
           <p className="mt-1 text-xs font-bold text-slate-900">
             {currentUser?.name ?? 'Carregando...'}
           </p>
-          <p className="text-[11px] text-slate-600">
+          <p className="text-[12px] text-slate-600">
             {currentUser?.cargo || (currentUser?.unidade ? `Unidade ${currentUser.unidade}-${currentUser.bloco}` : '')}
           </p>
         </div>
@@ -150,11 +150,11 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
                 </div>
 
                 {item.badgeCount && item.badgeCount > 0 ? (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[12px] font-bold text-white">
                     {item.badgeCount}
                   </span>
                 ) : item.badge ? (
-                  <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                  <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[12px] font-bold text-emerald-800">
                     {item.badge}
                   </span>
                 ) : null}
@@ -175,7 +175,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
           <span>Imprimir / Gerar PDF</span>
         </button>
 
-        <div className="px-2 text-[10px] text-slate-400 text-center">
+        <div className="px-2 text-[12px] text-slate-500 text-center">
           Harmony Residence • Versão 1.0
         </div>
       </div>

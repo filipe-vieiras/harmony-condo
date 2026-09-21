@@ -201,7 +201,7 @@ function MultasContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -210,13 +210,13 @@ function MultasContent() {
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-center gap-3 no-print">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por protocolo, artigo, morador ou apartamento..."
-            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
           />
         </div>
 
@@ -344,7 +344,7 @@ function MultasContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -382,7 +382,7 @@ function MultasContent() {
                 <div>
                   <label htmlFor="multa-unidade" className="block text-xs font-semibold text-slate-700">Unidade Infratora</label>
                   {units.length === 0 ? (
-                    <p className="mt-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                    <p className="mt-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
                       Nenhuma unidade cadastrada. Cadastre a unidade em Moradores antes de emitir uma notificação.
                     </p>
                   ) : (
@@ -426,7 +426,7 @@ function MultasContent() {
                   value={selectedUnit ? moradorResponsavel(selectedUnit) : ''}
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-600"
                 />
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-[12px] text-slate-500">
                   Preenchido automaticamente com o morador principal da unidade — a notificação é sempre atribuída a ele, mesmo quando a infração foi de um visitante.
                 </p>
               </div>

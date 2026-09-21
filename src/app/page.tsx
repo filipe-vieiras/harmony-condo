@@ -2,8 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { AppShell } from '@/components/layout/AppShell';
 import { useApp } from '@/context/AppContext';
+import { useDialog } from '@/components/ui/DialogProvider';
+import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 import { isAdmin } from '@/lib/roles';
 import {
   Users,
@@ -37,14 +40,17 @@ function DashboardContent() {
     fines, 
     notices, 
     reservations, 
-    judgeReservation 
+    judgeReservation,
+    zelador,
   } = useApp();
+  const { askReason } = useDialog();
 
   const [searchPlate, setSearchPlate] = useState('');
 
+  if (!currentUser) return <DashboardSkeleton />;
+
   // Filtros de acordo com o papel ativo
   const pendingReservations = reservations.filter((r) => r.status === 'PENDENTE');
-  if (!currentUser) return null;
   const myReservations = reservations.filter((r) => r.unidade === currentUser.unidade);
   const myFines = fines.filter((f) => f.unidade === currentUser.unidade);
   const pendingScienceFines = myFines.filter((f) => f.status === 'PENDENTE_CIENCIA');
@@ -59,15 +65,13 @@ function DashboardContent() {
       )
     : [];
 
-  if (!currentUser) return false;
-
   return (
     <div className="space-y-6">
       
       {/* Banner de Boas-Vindas */}
       <div className="rounded-3xl bg-gradient-to-r from-[#0B2545] via-[#134074] to-[#1D4E89] p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
         <div className="absolute right-0 top-0 h-full w-1/3 opacity-10 pointer-events-none flex items-center justify-end pr-6">
-          <img src="/images/logo.png" alt="Harmony" className="h-48 w-auto object-contain" />
+          <Image src="/images/logo.png" alt="" width={562} height={508} aria-hidden="true" className="h-48 w-auto object-contain" />
         </div>
 
         <div className="relative z-10 max-w-2xl">
@@ -81,7 +85,9 @@ function DashboardContent() {
             {isAdmin(currentUser.role) && 'Painel de controle geral: gestão administrativa, ocorrências disciplinares e validação de reservas.'}
             {currentUser.role === 'PORTARIA' && 'Guarita de controle: identificação instantânea de veículos, consulta de moradores e agenda das áreas comuns.'}
             {currentUser.role === 'CONSELHO' && 'Auditoria e acompanhamento fiscal: fiscalização de multas, reservas e transparência condominial.'}
-            {currentUser.role === 'MORADOR' && `Gestão da Unidade ${currentUser.unidade || '304'} Bloco ${currentUser.bloco || 'A'}: seus comunicados, multas e reservas.`}
+            {currentUser.role === 'MORADOR' && (currentUser.unidade
+              ? `Gestão da Unidade ${currentUser.unidade} Bloco ${currentUser.bloco}: seus comunicados, multas e reservas.`
+              : 'Seus comunicados, multas e reservas.')}
           </p>
         </div>
       </div>
@@ -104,7 +110,7 @@ function DashboardContent() {
               value={searchPlate}
               onChange={(e) => setSearchPlate(e.target.value)}
               placeholder="Digite a placa (ex: BRA2E19) ou número do apartamento..."
-              className="w-full rounded-xl border border-emerald-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 uppercase font-mono font-semibold"
+              className="w-full rounded-xl border border-emerald-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 uppercase font-mono font-semibold"
             />
           </div>
 
@@ -123,7 +129,7 @@ function DashboardContent() {
                       </span>
                       <div>
                         <p className="text-xs font-bold text-slate-900">{v.marca} {v.modelo} ({v.cor})</p>
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-[12px] text-slate-500">
                           Morador: <strong className="text-slate-800">{v.proprietarioNome}</strong> • Contato: {v.telefoneContato}
                         </p>
                       </div>
@@ -132,7 +138,7 @@ function DashboardContent() {
                       <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
                         Apto {v.unidade} - Bloco {v.bloco}
                       </span>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Vaga: {v.vaga}</p>
+                      <p className="text-[12px] text-slate-500 mt-0.5">Vaga: {v.vaga}</p>
                     </div>
                   </div>
                 ))
@@ -241,7 +247,7 @@ function DashboardContent() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-xs text-slate-900">{r.espacoNome}</span>
-                    <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                    <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[12px] font-bold text-amber-800">
                       Pendente
                     </span>
                   </div>
@@ -259,9 +265,14 @@ function DashboardContent() {
                     <span>Aprovar</span>
                   </button>
                   <button
-                    onClick={() => {
-                      const motivo = prompt('Motivo da recusa da reserva:') || 'Data incompatível com manutenção.';
-                      judgeReservation(r.id, false, motivo);
+                    onClick={async () => {
+                      const motivo = await askReason({
+                        title: 'Recusar reserva',
+                        message: `${r.espacoNome} em ${r.data}, Apto ${r.unidade}-${r.bloco}.`,
+                        label: 'Justificativa da recusa',
+                        confirmLabel: 'Recusar reserva',
+                      });
+                      if (motivo) judgeReservation(r.id, false, motivo);
                     }}
                     className="flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50"
                   >
@@ -344,9 +355,9 @@ function DashboardContent() {
                         : 'bg-slate-100 text-slate-800'
                     }`}
                   >
-                    {notice.categoria}
+                    {NOTICE_CATEGORY_LABELS[notice.categoria]}
                   </span>
-                  <span className="text-slate-400">{notice.data}</span>
+                  <span className="text-slate-500">{notice.data}</span>
                 </div>
 
                 <h3 className="mt-2 text-sm font-bold text-slate-900">{notice.titulo}</h3>
@@ -381,10 +392,10 @@ function DashboardContent() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900">Reservar Espaço</p>
-                  <p className="text-[11px] text-slate-500">Salão nobre ou churrasqueira</p>
+                  <p className="text-[12px] text-slate-500">Salão nobre ou churrasqueira</p>
                 </div>
               </div>
-              <ArrowRight className="h-4 w-4 text-slate-400" />
+              <ArrowRight className="h-4 w-4 text-slate-500" />
             </Link>
 
             <Link
@@ -397,10 +408,10 @@ function DashboardContent() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900">Regimento Interno</p>
-                  <p className="text-[11px] text-slate-500">Normas e convenção em PDF</p>
+                  <p className="text-[12px] text-slate-500">Normas e convenção em PDF</p>
                 </div>
               </div>
-              <ArrowRight className="h-4 w-4 text-slate-400" />
+              <ArrowRight className="h-4 w-4 text-slate-500" />
             </Link>
 
             <Link
@@ -413,10 +424,10 @@ function DashboardContent() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900">Consultar Garagem</p>
-                  <p className="text-[11px] text-slate-500">Mapeamento de vagas e placas</p>
+                  <p className="text-[12px] text-slate-500">Mapeamento de vagas e placas</p>
                 </div>
               </div>
-              <ArrowRight className="h-4 w-4 text-slate-400" />
+              <ArrowRight className="h-4 w-4 text-slate-500" />
             </Link>
 
             {currentUser.role !== 'PORTARIA' && (
@@ -430,31 +441,62 @@ function DashboardContent() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-900">Painel de Infrações</p>
-                    <p className="text-[11px] text-slate-500">Controle formal de ciência</p>
+                    <p className="text-[12px] text-slate-500">Controle formal de ciência</p>
                   </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-400" />
+                <ArrowRight className="h-4 w-4 text-slate-500" />
               </Link>
             )}
           </div>
 
-          {/* Card de Contatos de Emergência */}
-          <div className="rounded-2xl border border-slate-200 bg-[#0B2545] p-5 text-white shadow-xs">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-200">
-              Plantão & Portaria
-            </h3>
-            <p className="mt-2 text-base font-bold text-white">(11) 3210-0001</p>
-            <p className="text-xs text-slate-300">Ramal da Guarita: 94 • 24 Horas</p>
-            <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-300">
-              <span>Zelador Sr. Antonio</span>
-              <span>Ramal 91</span>
+          {/* Zeladoria — dados vêm do cadastro em Links & Documentos */}
+          {zelador?.nome && (
+            <div className="rounded-2xl border border-slate-200 bg-[#0B2545] p-5 text-white shadow-xs">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-200">
+                Zeladoria
+              </h3>
+              <p className="mt-2 text-base font-bold text-white">{zelador.nome}</p>
+              {zelador.horarioAtendimento && (
+                <p className="text-xs text-slate-300">{zelador.horarioAtendimento}</p>
+              )}
+              {zelador.telefone && (
+                <div className="mt-3 pt-3 border-t border-white/10">
+                  <a
+                    href={`tel:${zelador.telefone.replace(/[^0-9]/g, '')}`}
+                    className="text-sm font-semibold text-cyan-100 hover:underline"
+                  >
+                    {zelador.telefone}
+                  </a>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
         </div>
 
       </div>
 
+    </div>
+  );
+}
+
+/** Esqueleto exibido enquanto o perfil do usuário ainda está carregando. */
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse" role="status" aria-label="Carregando painel">
+      <div className="h-40 rounded-3xl bg-slate-200" />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-32 rounded-2xl border border-slate-200 bg-white" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-3 lg:col-span-2">
+          <div className="h-28 rounded-2xl border border-slate-200 bg-white" />
+          <div className="h-28 rounded-2xl border border-slate-200 bg-white" />
+        </div>
+        <div className="h-64 rounded-2xl border border-slate-200 bg-white" />
+      </div>
     </div>
   );
 }

@@ -105,7 +105,7 @@ function MultaDetalheContent() {
 
   const handleJudge = async (deferido: boolean) => {
     if (!respostaSindico.trim()) {
-      alert('Por favor, informe a justificativa da decisão.');
+      setFeedbackMsg({ type: 'error', text: 'Por favor, informe a justificativa da decisão.' });
       return;
     }
     const res = await judgeFineAppeal(fine.id, deferido, respostaSindico);
@@ -161,7 +161,7 @@ function MultaDetalheContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -195,7 +195,7 @@ function MultaDetalheContent() {
           </div>
 
           <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/80 text-right sm:text-right">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Unidade Notificada</span>
+            <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Unidade Notificada</span>
             <p className="text-lg font-bold text-[#0B2545]">
               Apartamento {fine.unidade} - Bloco {fine.bloco}
             </p>

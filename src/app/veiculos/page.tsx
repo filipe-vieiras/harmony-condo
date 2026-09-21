@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
+import { useDialog } from '@/components/ui/DialogProvider';
 import { useApp } from '@/context/AppContext';
 import { Vehicle } from '@/types';
 import { isAdmin } from '@/lib/roles';
@@ -31,6 +32,7 @@ export default function VeiculosPage() {
 
 function VeiculosContent() {
   const { currentUser, vehicles, addVehicle, deleteVehicle, units } = useApp();
+  const { confirm } = useDialog();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -167,7 +169,7 @@ function VeiculosContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -185,21 +187,21 @@ function VeiculosContent() {
 
       {/* Barra de Busca Instantânea de Placa */}
       <div className="relative w-full no-print">
-        <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Digite a placa (ex: BRA2E19), apartamento, vaga ou nome do morador..."
-          className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 font-medium shadow-2xs uppercase"
+          className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 font-medium shadow-2xs uppercase"
         />
       </div>
 
       {/* Tabela de Veículos */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+          <table className="stack-mobile w-full text-left text-xs">
+            <thead className="border-b border-slate-200 bg-slate-50/75 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
               <tr>
                 <th className="px-5 py-3.5">Placa</th>
                 <th className="px-5 py-3.5">Veículo / Modelo</th>
@@ -220,42 +222,42 @@ function VeiculosContent() {
               ) : (
                 filteredVehicles.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-50/60 transition">
-                    <td className="px-5 py-3.5 whitespace-nowrap">
+                    <td data-label="Placa" className="px-5 py-3.5 whitespace-nowrap">
                       <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-mono font-bold text-white border border-slate-700 tracking-wider">
                         {v.placa}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 font-bold text-slate-900">
+                    <td data-label="Veículo / Modelo" className="px-5 py-3.5 font-bold text-slate-900">
                       {v.marca} {v.modelo}
                       {v.status === 'VISITANTE' && (
-                        <span className="ml-2 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800 font-bold">
+                        <span className="ml-2 rounded-md bg-amber-100 px-1.5 py-0.5 text-[12px] text-amber-800 font-bold">
                           Visitante
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3.5 text-slate-600">{v.cor}</td>
-                    <td className="px-5 py-3.5 font-semibold text-[#0B2545]">
+                    <td data-label="Cor" className="px-5 py-3.5 text-slate-600">{v.cor}</td>
+                    <td data-label="Unidade" className="px-5 py-3.5 font-semibold text-[#0B2545]">
                       Apto {v.unidade} - Bloco {v.bloco}
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-slate-700 font-bold">
+                    <td data-label="Vaga" className="px-5 py-3.5 font-mono text-slate-700 font-bold">
                       {v.vaga}
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td data-label="Morador Responsável" className="px-5 py-3.5">
                       <div className="font-semibold text-slate-900">{v.proprietarioNome}</div>
-                      <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                      <div className="text-[12px] text-slate-500 flex items-center gap-1">
                         <Phone className="h-3 w-3" />
                         <span>{v.telefoneContato}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-right no-print">
+                    <td data-label="Ações" className="px-5 py-3.5 text-right no-print">
                       {(isAdmin(currentUser.role) || (isMorador && v.unitId === minhaUnidade?.id)) && (
                         <button
                           onClick={async () => {
-                            if (!confirm(`Remover o veículo ${v.placa}?`)) return;
+                            if (!(await confirm({ title: `Remover o veículo ${v.placa}?`, message: 'O veículo deixa de aparecer na garagem e na busca da portaria.', confirmLabel: 'Remover', destructive: true }))) return;
                             const res = await deleteVehicle(v.id);
                             setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
                           }}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                          className="rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
                           title="Remover veículo"
                           aria-label={`Remover veículo ${v.placa}`}
                         >
@@ -289,7 +291,7 @@ function VeiculosContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -390,7 +392,7 @@ function VeiculosContent() {
                 </div>
               </div>
               {isMorador && (
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[12px] text-slate-500">
                   O veículo é sempre cadastrado na sua própria unidade.
                 </p>
               )}

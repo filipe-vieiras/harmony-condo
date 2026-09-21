@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
+import { useDialog } from '@/components/ui/DialogProvider';
 import { useApp } from '@/context/AppContext';
 import { Unit } from '@/types';
 import { isAdmin } from '@/lib/roles';
@@ -41,6 +42,7 @@ export default function MoradoresPage() {
 
 function MoradoresContent() {
   const { currentUser, units, pendingInvites, addUnit, updateUnit, deleteUnit, sendInviteForUnit } = useApp();
+  const { confirm } = useDialog();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBloco, setFilterBloco] = useState<string>('TODOS');
   const [showModal, setShowModal] = useState(false);
@@ -153,7 +155,7 @@ function MoradoresContent() {
   };
 
   const handleDeleteUnit = async (u: Unit) => {
-    if (confirm(`Tem certeza que deseja excluir a Unidade ${u.numero} (Bloco ${u.bloco})? Essa ação não pode ser desfeita.`)) {
+    if (await confirm({ title: `Excluir a Unidade ${u.numero} (Bloco ${u.bloco})?`, message: 'Essa ação não pode ser desfeita.', confirmLabel: 'Excluir unidade', destructive: true })) {
       const res = await deleteUnit(u.id);
       setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     }
@@ -163,7 +165,7 @@ function MoradoresContent() {
   const handleRemoveResidentFromCard = async (u: Unit, moradorIndex: number) => {
     const morador = u.moradores[moradorIndex];
     if (!morador) return;
-    if (!confirm(`Remover ${morador.nome} da Unidade ${u.numero}?`)) return;
+    if (!(await confirm({ title: `Remover ${morador.nome} da Unidade ${u.numero}?`, confirmLabel: 'Remover', destructive: true }))) return;
 
     const novosMoradores = u.moradores.filter((_, i) => i !== moradorIndex);
     const res = await updateUnit(u.id, { moradores: novosMoradores });
@@ -336,7 +338,7 @@ function MoradoresContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -345,13 +347,13 @@ function MoradoresContent() {
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-center gap-3 no-print">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por número do apartamento ou nome do morador..."
-            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
           />
         </div>
 
@@ -393,7 +395,7 @@ function MoradoresContent() {
 
               <div className="flex items-center gap-1.5">
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                  className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${
                     u.tipoOcupacao === 'PROPRIETARIO'
                       ? 'bg-blue-50 text-[#0B2545]'
                       : 'bg-emerald-50 text-emerald-800'
@@ -408,7 +410,7 @@ function MoradoresContent() {
                       onClick={() => handleOpenEdit(u)}
                       title="Editar Unidade"
                       aria-label={`Editar Unidade ${u.numero}`}
-                      className="rounded-lg p-1 text-slate-400 hover:bg-sky-50 hover:text-[#00A8E8] transition"
+                      className="rounded-lg p-1 text-slate-500 hover:bg-sky-50 hover:text-[#00A8E8] transition"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -416,7 +418,7 @@ function MoradoresContent() {
                       onClick={() => handleDeleteUnit(u)}
                       title="Excluir Unidade"
                       aria-label={`Excluir Unidade ${u.numero}`}
-                      className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                      className="rounded-lg p-1 text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -434,7 +436,7 @@ function MoradoresContent() {
                     <span className="font-bold text-slate-900 block">
                       {u.moradores && u.moradores.length > 0 ? u.moradores[0].nome : u.proprietarioNome}
                     </span>
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[12px] text-slate-500">
                       Morador Principal ({u.tipoOcupacao === 'PROPRIETARIO' ? 'Proprietário' : 'Inquilino'})
                     </span>
                   </div>
@@ -442,14 +444,14 @@ function MoradoresContent() {
               </div>
               
               <div className="flex items-center gap-2 text-slate-600">
-                <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <Phone className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                 <span>
                   {u.moradores && u.moradores.length > 0 ? u.moradores[0].telefone : u.proprietarioTelefone}
                 </span>
               </div>
 
               <div className="flex items-center gap-2 text-slate-600">
-                <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <Mail className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                 <span className="truncate">{u.proprietarioEmail}</span>
               </div>
 
@@ -465,7 +467,7 @@ function MoradoresContent() {
                     <button
                       onClick={() => handleSendInvite(u)}
                       disabled={sendingInviteId === u.id}
-                      className="flex items-center gap-1.5 rounded-full bg-[#0B2545] px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
+                      className="flex items-center gap-1.5 rounded-full bg-[#0B2545] px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
                     >
                       <Link2 className="h-3 w-3 text-[#00A8E8]" />
                       <span>{sendingInviteId === u.id ? 'Gerando...' : 'Gerar Link de Acesso'}</span>
@@ -476,7 +478,7 @@ function MoradoresContent() {
                 return (
                   <div className="flex flex-wrap items-center gap-2">
                     <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      className={`inline-block rounded-full px-2 py-0.5 text-[12px] font-bold ${
                         u.statusConvite === 'ATIVO'
                           ? 'bg-emerald-50 text-emerald-800'
                           : u.statusConvite === 'ENVIADO'
@@ -489,7 +491,7 @@ function MoradoresContent() {
                     {u.statusConvite === 'ENVIADO' && isAdmin(currentUser.role) && (
                       <button
                         onClick={() => handleCopyLink(u)}
-                        className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700 transition hover:bg-slate-200 no-print"
+                        className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-700 transition hover:bg-slate-200 no-print"
                       >
                         {copiedUnitId === u.id ? (
                           <>
@@ -508,7 +510,7 @@ function MoradoresContent() {
                       <button
                         onClick={() => handleSendInvite(u)}
                         disabled={sendingInviteId === u.id}
-                        className="flex items-center gap-1.5 rounded-full bg-[#0B2545] px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
+                        className="flex items-center gap-1.5 rounded-full bg-[#0B2545] px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
                       >
                         <Link2 className="h-3 w-3 text-[#00A8E8]" />
                         <span>{sendingInviteId === u.id ? 'Gerando...' : 'Gerar Novo Link'}</span>
@@ -522,15 +524,15 @@ function MoradoresContent() {
             {/* Demais Moradores da Propriedade */}
             {u.moradores && u.moradores.length > 1 && (
               <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-xs text-slate-600 space-y-1.5">
-                <span className="font-bold text-slate-700 block text-[11px]">
+                <span className="font-bold text-slate-700 block text-[12px]">
                   Demais Moradores ({u.moradores.length - 1}):
                 </span>
                 <div className="space-y-1">
                   {u.moradores.slice(1).map((m, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-[11px] bg-white px-2 py-1 rounded border border-slate-100">
+                    <div key={idx} className="flex items-center justify-between text-[12px] bg-white px-2 py-1 rounded border border-slate-100">
                       <span className="text-slate-800 font-medium">• {m.nome}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-500 font-mono text-[10px]">{m.telefone || m.tipo}</span>
+                        <span className="text-slate-500 font-mono text-[12px]">{m.telefone || m.tipo}</span>
                         {isAdmin(currentUser.role) && (
                           <button
                             onClick={() => handleRemoveResidentFromCard(u, idx + 1)}
@@ -549,9 +551,9 @@ function MoradoresContent() {
             )}
 
             {/* Vagas & Pets */}
-            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-[12px] text-slate-500">
               <div className="flex items-center gap-1.5">
-                <Car className="h-3.5 w-3.5 text-slate-400" />
+                <Car className="h-3.5 w-3.5 text-slate-500" />
                 <span>
                   Vagas: <strong>{u.vagasGaragem.join(', ') || 'N/D'}</strong>
                 </span>
@@ -591,7 +593,7 @@ function MoradoresContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -678,7 +680,7 @@ function MoradoresContent() {
                     <Crown className="h-3.5 w-3.5 text-amber-500" />
                     <span>2. Morador Principal (Titular / Responsável)</span>
                   </h4>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[12px] font-bold text-amber-800">
                     Acesso ao Portal
                   </span>
                 </div>
@@ -739,7 +741,7 @@ function MoradoresContent() {
                 {/* Se for inquilino, permite adicionar dados do proprietário/locador */}
                 {novoTipo === 'INQUILINO' && (
                   <div className="mt-3 border-t border-slate-200/80 pt-3 space-y-2">
-                    <span className="text-[11px] font-bold text-slate-600 block">
+                    <span className="text-[12px] font-bold text-slate-600 block">
                       Dados do Proprietário Legal (Locador) - Opcional para cobranças/notificações
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -789,7 +791,7 @@ function MoradoresContent() {
                       <Users className="h-3.5 w-3.5 text-[#0B2545]" />
                       <span>3. Demais Moradores da Propriedade</span>
                     </h4>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[12px] text-slate-500">
                       Dependentes, cônjuges, filhos ou outros residentes do imóvel (sem login obrigatório).
                     </p>
                   </div>
@@ -821,7 +823,7 @@ function MoradoresContent() {
                           <button
                             type="button"
                             onClick={() => handleRemoveMorador(index)}
-                            className="text-slate-400 hover:text-red-600 transition"
+                            className="text-slate-500 hover:text-red-600 transition"
                             title="Remover"
                             aria-label={`Remover Morador Adicional #${index + 1}`}
                           >
