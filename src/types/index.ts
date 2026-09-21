@@ -46,6 +46,7 @@ export interface Vehicle {
   marca: string;
   modelo: string;
   cor: string;
+  unitId?: string;
   bloco: string;
   unidade: string;
   vaga: string;

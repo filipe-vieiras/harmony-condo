@@ -485,7 +485,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── VEHICLES ──
 
   const addVehicle = async (vehicleData: Omit<Vehicle, 'id'>): Promise<{ success: boolean; message: string }> => {
-    const created = await insertVehicle(supabase, vehicleData);
+    // Resolve o unit_id (FK) batendo bloco/unidade contra o cadastro real —
+    // é o que a RLS usa pra decidir quem enxerga o veículo depois.
+    const matchedUnit = units.find(
+      (u) => u.bloco === vehicleData.bloco && u.numero.trim().toLowerCase() === vehicleData.unidade.trim().toLowerCase()
+    );
+    const created = await insertVehicle(supabase, { ...vehicleData, unitId: matchedUnit?.id });
     if (!created) return { success: false, message: 'Erro ao cadastrar o veículo. Tente novamente.' };
 
     setVehicles((prev) => [created, ...prev]);

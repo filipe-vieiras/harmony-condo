@@ -41,7 +41,7 @@ function VeiculosContent() {
   const [marca, setMarca] = useState('');
   const [modelo, setModelo] = useState('');
   const [cor, setCor] = useState('');
-  const [bloco, setBloco] = useState('A');
+  const [bloco, setBloco] = useState(currentUser?.bloco || 'A');
   const [unidade, setUnidade] = useState(currentUser?.unidade || '101');
   const [vaga, setVaga] = useState('');
   const [proprietarioNome, setProprietarioNome] = useState(currentUser?.name || '');
@@ -95,6 +95,8 @@ function VeiculosContent() {
   };
 
   if (!currentUser) return null;
+
+  const isMorador = currentUser.role === 'MORADOR';
 
   return (
     <div className="space-y-6">
@@ -357,10 +359,11 @@ function VeiculosContent() {
                     id="veiculo-apto"
                     type="text"
                     required
+                    disabled={isMorador}
                     placeholder="304"
                     value={unidade}
                     onChange={(e) => setUnidade(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -368,14 +371,20 @@ function VeiculosContent() {
                   <select
                     id="veiculo-bloco"
                     value={bloco}
+                    disabled={isMorador}
                     onChange={(e) => setBloco(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 disabled:bg-slate-100 disabled:text-slate-500"
                   >
                     <option value="A">Bloco A</option>
                     <option value="B">Bloco B</option>
                   </select>
                 </div>
               </div>
+              {isMorador && (
+                <p className="text-[11px] text-slate-400">
+                  O veículo é sempre cadastrado na sua própria unidade.
+                </p>
+              )}
 
               <div>
                 <label htmlFor="veiculo-proprietario" className="block text-xs font-semibold text-slate-700">Proprietário / Motorista</label>
