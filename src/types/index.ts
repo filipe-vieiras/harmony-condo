@@ -85,6 +85,7 @@ export interface FineEvidence {
 export interface FineNotice {
   id: string;
   numeroProtocolo: string;
+  unitId?: string;
   bloco: string;
   unidade: string;
   moradorNome: string;
@@ -166,6 +167,7 @@ export interface InAppNotification {
   data: string;
   lida: boolean;
   unidadeAlvo?: string; // se especificado, apenas a unidade vê
+  unidadeIdAlvo?: string; // mesma finalidade, mas por FK — usar quando disponível (evita divergência de texto)
   perfilAlvo?: Role;    // se especificado, apenas o perfil vê
   linkDestino?: string;
 }

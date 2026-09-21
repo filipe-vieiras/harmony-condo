@@ -34,12 +34,13 @@ function MultaDetalheContent() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
-  const { 
-    currentUser, 
-    fines, 
-    confirmFineScience, 
-    submitFineAppeal, 
-    judgeFineAppeal 
+  const {
+    currentUser,
+    fines,
+    units,
+    confirmFineScience,
+    submitFineAppeal,
+    judgeFineAppeal
   } = useApp();
 
   const [textoRecurso, setTextoRecurso] = useState('');
@@ -67,8 +68,10 @@ function MultaDetalheContent() {
   }
 
   // Proteção: Morador só pode ver a sua própria multa!
+  // Compara por unit_id (FK), não por texto — mesmo motivo da listagem em /multas.
     if (!currentUser) return null;
-  if (currentUser.role === 'MORADOR' && fine.unidade !== currentUser.unidade) {
+  const minhaUnidade = units.find((u) => u.usuarioId === currentUser.id);
+  if (currentUser.role === 'MORADOR' && fine.unitId !== minhaUnidade?.id) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
         <h2 className="text-base font-bold text-red-900">Acesso Não Autorizado</h2>

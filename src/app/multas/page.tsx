@@ -5,23 +5,28 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
-import { FineStatus } from '@/types';
+import { FineStatus, Unit } from '@/types';
 import { isAdmin } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
   ShieldAlert,
-  Search, 
-  Plus, 
-  Eye, 
-  Clock, 
-  CheckCircle2, 
-  AlertTriangle, 
-  FileText, 
-  DollarSign, 
+  Search,
+  Plus,
+  Eye,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  DollarSign,
   Lock,
   Printer,
   X
 } from 'lucide-react';
+
+function moradorResponsavel(unit: Unit): string {
+  const residente = unit.moradores.find((m) => m.tipo === 'TITULAR' || m.tipo === 'INQUILINO');
+  return residente?.nome || unit.proprietarioNome;
+}
 
 export default function MultasPage() {
   return (
@@ -32,15 +37,14 @@ export default function MultasPage() {
 }
 
 function MultasContent() {
-  const { currentUser, fines, addFine } = useApp();
+  const { currentUser, fines, addFine, units } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('TODOS');
   const [showModal, setShowModal] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form states para nova infração (Síndico)
-  const [bloco, setBloco] = useState('A');
-  const [unidade, setUnidade] = useState('');
-  const [moradorNome, setMoradorNome] = useState('');
+  const [unitId, setUnitId] = useState('');
   const [dataInfracao, setDataInfracao] = useState(new Date().toISOString().slice(0, 16));
   const [prazoRecursoData, setPrazoRecursoData] = useState('2026-09-30');
   const [artigoRegimento, setArtigoRegimento] = useState('Artigo 42 - Emissão de ruídos e som alto após às 22h');
@@ -71,10 +75,13 @@ function MultasContent() {
   }
 
   // Filtragem: Morador só vê as da sua própria unidade!
+  // Compara por unit_id (FK), não por texto — evita a multa "sumir" por
+  // divergência entre o texto salvo na multa e o cadastro do morador.
+  const minhaUnidade = units.find((u) => u.usuarioId === currentUser?.id);
   const visibleFines = fines.filter((f) => {
     if (!currentUser) return null;
     if (currentUser.role === 'MORADOR') {
-      return f.unidade === currentUser.unidade;
+      return f.unitId === minhaUnidade?.id;
     }
     return true;
   });
@@ -99,14 +106,17 @@ function MultasContent() {
     CONCLUIDA: { label: 'Concluída / Paga', bg: 'bg-slate-100', text: 'text-slate-800' },
   };
 
+  const selectedUnit = units.find((u) => u.id === unitId);
+
   const handleCreateFine = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!unidade || !moradorNome || !descricaoInfracao) return;
+    if (!selectedUnit || !descricaoInfracao) return;
 
-    await addFine({
-      bloco,
-      unidade,
-      moradorNome,
+    const res = await addFine({
+      unitId: selectedUnit.id,
+      bloco: selectedUnit.bloco,
+      unidade: selectedUnit.numero,
+      moradorNome: moradorResponsavel(selectedUnit),
       dataInfracao,
       prazoRecursoData,
       artigoRegimento,
@@ -114,13 +124,15 @@ function MultasContent() {
       valor: tipo === 'ADVERTENCIA' ? 0 : parseFloat(valor) || 0,
       tipo,
     });
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
 
-    setShowModal(false);
-    setUnidade('');
-    setMoradorNome('');
-    setDescricaoInfracao('');
-    setFotoUrl('');
-    setFotoDescricao('');
+    if (res.success) {
+      setShowModal(false);
+      setUnitId('');
+      setDescricaoInfracao('');
+      setFotoUrl('');
+      setFotoDescricao('');
+    }
   };
 
   if (!currentUser) return null;
@@ -171,6 +183,29 @@ function MultasContent() {
           )}
         </div>
       </div>
+
+      {/* Mensagem de Feedback */}
+      {feedbackMsg && (
+        <div
+          className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
+            feedbackMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+              : 'bg-red-50 text-red-900 border border-red-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {feedbackMsg.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            )}
+            <span>{feedbackMsg.text}</span>
+          </div>
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-400 hover:text-slate-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-center gap-3 no-print">
@@ -343,30 +378,29 @@ function MultasContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="multa-unidade" className="block text-xs font-semibold text-slate-700">Apto Infrator</label>
-                  <input
-                    id="multa-unidade"
-                    type="text"
-                    required
-                    placeholder="Ex: 304"
-                    value={unidade}
-                    onChange={(e) => setUnidade(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="multa-bloco" className="block text-xs font-semibold text-slate-700">Bloco</label>
-                  <select
-                    id="multa-bloco"
-                    value={bloco}
-                    onChange={(e) => setBloco(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
-                  >
-                    <option value="A">Bloco A</option>
-                    <option value="B">Bloco B</option>
-                  </select>
+                  <label htmlFor="multa-unidade" className="block text-xs font-semibold text-slate-700">Unidade Infratora</label>
+                  {units.length === 0 ? (
+                    <p className="mt-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                      Nenhuma unidade cadastrada. Cadastre a unidade em Moradores antes de emitir uma notificação.
+                    </p>
+                  ) : (
+                    <select
+                      id="multa-unidade"
+                      required
+                      value={unitId}
+                      onChange={(e) => setUnitId(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                    >
+                      <option value="" disabled>Selecione a unidade</option>
+                      {[...units]
+                        .sort((a, b) => a.bloco.localeCompare(b.bloco) || a.numero.localeCompare(b.numero, undefined, { numeric: true }))
+                        .map((u) => (
+                          <option key={u.id} value={u.id}>Bloco {u.bloco} - {u.numero}</option>
+                        ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="multa-prazo" className="block text-xs font-semibold text-slate-700">Prazo Recurso</label>
@@ -382,16 +416,19 @@ function MultasContent() {
               </div>
 
               <div>
-                <label htmlFor="multa-morador" className="block text-xs font-semibold text-slate-700">Nome do Morador Responsável</label>
+                <label htmlFor="multa-morador" className="block text-xs font-semibold text-slate-700">Morador Responsável</label>
                 <input
                   id="multa-morador"
                   type="text"
-                  required
-                  placeholder="Nome do condômino titular"
-                  value={moradorNome}
-                  onChange={(e) => setMoradorNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  readOnly
+                  disabled
+                  placeholder="Selecione a unidade acima"
+                  value={selectedUnit ? moradorResponsavel(selectedUnit) : ''}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-600"
                 />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Preenchido automaticamente com o morador principal da unidade — a notificação é sempre atribuída a ele, mesmo quando a infração foi de um visitante.
+                </p>
               </div>
 
               <div>

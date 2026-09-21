@@ -50,7 +50,7 @@ interface AppContextType {
   addNotice: (notice: Omit<Notice, 'id' | 'data'>) => Promise<void>;
   deleteNotice: (id: string) => Promise<void>;
   fines: FineNotice[];
-  addFine: (fine: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status' | 'evidencias' | 'ciencia' | 'recurso'>) => Promise<void>;
+  addFine: (fine: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status' | 'evidencias' | 'ciencia' | 'recurso'>) => Promise<{ success: boolean; message: string }>;
   confirmFineScience: (fineId: string) => Promise<void>;
   submitFineAppeal: (fineId: string, texto: string, anexoNome?: string) => Promise<void>;
   judgeFineAppeal: (fineId: string, deferido: boolean, resposta: string) => Promise<void>;
@@ -525,11 +525,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addFine = async (
     fineData: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status' | 'evidencias' | 'ciencia' | 'recurso'>
-  ) => {
+  ): Promise<{ success: boolean; message: string }> => {
     const count = fines.length + 1;
     const protocolNumber = `NOT-2026/${String(count).padStart(3, '0')}`;
     const created = await insertFine(supabase, fineData, protocolNumber);
-    if (!created) return;
+    if (!created) return { success: false, message: 'Erro ao emitir a notificação. Tente novamente.' };
     setFines((prev) => [created, ...prev]);
     await recordAudit(`Emitiu notificação/multa ${protocolNumber}`, 'MULTAS', {
       protocolo: protocolNumber,
@@ -542,8 +542,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       mensagem: `Registrada notificação para a Unidade ${fineData.unidade} Bloco ${fineData.bloco}. Confirme ciência no portal.`,
       tipo: 'MULTA',
       unidadeAlvo: fineData.unidade,
+      unidadeIdAlvo: fineData.unitId,
       linkDestino: `/multas/${created.id}`,
     });
+    return { success: true, message: `Notificação ${protocolNumber} emitida com sucesso.` };
   };
 
   const confirmFineScience = async (fineId: string) => {
@@ -903,9 +905,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Filtra notificações visíveis pelo perfil do usuário
+  const minhaUnidade = units.find((u) => u.usuarioId === currentUser?.id);
   const visibleNotifications = notifications.filter((n) => {
     if (isAdmin(currentUser?.role)) return true;
     if (n.perfilAlvo && n.perfilAlvo !== currentUser?.role) return false;
+    // unidadeIdAlvo (FK) é a fonte confiável quando presente; unidadeAlvo (texto)
+    // fica como fallback pra notificações antigas ou de outros fluxos que ainda não migraram.
+    if (n.unidadeIdAlvo) return n.unidadeIdAlvo === minhaUnidade?.id;
     if (n.unidadeAlvo && n.unidadeAlvo !== currentUser?.unidade) return false;
     return true;
   });

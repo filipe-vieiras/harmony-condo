@@ -221,6 +221,7 @@ function rowToFine(r: Record<string, unknown>): FineNotice {
   return {
     id: r.id as string,
     numeroProtocolo: r.numero_protocolo as string,
+    unitId: (r.unit_id as string) ?? undefined,
     bloco: r.bloco as string,
     unidade: r.unidade as string,
     moradorNome: r.morador_nome as string,
@@ -266,6 +267,7 @@ export async function insertFine(
 ): Promise<FineNotice | null> {
   const { data, error } = await supabase.from('fines').insert({
     numero_protocolo: protocolNumber,
+    unit_id: fine.unitId ?? null,
     bloco: fine.bloco,
     unidade: fine.unidade,
     morador_nome: fine.moradorNome,
@@ -451,6 +453,7 @@ function rowToNotification(r: Record<string, unknown>): InAppNotification {
     data: new Date(r.created_at as string).toLocaleDateString('pt-BR'),
     lida: r.lida as boolean,
     unidadeAlvo: (r.unidade_alvo as string) ?? undefined,
+    unidadeIdAlvo: (r.unidade_id_alvo as string) ?? undefined,
     perfilAlvo: (r.perfil_alvo as InAppNotification['perfilAlvo']) ?? undefined,
     linkDestino: (r.link_destino as string) ?? undefined,
   };
@@ -475,6 +478,7 @@ export async function insertNotification(
     mensagem: n.mensagem,
     tipo: n.tipo,
     unidade_alvo: n.unidadeAlvo,
+    unidade_id_alvo: n.unidadeIdAlvo,
     perfil_alvo: n.perfilAlvo,
     link_destino: n.linkDestino,
   });
