@@ -44,7 +44,11 @@ function VeiculosContent() {
   const [modelo, setModelo] = useState('');
   const [cor, setCor] = useState('');
   const [bloco, setBloco] = useState(currentUser?.bloco || 'A');
-  const [unidade, setUnidade] = useState(currentUser?.unidade || '101');
+  // Fica vazio (não um exemplo tipo '101') quando o usuário logado não tem
+  // unidade própria (Síndico/ADM/Portaria/Conselho) — um valor de exemplo
+  // pré-preenchido engana quem digita por cima sem apagar antes, concatenando
+  // o texto digitado com o exemplo em vez de substituí-lo.
+  const [unidade, setUnidade] = useState(currentUser?.unidade || '');
   const [vaga, setVaga] = useState('');
   const [proprietarioNome, setProprietarioNome] = useState(currentUser?.name || '');
   const [telefoneContato, setTelefoneContato] = useState(currentUser?.telefone || '');
@@ -53,8 +57,8 @@ function VeiculosContent() {
   useEscapeToClose(showModal, () => setShowModal(false));
 
   // O perfil do usuário carrega de forma assíncrona — se o componente monta
-  // antes disso, o useState inicial fica preso no valor padrão ('101'/'A').
-  // Sincroniza assim que os dados reais do morador chegam.
+  // antes disso, o useState inicial fica preso vazio/'A'. Sincroniza assim
+  // que os dados reais do morador chegam.
   useEffect(() => {
     if (currentUser?.unidade) setUnidade(currentUser.unidade);
     if (currentUser?.bloco) setBloco(currentUser.bloco);

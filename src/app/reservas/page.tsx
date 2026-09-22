@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
@@ -71,7 +71,7 @@ function ReservasContent() {
   const [spaceNome, setSpaceNome] = useState('');
   const [spaceDescricao, setSpaceDescricao] = useState('');
   const [spaceCapacidadeMax, setSpaceCapacidadeMax] = useState(20);
-  const [spaceHorario, setSpaceHorario] = useState('08:00 às 22:00');
+  const [spaceHorario, setSpaceHorario] = useState('');
   const [spaceTaxaLimpeza, setSpaceTaxaLimpeza] = useState(0);
   const [spaceRegras, setSpaceRegras] = useState('');
   const [spaceImagemUrl, setSpaceImagemUrl] = useState('');
@@ -85,15 +85,34 @@ function ReservasContent() {
   useEscapeToClose(showModal, () => setShowModal(false));
   useEscapeToClose(showSpaceModal, () => setShowSpaceModal(false));
 
+  // `spaces` carrega de forma assíncrona do Supabase — se o componente monta
+  // antes disso, selectedSpaceId fica preso em '' (useState inicial rodou
+  // com spaces=[]). O <select> ainda mostra a primeira opção como marcada
+  // (comportamento padrão do navegador quando o value não bate com nenhuma
+  // option), então a tela parece ter um espaço selecionado, mas o estado
+  // real fica vazio até o usuário trocar manualmente a seleção — e o envio
+  // falha com "Espaço comum não encontrado". Resincroniza sempre que spaces
+  // mudar e o id atual não existir mais na lista.
+  useEffect(() => {
+    if (spaces.length > 0 && !spaces.some((s) => s.id === selectedSpaceId)) {
+      setSelectedSpaceId(spaces[0].id);
+    }
+  }, [spaces, selectedSpaceId]);
+
   const handleOpenNewSpace = () => {
+    // Campos de texto começam vazios (o "Ex: ..." fica só no placeholder) —
+    // um valor de exemplo como state inicial engana quem digita por cima sem
+    // apagar antes, concatenando o texto digitado com o exemplo em vez de
+    // substituí-lo. handleSaveSpace ainda cai num horário/imagem padrão se o
+    // campo ficar mesmo vazio no envio.
     setEditingSpaceId(null);
     setSpaceNome('');
     setSpaceDescricao('');
     setSpaceCapacidadeMax(20);
-    setSpaceHorario('08:00 às 22:00');
+    setSpaceHorario('');
     setSpaceTaxaLimpeza(0);
-    setSpaceRegras('Somente som ambiente até às 22h00\nLimpeza e devolução das chaves no dia seguinte');
-    setSpaceImagemUrl('https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80');
+    setSpaceRegras('');
+    setSpaceImagemUrl('');
     setSpaceAtivo(true);
     setShowSpaceModal(true);
   };

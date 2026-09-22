@@ -45,12 +45,20 @@ function MultasContent() {
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form states para nova infração (Síndico)
+  // Campos de texto/número começam vazios (não com um exemplo pré-preenchido):
+  // um valor de exemplo como state inicial engana o usuário, que digita por
+  // cima sem perceber que o cursor cai no meio do texto já existente,
+  // concatenando o que ele digitou com o exemplo em vez de substituí-lo.
   const [unitId, setUnitId] = useState('');
   const [dataInfracao, setDataInfracao] = useState(new Date().toISOString().slice(0, 16));
-  const [prazoRecursoData, setPrazoRecursoData] = useState('2026-09-30');
-  const [artigoRegimento, setArtigoRegimento] = useState('Artigo 42 - Emissão de ruídos e som alto após às 22h');
+  const [prazoRecursoData, setPrazoRecursoData] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 9);
+    return d.toISOString().slice(0, 10);
+  });
+  const [artigoRegimento, setArtigoRegimento] = useState('');
   const [descricaoInfracao, setDescricaoInfracao] = useState('');
-  const [valor, setValor] = useState('350.00');
+  const [valor, setValor] = useState('');
   const [tipo, setTipo] = useState<'ADVERTENCIA' | 'MULTA'>('MULTA');
   const [fotoUrl, setFotoUrl] = useState('');
   const [fotoDescricao, setFotoDescricao] = useState('');
@@ -133,6 +141,8 @@ function MultasContent() {
       setDescricaoInfracao('');
       setFotoUrl('');
       setFotoDescricao('');
+      setArtigoRegimento('');
+      setValor('');
     }
   };
 
@@ -365,7 +375,9 @@ function MultasContent() {
                     id="multa-valor"
                     type="number"
                     step="0.01"
+                    required={tipo !== 'ADVERTENCIA'}
                     disabled={tipo === 'ADVERTENCIA'}
+                    placeholder="Ex: 350.00"
                     value={tipo === 'ADVERTENCIA' ? '0.00' : valor}
                     onChange={(e) => setValor(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-100"

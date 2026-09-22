@@ -25,7 +25,7 @@ interface SidebarProps {
 
 export function Sidebar({ onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
-  const { currentUser, fines, reservations, pendingInvites } = useApp();
+  const { currentUser, isLoading, fines, reservations, pendingInvites } = useApp();
 
   // Calcular alertas pendentes para badges na navegação
   const pendingFinesCount = fines.filter((f) => {
@@ -105,9 +105,15 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
     },
   ];
 
-  const visibleItems = navItems.filter((item) =>
-    item.roles.includes(currentUser?.role ?? 'MORADOR')
-  );
+  // Enquanto o perfil ainda não carregou, currentUser é null — cair num
+  // fallback tipo 'MORADOR' aqui mostrava por um instante o menu reduzido
+  // de morador pra QUALQUER perfil logo após o login (síndico via só 5 dos
+  // 9 itens até o profile chegar), o que confunde sobre o que a conta pode
+  // acessar. Sem currentUser ainda, não há itens visíveis — o skeleton
+  // abaixo cobre esse instante em vez de um menu com permissões erradas.
+  const visibleItems = currentUser
+    ? navItems.filter((item) => item.roles.includes(currentUser.role))
+    : [];
 
   return (
     <aside className="flex h-full flex-col justify-between border-r border-slate-200 bg-white p-4 no-print">
@@ -129,6 +135,13 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
 
         {/* Links de Navegação */}
         <nav className="space-y-1">
+          {isLoading && !currentUser ? (
+            <div className="space-y-1.5" aria-hidden="true">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-9 animate-pulse rounded-xl bg-slate-100" />
+              ))}
+            </div>
+          ) : null}
           {visibleItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname?.startsWith(item.href));
             const Icon = item.icon;
