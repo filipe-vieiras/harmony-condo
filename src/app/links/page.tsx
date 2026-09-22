@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
+import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { DocumentLink } from '@/types';
 import { isAdmin } from '@/lib/roles';
@@ -215,9 +216,7 @@ function LinksContent() {
                     <PhoneCall className="h-5 w-5" />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-600">
-                      Emergência
-                    </span>
+                    <Badge className="bg-slate-100 text-slate-600">Emergência</Badge>
                     {isSindico && (
                       <button
                         onClick={() => handleDelete(c.id, c.titulo)}
@@ -266,9 +265,7 @@ function LinksContent() {
                   <Wrench className="h-5 w-5" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-600">
-                    Zeladoria
-                  </span>
+                  <Badge className="bg-slate-100 text-slate-600">Zeladoria</Badge>
                   {isSindico && (
                     <button
                       onClick={handleOpenZeladorModal}
@@ -311,9 +308,7 @@ function LinksContent() {
                   <Building className="h-5 w-5" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[12px] font-bold text-[#0B2545]">
-                    Financeiro
-                  </span>
+                  <Badge className="bg-blue-100 text-[#0B2545]">Financeiro</Badge>
                   {isSindico && (
                     <button
                       onClick={handleOpenPortalModal}

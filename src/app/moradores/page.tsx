@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
+import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { Unit } from '@/types';
 import { isAdmin } from '@/lib/roles';
@@ -394,15 +395,15 @@ function MoradoresContent() {
               </div>
 
               <div className="flex items-center gap-1.5">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold ${
+                <Badge
+                  className={
                     u.tipoOcupacao === 'PROPRIETARIO'
                       ? 'bg-blue-50 text-[#0B2545]'
                       : 'bg-emerald-50 text-emerald-800'
-                  }`}
+                  }
                 >
                   {u.tipoOcupacao === 'PROPRIETARIO' ? 'Proprietário' : 'Inquilino'}
-                </span>
+                </Badge>
 
                 {isAdmin(currentUser.role) && (
                   <div className="flex items-center gap-1 no-print">
@@ -467,7 +468,7 @@ function MoradoresContent() {
                     <button
                       onClick={() => handleSendInvite(u)}
                       disabled={sendingInviteId === u.id}
-                      className="flex items-center gap-1.5 rounded-full bg-[#0B2545] px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
+                      className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#0B2545] px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
                     >
                       <Link2 className="h-3 w-3 text-[#00A8E8]" />
                       <span>{sendingInviteId === u.id ? 'Gerando...' : 'Gerar Link de Acesso'}</span>
@@ -477,21 +478,21 @@ function MoradoresContent() {
 
                 return (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-[12px] font-bold ${
+                    <Badge
+                      className={
                         u.statusConvite === 'ATIVO'
                           ? 'bg-emerald-50 text-emerald-800'
                           : u.statusConvite === 'ENVIADO'
                           ? 'bg-sky-50 text-sky-800'
                           : 'bg-amber-50 text-amber-800'
-                      }`}
+                      }
                     >
                       {u.statusConvite === 'ATIVO' ? 'Acesso ativo' : u.statusConvite === 'ENVIADO' ? 'Link de acesso gerado' : 'Link pendente de gerar'}
-                    </span>
+                    </Badge>
                     {u.statusConvite === 'ENVIADO' && isAdmin(currentUser.role) && (
                       <button
                         onClick={() => handleCopyLink(u)}
-                        className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-700 transition hover:bg-slate-200 no-print"
+                        className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-700 transition hover:bg-slate-200 no-print"
                       >
                         {copiedUnitId === u.id ? (
                           <>
@@ -510,7 +511,7 @@ function MoradoresContent() {
                       <button
                         onClick={() => handleSendInvite(u)}
                         disabled={sendingInviteId === u.id}
-                        className="flex items-center gap-1.5 rounded-full bg-[#0B2545] px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
+                        className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#0B2545] px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-[#134074] disabled:opacity-50 no-print"
                       >
                         <Link2 className="h-3 w-3 text-[#00A8E8]" />
                         <span>{sendingInviteId === u.id ? 'Gerando...' : 'Gerar Novo Link'}</span>

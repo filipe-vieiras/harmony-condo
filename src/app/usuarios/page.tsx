@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { useDialog } from '@/components/ui/DialogProvider';
+import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { Role } from '@/types';
 import { isAdmin, ROLE_LABELS, SINGLETON_ROLES } from '@/lib/roles';
@@ -341,30 +342,29 @@ function UsuariosContent() {
                           />
                         )}
                       </td>
-                      <td data-label="Nome" className="px-4 py-3 font-semibold text-slate-900">
+                      <td data-label="Nome" className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
                         {i.nome}
                         {i.unidade && <span className="ml-1.5 text-[12px] text-slate-500">Apto {i.unidade}-{i.bloco}</span>}
                       </td>
                       <td data-label="E-mail" className="px-4 py-3 text-slate-600">{i.email}</td>
-                      <td data-label="Perfil" className="px-4 py-3">
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-700">
+                      <td data-label="Perfil" className="px-4 py-3 whitespace-nowrap">
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-700 whitespace-nowrap">
                           {ROLE_LABELS[i.role]}
                         </span>
                       </td>
-                      <td data-label="Status" className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-bold ${st.bg} ${st.text}`} title={i.erroMensagem}>
-                          {st.icon}
-                          <span>{st.label}</span>
-                        </span>
+                      <td data-label="Status" className="px-4 py-3 whitespace-nowrap">
+                        <Badge className={`${st.bg} ${st.text}`} icon={st.icon} title={i.erroMensagem}>
+                          {st.label}
+                        </Badge>
                       </td>
-                      <td data-label="Ações" className="px-4 py-3 text-right">
+                      <td data-label="Ações" className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           {i.status === 'ENVIADO' && (
                             <button
                               onClick={() => handleCopyLink(i.id, i.linkAcesso)}
                               title="Copiar link de acesso"
                               aria-label={`Copiar link de acesso de ${i.nome}`}
-                              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-100 transition"
+                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-100 transition"
                             >
                               {copiedId === i.id ? (
                                 <>

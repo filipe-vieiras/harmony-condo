@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
+import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { FineStatus, Unit } from '@/types';
 import { isAdmin } from '@/lib/roles';
@@ -276,16 +277,10 @@ function MultasContent() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${st.bg} ${st.text}`}>
-                      {st.label}
-                    </span>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                        fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
+                    <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
+                    <Badge className={fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}>
                       {fine.tipo === 'MULTA' ? `Multa: R$ ${fine.valor.toFixed(2)}` : 'Advertência Formal'}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
 

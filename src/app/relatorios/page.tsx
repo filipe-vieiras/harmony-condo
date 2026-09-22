@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
+import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { isAdmin } from '@/lib/roles';
 import {
@@ -406,7 +407,7 @@ function RelatoriosContent() {
                           </div>
                         </td>
                         <td data-label="Módulo" className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[12px] font-bold ${
+                          <Badge className={
                             log.modulo === 'MULTAS'
                               ? 'bg-red-50 text-red-700 border border-red-100'
                               : log.modulo === 'RESERVAS'
@@ -418,9 +419,9 @@ function RelatoriosContent() {
                               : log.modulo === 'DOCUMENTOS'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                               : 'bg-slate-100 text-slate-700'
-                          }`}>
+                          }>
                             {log.modulo}
-                          </span>
+                          </Badge>
                         </td>
                         <td data-label="Ação Realizada" className="px-4 py-3 text-slate-700 font-medium">
                           {log.acao}

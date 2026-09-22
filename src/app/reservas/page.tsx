@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
+import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { ReservationStatus, CommonSpace } from '@/types';
 import { isAdmin } from '@/lib/roles';
@@ -432,25 +433,23 @@ function ReservasContent() {
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/60 transition">
-                        <td data-label="Espaço Comum" className="px-5 py-3.5 font-bold text-slate-900">
+                        <td data-label="Espaço Comum" className="px-5 py-3.5 font-bold text-slate-900 whitespace-nowrap">
                           {r.espacoNome}
                         </td>
-                        <td data-label="Data & Turno" className="px-5 py-3.5">
+                        <td data-label="Data & Turno" className="px-5 py-3.5 whitespace-nowrap">
                           <div className="font-semibold text-slate-900">{r.data}</div>
                           <div className="text-[12px] text-slate-500">
                             {r.horarioInicio} às {r.horarioFim}
                           </div>
                         </td>
-                        <td data-label="Unidade / Morador" className="px-5 py-3.5">
+                        <td data-label="Unidade / Morador" className="px-5 py-3.5 whitespace-nowrap">
                           <div className="font-bold text-[#0B2545]">
                             Apto {r.unidade} - Bloco {r.bloco}
                           </div>
                           <div className="text-[12px] text-slate-500">{r.moradorNome}</div>
                         </td>
-                        <td data-label="Status" className="px-5 py-3.5">
-                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${st.bg} ${st.text}`}>
-                            {st.label}
-                          </span>
+                        <td data-label="Status" className="px-5 py-3.5 whitespace-nowrap">
+                          <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
                         </td>
                         <td data-label="Avaliação / Parecer" className="px-5 py-3.5 text-[12px] text-slate-600">
                           {r.status === 'APROVADA' && (
@@ -470,12 +469,12 @@ function ReservasContent() {
                           )}
                         </td>
                         {isAdmin(currentUser?.role) && (
-                          <td data-label="Aprovação do Síndico" className="px-5 py-3.5 text-right no-print">
+                          <td data-label="Aprovação do Síndico" className="px-5 py-3.5 text-right no-print whitespace-nowrap">
                             {r.status === 'PENDENTE' ? (
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => judgeReservation(r.id, true)}
-                                  className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white transition hover:bg-emerald-700"
+                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white transition hover:bg-emerald-700"
                                   title="Aprovar reserva"
                                 >
                                   <Check className="h-3 w-3" />
@@ -491,7 +490,7 @@ function ReservasContent() {
                                     });
                                     if (motivo) judgeReservation(r.id, false, motivo);
                                   }}
-                                  className="flex items-center gap-1 rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold text-red-700 transition hover:bg-red-50"
+                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold text-red-700 transition hover:bg-red-50"
                                   title="Recusar reserva"
                                 >
                                   <X className="h-3 w-3" />

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { AppShell } from '@/components/layout/AppShell';
 import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/components/ui/DialogProvider';
+import { Badge } from '@/components/ui/Badge';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 import { isAdmin } from '@/lib/roles';
 import {
@@ -135,9 +136,9 @@ function DashboardContent() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                      <Badge className="bg-emerald-100 text-emerald-800">
                         Apto {v.unidade} - Bloco {v.bloco}
-                      </span>
+                      </Badge>
                       <p className="text-[12px] text-slate-500 mt-0.5">Vaga: {v.vaga}</p>
                     </div>
                   </div>
