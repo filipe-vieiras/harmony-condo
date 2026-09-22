@@ -379,12 +379,12 @@ function MoradoresContent() {
             key={u.id}
             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md"
           >
-            <div className="flex items-start justify-between">
+            <div className="flex flex-wrap items-start justify-between gap-y-2">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B2545] font-bold text-sm text-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0B2545] font-bold text-sm text-white">
                   {u.numero}
                 </div>
-                <div>
+                <div className="whitespace-nowrap">
                   <h3 className="font-bold text-sm text-slate-900">
                     Apartamento {u.numero}
                   </h3>
