@@ -18,7 +18,7 @@ import {
   Zelador,
   PortalAdministradora,
 } from '@/types';
-import { isAdmin } from '@/lib/roles';
+import { isAdmin, SINGLETON_ROLES } from '@/lib/roles';
 import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
   fetchVehicles, insertVehicle, deleteVehicleDB,
@@ -699,7 +699,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── USUÁRIOS & CONVITES ──
 
   const createStaffInvite = async (data: { nome: string; email: string; role: Role }): Promise<{ success: boolean; message: string }> => {
-    if (data.role === 'SINDICO' || data.role === 'ADM') {
+    if (SINGLETON_ROLES.includes(data.role)) {
       const jaExisteAtivo = systemUsers.some((u) => u.role === data.role);
       const jaExistePendente = pendingInvites.some((i) => i.role === data.role && i.status === 'PENDENTE');
       if (jaExisteAtivo || jaExistePendente) {

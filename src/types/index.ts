@@ -1,4 +1,4 @@
-export type Role = 'SINDICO' | 'ADM' | 'PORTARIA' | 'CONSELHO' | 'MORADOR';
+export type Role = 'SINDICO' | 'SUBSINDICO' | 'ADM' | 'PORTARIA' | 'CONSELHO' | 'MORADOR';
 
 export interface User {
   id: string;

@@ -31,7 +31,7 @@ export default function UsuariosPage() {
   );
 }
 
-const STAFF_ROLES: Role[] = ['SINDICO', 'ADM', 'PORTARIA', 'CONSELHO'];
+const STAFF_ROLES: Role[] = ['SINDICO', 'SUBSINDICO', 'ADM', 'PORTARIA', 'CONSELHO'];
 
 function UsuariosContent() {
   const {
