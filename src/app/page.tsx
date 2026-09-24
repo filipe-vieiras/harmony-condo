@@ -155,13 +155,22 @@ function DashboardContent() {
         {/* Card 1 */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unidades</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {currentUser.role === 'MORADOR' ? 'Minha Unidade' : 'Unidades'}
+            </span>
             <div className="rounded-xl bg-blue-50 p-2 text-[#0B2545]">
               <Users className="h-5 w-5" />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-bold text-slate-900">{units.length}</p>
-          <p className="mt-0.5 text-xs text-slate-500">Apartamentos cadastrados</p>
+          {/* Morador só recebe a própria unidade do banco (RLS), então a contagem geral não faria sentido pra ele. */}
+          <p className="mt-3 text-2xl font-bold text-slate-900">
+            {currentUser.role === 'MORADOR'
+              ? (currentUser.unidade ? `${currentUser.unidade}-${currentUser.bloco}` : '—')
+              : units.length}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {currentUser.role === 'MORADOR' ? 'Apartamento vinculado ao seu acesso' : 'Apartamentos cadastrados'}
+          </p>
         </div>
 
         {/* Card 2 */}

@@ -219,7 +219,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
                   {currentUser?.name ?? 'Carregando...'}
                 </p>
                 <p className="text-[12px] text-slate-500">
-                  {roleLabels[userRole]?.label}
+                  {currentUser ? roleLabels[userRole]?.label : ''}
                 </p>
               </div>
               <ChevronDown className="h-3.5 w-3.5 text-slate-500" />

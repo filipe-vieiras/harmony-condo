@@ -44,7 +44,7 @@ function RelatoriosContent() {
           Área Restrita à Auditoria e Gestão
         </h2>
         <p className="mx-auto mt-2 max-w-md text-xs text-amber-700">
-          O módulo de relatórios consolidados e prestação de contas é reservado exclusivamente para o Síndico Geral e os membros do Conselho Fiscal.
+          O módulo de relatórios consolidados e prestação de contas é reservado à administração do condomínio (Síndico, Subsíndico e Administradora) e aos membros do Conselho Fiscal.
         </p>
       </div>
     );

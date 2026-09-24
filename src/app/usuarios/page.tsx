@@ -67,7 +67,7 @@ function UsuariosContent() {
         </div>
         <h2 className="mt-4 text-base font-bold text-amber-900">Área Restrita</h2>
         <p className="mx-auto mt-2 max-w-md text-xs text-amber-700">
-          A gestão de usuários e convites de acesso é reservada ao Síndico e à Administradora.
+          A gestão de usuários e convites de acesso é reservada ao Síndico, ao Subsíndico e à Administradora.
         </p>
       </div>
     );
@@ -168,7 +168,7 @@ function UsuariosContent() {
             <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Usuários & Convites de Acesso</h1>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Cadastre a equipe (Síndico, Administradora, Portaria, Conselho) e controle o envio dos convites de acesso.
+            Cadastre a equipe (Síndico, Subsíndico, Administradora, Portaria, Conselho) e controle o envio dos convites de acesso.
           </p>
         </div>
 
