@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
@@ -9,6 +10,7 @@ import { useApp } from '@/context/AppContext';
 import { Unit } from '@/types';
 import { isAdmin } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
+import { ListaUnidades } from '@/components/autocadastro/ListaUnidades';
 import {
   Users,
   Search,
@@ -30,7 +32,6 @@ import {
   Check,
   CheckCircle2,
   AlertTriangle,
-  Lock,
 } from 'lucide-react';
 
 export default function MoradoresPage() {
@@ -42,7 +43,7 @@ export default function MoradoresPage() {
 }
 
 function MoradoresContent() {
-  const { currentUser, units, pendingInvites, addUnit, updateUnit, deleteUnit, sendInviteForUnit } = useApp();
+  const { currentUser, units, pendingInvites, autocadastros, addUnit, updateUnit, deleteUnit, sendInviteForUnit } = useApp();
   const { confirm } = useDialog();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBloco, setFilterBloco] = useState<string>('TODOS');
@@ -259,22 +260,10 @@ function MoradoresContent() {
 
   if (!currentUser) return false;
 
-  // Restrição estrita de acesso: dados de outros moradores (telefone, e-mail,
-  // RG/CPF) não podem ficar visíveis para um morador comum via URL direta.
+  // Morador vê só a lista pública (unidade + nome do responsável). Telefone,
+  // e-mail e CPF ficam restritos à equipe — e o banco também não entrega.
   if (currentUser.role === 'MORADOR') {
-    return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
-          <Lock className="h-6 w-6" />
-        </div>
-        <h2 className="mt-4 text-base font-bold text-amber-900">
-          Acesso Restrito ao Cadastro de Moradores
-        </h2>
-        <p className="mx-auto mt-2 max-w-md text-xs text-amber-700">
-          Por diretrizes de sigilo e LGPD, os dados cadastrais de outras unidades e moradores são reservados à administração do condomínio (Síndico, Administradora, Portaria e Conselho Fiscal).
-        </p>
-      </div>
-    );
+    return <ListaUnidades />;
   }
 
   return (
@@ -399,10 +388,12 @@ function MoradoresContent() {
                   className={
                     u.tipoOcupacao === 'PROPRIETARIO'
                       ? 'bg-blue-50 text-[#0B2545]'
-                      : 'bg-emerald-50 text-emerald-800'
+                      : u.tipoOcupacao === 'INQUILINO'
+                      ? 'bg-emerald-50 text-emerald-800'
+                      : 'bg-slate-100 text-slate-600'
                   }
                 >
-                  {u.tipoOcupacao === 'PROPRIETARIO' ? 'Proprietário' : 'Inquilino'}
+                  {u.tipoOcupacao === 'PROPRIETARIO' ? 'Proprietário' : u.tipoOcupacao === 'INQUILINO' ? 'Inquilino' : 'Sem cadastro'}
                 </Badge>
 
                 {isAdmin(currentUser.role) && (
@@ -428,7 +419,17 @@ function MoradoresContent() {
               </div>
             </div>
 
-            {/* Informações do Morador Principal / Titular */}
+            {/* Unidade importada da planilha, ainda sem ninguém cadastrado */}
+            {!u.moradores?.length && !u.proprietarioNome ? (
+              <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                <p className="italic">Aguardando o cadastro do morador.</p>
+                {autocadastros.some((a) => a.unitId === u.id && a.status === 'AGUARDANDO') && (
+                  <Link href="/autocadastro" className="mt-1.5 inline-block font-semibold text-[#0A6E9C] hover:underline no-print">
+                    Há cadastro enviado para validar →
+                  </Link>
+                )}
+              </div>
+            ) : (
             <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-slate-700">
@@ -521,6 +522,7 @@ function MoradoresContent() {
                 );
               })()}
             </div>
+            )}
 
             {/* Demais Moradores da Propriedade */}
             {u.moradores && u.moradores.length > 1 && (

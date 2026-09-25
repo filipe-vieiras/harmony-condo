@@ -7,7 +7,8 @@ import { useDialog } from '@/components/ui/DialogProvider';
 import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { ReservationStatus, CommonSpace } from '@/types';
-import { isAdmin } from '@/lib/roles';
+import { isAdmin, isProvisorio } from '@/lib/roles';
+import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
   CalendarDays,
@@ -218,6 +219,8 @@ function ReservasContent() {
       setFeedbackMsg({ type: 'error', text: res.message });
     }
   };
+
+  if (isProvisorio(currentUser)) return <AguardandoValidacao recurso="As reservas" />;
 
   return (
     <div className="space-y-6">

@@ -9,6 +9,48 @@ export interface User {
   unidade?: string;
   telefone?: string;
   cargo?: string;
+  /** false = morador que se cadastrou pelo link aberto e ainda aguarda validação do síndico (acesso provisório). */
+  cadastroValidado?: boolean;
+}
+
+export type AutocadastroStatus = 'AGUARDANDO' | 'VALIDADO' | 'RECUSADO';
+
+export interface AutocadastroVeiculo {
+  placa: string;
+  marca: string;
+  modelo: string;
+  cor: string;
+}
+
+export interface AutocadastroDependente {
+  nome: string;
+  telefone: string;
+}
+
+/** Envio do formulário público /cadastro, aguardando (ou já com) decisão do síndico. */
+export interface Autocadastro {
+  id: string;
+  unitId: string;
+  userId?: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  rgCpf?: string;
+  tipo: 'PROPRIETARIO' | 'INQUILINO';
+  dependentes: AutocadastroDependente[];
+  veiculos: AutocadastroVeiculo[];
+  status: AutocadastroStatus;
+  motivoRecusa?: string;
+  criadoEm: string;
+  validadoEm?: string;
+  validadoPor?: string;
+}
+
+export interface DiretorioUnidade {
+  bloco: string;
+  numero: string;
+  responsavel?: string;
+  situacao: 'VALIDADO' | 'AGUARDANDO_VALIDACAO' | 'SEM_CADASTRO';
 }
 
 export interface UnitResident {

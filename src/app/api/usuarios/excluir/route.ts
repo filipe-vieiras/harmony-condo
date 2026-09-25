@@ -33,6 +33,14 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
+  // Um autocadastro ainda pendente dessa conta deixaria de fazer sentido (e
+  // continuaria aparecendo como "aguardando" na lista de unidades).
+  await admin
+    .from('autocadastros')
+    .update({ status: 'RECUSADO', motivo_recusa: 'Acesso excluído pela administração', validado_em: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('status', 'AGUARDANDO');
+
   // Se o usuário for o morador prioritário de alguma unidade, desvincula antes
   // de excluir, pra não deixar a unidade apontando pra uma conta inexistente.
   await supabase

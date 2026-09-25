@@ -1,4 +1,9 @@
-import { Role } from '@/types';
+import { Role, User } from '@/types';
+
+/** Morador que se cadastrou pelo link aberto e ainda não foi validado pelo síndico. */
+export function isProvisorio(user?: User | null): boolean {
+  return user?.role === 'MORADOR' && user.cadastroValidado === false;
+}
 
 /**
  * ADM e SUBSINDICO têm exatamente as mesmas permissões do SINDICO (decisão

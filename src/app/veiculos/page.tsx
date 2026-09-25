@@ -6,7 +6,8 @@ import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { useApp } from '@/context/AppContext';
 import { Vehicle } from '@/types';
-import { isAdmin } from '@/lib/roles';
+import { isAdmin, isProvisorio } from '@/lib/roles';
+import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
   Car,
@@ -109,6 +110,7 @@ function VeiculosContent() {
   };
 
   if (!currentUser) return null;
+  if (isProvisorio(currentUser)) return <AguardandoValidacao recurso="Os veículos" />;
 
   const isMorador = currentUser.role === 'MORADOR';
   const minhaUnidade = units.find((u) => u.usuarioId === currentUser.id);
