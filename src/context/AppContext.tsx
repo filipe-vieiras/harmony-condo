@@ -17,7 +17,9 @@ import {
   PendingInvite,
   Zelador,
   PortalAdministradora,
+  Autocadastro,
 } from '@/types';
+import type { AutocadastroDados } from '@/lib/autocadastro';
 import { isAdmin, SINGLETON_ROLES } from '@/lib/roles';
 import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
@@ -33,6 +35,7 @@ import {
   fetchZelador, updateZeladorDB,
   fetchPortalAdministradora, updatePortalAdministradoraDB,
   fetchProfiles,
+  fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
 
 interface AppContextType {
@@ -92,6 +95,15 @@ interface AppContextType {
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Admin: todos os envios do formulário público. Morador: só o próprio. */
+  autocadastros: Autocadastro[];
+  /** Envio ainda aguardando validação do usuário logado (acesso provisório). */
+  meuAutocadastro: Autocadastro | null;
+  autocadastroAberto: boolean;
+  setAutocadastroAberto: (aberto: boolean) => Promise<{ success: boolean; message: string }>;
+  importarUnidades: (linhas: Array<{ bloco: string; numero: string }>) => Promise<{ success: boolean; message: string }>;
+  decidirAutocadastros: (ids: string[], acao: 'VALIDAR' | 'RECUSAR', motivo?: string) => Promise<{ success: boolean; message: string; detalhes: string[] }>;
+  corrigirMeuAutocadastro: (dados: AutocadastroDados) => Promise<{ success: boolean; message: string }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -128,6 +140,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [portalAdministradora, setPortalAdministradora] = useState<PortalAdministradora | null>(null);
   const [systemUsers, setSystemUsers] = useState<User[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [autocadastros, setAutocadastros] = useState<Autocadastro[]>([]);
+  const [autocadastroAberto, setAutocadastroAbertoState] = useState(false);
 
   // Carrega o perfil do usuário autenticado
   const loadUserProfile = useCallback(async (authUserId: string) => {
@@ -152,12 +166,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       bloco: data.bloco ?? undefined,
       unidade: data.unidade ?? undefined,
       telefone: data.telefone ?? undefined,
+      cadastroValidado: data.cadastro_validado ?? true,
     });
   }, [supabase]);
 
   // Carrega todos os dados do banco quando o usuário está logado
   const loadAllData = useCallback(async () => {
-    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users] = await Promise.all([
+    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users, autos, aberto] = await Promise.all([
       fetchUnits(supabase),
       fetchVehicles(supabase),
       fetchNotices(supabase),
@@ -171,6 +186,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchPortalAdministradora(supabase),
       fetchPendingInvites(supabase),
       fetchProfiles(supabase),
+      fetchAutocadastros(supabase),
+      fetchAutocadastroAberto(supabase),
     ]);
     setUnits(u);
     setVehicles(v);
@@ -185,6 +202,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPortalAdministradora(portal);
     setPendingInvites(invites);
     setSystemUsers(users);
+    setAutocadastros(autos);
+    setAutocadastroAbertoState(aberto);
   }, [supabase]);
 
   // Escuta mudanças de sessão (login/logout)
@@ -926,6 +945,102 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const unreadNotificationCount = visibleNotifications.filter((n) => !n.lida).length;
 
+  // ── AUTOCADASTRO ──
+
+  const meuAutocadastro = currentUser
+    ? autocadastros.find((a) => a.userId === currentUser.id && a.status === 'AGUARDANDO') ?? null
+    : null;
+
+  const setAutocadastroAberto = async (aberto: boolean): Promise<{ success: boolean; message: string }> => {
+    const ok = await updateAutocadastroAbertoDB(supabase, aberto);
+    if (!ok) return { success: false, message: 'Não foi possível alterar o formulário. Tente novamente.' };
+    setAutocadastroAbertoState(aberto);
+    await recordAudit(aberto ? 'Abriu o formulário de autocadastro' : 'Fechou o formulário de autocadastro', 'UNIDADES');
+    return { success: true, message: aberto ? 'Formulário aberto. Divulgue o link para os moradores.' : 'Formulário fechado. O link deixa de aceitar novos cadastros.' };
+  };
+
+  const importarUnidades = async (linhas: Array<{ bloco: string; numero: string }>): Promise<{ success: boolean; message: string }> => {
+    if (linhas.length === 0) return { success: false, message: 'Nenhuma unidade válida encontrada na planilha.' };
+    // Relê do banco (não do estado local) para não duplicar unidades criadas por outra aba/usuário.
+    const atuais = await fetchUnits(supabase);
+    const existentes = new Set(atuais.map((u) => `${u.bloco}|${u.numero.trim().toLowerCase()}`));
+    const novas = linhas.filter((l) => !existentes.has(`${l.bloco}|${l.numero.trim().toLowerCase()}`));
+    const { criadas, erro } = await importUnitsDB(supabase, novas);
+    if (erro) return { success: false, message: `Erro ao importar: ${erro}` };
+    setUnits(await fetchUnits(supabase));
+    if (criadas > 0) await recordAudit(`Importou ${criadas} unidade(s) da planilha`, 'UNIDADES', { linhas: linhas.length, criadas });
+    const ignoradas = linhas.length - criadas;
+    return {
+      success: true,
+      message: `${criadas} unidade(s) criada(s)${ignoradas > 0 ? `, ${ignoradas} já existia(m) e foi(ram) ignorada(s)` : ''}.`,
+    };
+  };
+
+  const decidirAutocadastros = async (
+    ids: string[],
+    acao: 'VALIDAR' | 'RECUSAR',
+    motivo?: string
+  ): Promise<{ success: boolean; message: string; detalhes: string[] }> => {
+    let response: Response;
+    try {
+      response = await fetch('/api/autocadastro/decidir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, acao, motivo }),
+      });
+    } catch {
+      return { success: false, message: 'Erro de conexão. Tente novamente.', detalhes: [] };
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, message: body.error ?? `Erro (código ${response.status}).`, detalhes: [] };
+    }
+
+    const resultados = (body.resultados ?? []) as Array<{ ok: boolean; mensagem: string }>;
+    // A decisão mexe em unidades, veículos, perfis e auditoria no servidor.
+    const [u, v, autos, users, logs] = await Promise.all([
+      fetchUnits(supabase),
+      fetchVehicles(supabase),
+      fetchAutocadastros(supabase),
+      fetchProfiles(supabase),
+      fetchAuditLogs(supabase),
+    ]);
+    setUnits(u);
+    setVehicles(v);
+    setAutocadastros(autos);
+    setSystemUsers(users);
+    setAuditLogs(logs);
+
+    const okCount = resultados.filter((r) => r.ok).length;
+    const falhas = resultados.filter((r) => !r.ok);
+    const verbo = acao === 'VALIDAR' ? 'validado(s)' : 'recusado(s)';
+    return {
+      success: falhas.length === 0,
+      message: falhas.length === 0
+        ? `${okCount} cadastro(s) ${verbo}.`
+        : `${okCount} cadastro(s) ${verbo}, ${falhas.length} com problema.`,
+      detalhes: resultados.map((r) => r.mensagem),
+    };
+  };
+
+  const corrigirMeuAutocadastro = async (dados: AutocadastroDados): Promise<{ success: boolean; message: string }> => {
+    let response: Response;
+    try {
+      response = await fetch('/api/autocadastro/meu', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados),
+      });
+    } catch {
+      return { success: false, message: 'Erro de conexão. Tente novamente.' };
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: body.error ?? 'Não foi possível salvar a correção.' };
+    setAutocadastros(await fetchAutocadastros(supabase));
+    if (currentUser) setCurrentUser({ ...currentUser, name: dados.nome, telefone: dados.telefone });
+    return { success: true, message: 'Cadastro atualizado. O síndico verá os dados corrigidos.' };
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -976,6 +1091,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markNotificationAsRead,
         markAllNotificationsAsRead,
         signOut,
+        autocadastros,
+        meuAutocadastro,
+        autocadastroAberto,
+        setAutocadastroAberto,
+        importarUnidades,
+        decidirAutocadastros,
+        corrigirMeuAutocadastro,
       }}
     >
       {children}

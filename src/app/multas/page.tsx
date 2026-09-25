@@ -7,7 +7,8 @@ import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { FineStatus, Unit } from '@/types';
-import { isAdmin } from '@/lib/roles';
+import { isAdmin, isProvisorio } from '@/lib/roles';
+import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import {
   ShieldAlert,
@@ -66,7 +67,8 @@ function MultasContent() {
   useEscapeToClose(showModal, () => setShowModal(false));
 
   // Restrição estrita de acesso: PORTARIA NÃO VÊ MULTAS
-    if (!currentUser) return null;
+  if (!currentUser) return null;
+  if (isProvisorio(currentUser)) return <AguardandoValidacao recurso="As notificações e multas" />;
   if (currentUser.role === 'PORTARIA') {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">

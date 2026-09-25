@@ -4,8 +4,9 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { isAdmin, ADMIN_ROLES } from '@/lib/roles';
+import { isAdmin, isProvisorio, ADMIN_ROLES } from '@/lib/roles';
 import {
+  ClipboardCheck,
   LayoutDashboard,
   Megaphone,
   Users,
@@ -25,7 +26,7 @@ interface SidebarProps {
 
 export function Sidebar({ onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
-  const { currentUser, isLoading, fines, reservations, pendingInvites } = useApp();
+  const { currentUser, isLoading, fines, reservations, pendingInvites, autocadastros } = useApp();
 
   // Calcular alertas pendentes para badges na navegação
   const pendingFinesCount = fines.filter((f) => {
@@ -43,6 +44,10 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
     ? pendingInvites.filter((i) => i.status === 'PENDENTE').length
     : 0;
 
+  const pendingAutocadastrosCount = isAdmin(currentUser?.role)
+    ? autocadastros.filter((a) => a.status === 'AGUARDANDO').length
+    : 0;
+
   const navItems = [
     {
       label: 'Visão Geral',
@@ -57,10 +62,11 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
     },
     {
-      label: 'Moradores & Unidades',
+      // Para o morador a página mostra só a lista pública (unidade + responsável).
+      label: currentUser?.role === 'MORADOR' ? 'Lista de Unidades' : 'Moradores & Unidades',
       href: '/moradores',
       icon: Users,
-      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
     },
     {
       label: 'Veículos & Garagem',
@@ -103,7 +109,17 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       roles: [...ADMIN_ROLES],
       badgeCount: pendingInvitesCount,
     },
+    {
+      label: 'Autocadastro',
+      href: '/autocadastro',
+      icon: ClipboardCheck,
+      roles: [...ADMIN_ROLES],
+      badgeCount: pendingAutocadastrosCount,
+    },
   ];
+
+  // Morador com cadastro provisório: só o que não depende da unidade validada.
+  const ROTAS_PROVISORIO = ['/', '/mural', '/moradores', '/links'];
 
   // Enquanto o perfil ainda não carregou, currentUser é null — cair num
   // fallback tipo 'MORADOR' aqui mostrava por um instante o menu reduzido
@@ -112,7 +128,9 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
   // acessar. Sem currentUser ainda, não há itens visíveis — o skeleton
   // abaixo cobre esse instante em vez de um menu com permissões erradas.
   const visibleItems = currentUser
-    ? navItems.filter((item) => item.roles.includes(currentUser.role))
+    ? navItems.filter(
+        (item) => item.roles.includes(currentUser.role) && (!isProvisorio(currentUser) || ROTAS_PROVISORIO.includes(item.href))
+      )
     : [];
 
   return (

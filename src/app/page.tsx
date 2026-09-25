@@ -8,7 +8,8 @@ import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { Badge } from '@/components/ui/Badge';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
-import { isAdmin } from '@/lib/roles';
+import { isAdmin, isProvisorio } from '@/lib/roles';
+import { PainelProvisorio } from '@/components/autocadastro/PainelProvisorio';
 import {
   Users,
   Car,
@@ -49,6 +50,7 @@ function DashboardContent() {
   const [searchPlate, setSearchPlate] = useState('');
 
   if (!currentUser) return <DashboardSkeleton />;
+  if (isProvisorio(currentUser)) return <PainelProvisorio />;
 
   // Filtros de acordo com o papel ativo
   const pendingReservations = reservations.filter((r) => r.status === 'PENDENTE');

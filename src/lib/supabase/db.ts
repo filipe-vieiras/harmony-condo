@@ -13,6 +13,8 @@ import type {
   Zelador,
   PortalAdministradora,
   User,
+  Autocadastro,
+  DiretorioUnidade,
 } from '@/types';
 
 // ──────────────────────────────────────────────
@@ -31,6 +33,7 @@ export async function fetchProfiles(supabase: SupabaseClient): Promise<User[]> {
     bloco: (r.bloco as string) ?? undefined,
     unidade: (r.unidade as string) ?? undefined,
     telefone: (r.telefone as string) ?? undefined,
+    cadastroValidado: (r.cadastro_validado as boolean) ?? true,
   }));
 }
 
@@ -747,3 +750,91 @@ export async function updatePortalAdministradoraDB(
   };
 }
 
+
+// ──────────────────────────────────────────────
+// AUTOCADASTRO DE MORADORES
+// ──────────────────────────────────────────────
+
+function rowToAutocadastro(r: Record<string, unknown>): Autocadastro {
+  return {
+    id: r.id as string,
+    unitId: r.unit_id as string,
+    userId: (r.user_id as string) ?? undefined,
+    nome: r.nome as string,
+    email: r.email as string,
+    telefone: r.telefone as string,
+    rgCpf: (r.rg_cpf as string) ?? undefined,
+    tipo: r.tipo as Autocadastro['tipo'],
+    dependentes: (r.dependentes as Autocadastro['dependentes']) ?? [],
+    veiculos: (r.veiculos as Autocadastro['veiculos']) ?? [],
+    status: r.status as Autocadastro['status'],
+    motivoRecusa: (r.motivo_recusa as string) ?? undefined,
+    criadoEm: r.criado_em as string,
+    validadoEm: (r.validado_em as string) ?? undefined,
+    validadoPor: (r.validado_por as string) ?? undefined,
+  };
+}
+
+/** RLS devolve todos os envios para a administração e só o próprio para o morador. */
+export async function fetchAutocadastros(supabase: SupabaseClient): Promise<Autocadastro[]> {
+  const { data, error } = await supabase.from('autocadastros').select('*').order('criado_em', { ascending: false });
+  if (error) { console.error('fetchAutocadastros:', error); return []; }
+  return (data ?? []).map(rowToAutocadastro);
+}
+
+export async function fetchAutocadastroAberto(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase.from('autocadastro_config').select('aberto').eq('id', 1).single();
+  if (error) { console.error('fetchAutocadastroAberto:', error); return false; }
+  return !!data?.aberto;
+}
+
+export async function updateAutocadastroAbertoDB(supabase: SupabaseClient, aberto: boolean): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('autocadastro_config')
+    .update({ aberto, atualizado_em: new Date().toISOString() })
+    .eq('id', 1)
+    .select();
+  if (error) { console.error('updateAutocadastroAbertoDB:', error); return false; }
+  return (data?.length ?? 0) > 0;
+}
+
+export async function fetchDiretorioUnidades(supabase: SupabaseClient): Promise<DiretorioUnidade[]> {
+  const { data, error } = await supabase.rpc('diretorio_unidades');
+  if (error) { console.error('fetchDiretorioUnidades:', error); return []; }
+  return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    bloco: r.bloco as string,
+    numero: r.numero as string,
+    responsavel: (r.responsavel as string) ?? undefined,
+    situacao: r.situacao as DiretorioUnidade['situacao'],
+  }));
+}
+
+/**
+ * Cria só o "esqueleto" das unidades (bloco + número) a partir da planilha.
+ * Quem chama já deve ter removido as unidades existentes: não dá pra contar
+ * com ON CONFLICT porque o índice único de 0005 pode não estar no banco.
+ */
+export async function importUnitsDB(
+  supabase: SupabaseClient,
+  linhas: Array<{ bloco: string; numero: string }>
+): Promise<{ criadas: number; erro?: string }> {
+  if (linhas.length === 0) return { criadas: 0 };
+  const { data, error } = await supabase
+    .from('units')
+    .insert(
+      linhas.map((l) => ({
+        bloco: l.bloco,
+        numero: l.numero,
+        proprietario_nome: '',
+        proprietario_telefone: '',
+        proprietario_email: '',
+        tipo_ocupacao: 'DESOCUPADO',
+        moradores: [],
+        vagas_garagem: [],
+        animais: '',
+      }))
+    )
+    .select('id');
+  if (error) { console.error('importUnitsDB:', error); return { criadas: 0, erro: error.message }; }
+  return { criadas: data?.length ?? 0 };
+}

@@ -52,6 +52,20 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Quem se autocadastrou nesta unidade e ainda aguarda validação também
+  // perde o sentido: sem isso a conta ficaria provisória para sempre (o envio
+  // some junto com a unidade, por ON DELETE CASCADE).
+  const { data: pendentes } = await admin
+    .from('autocadastros')
+    .select('user_id')
+    .eq('unit_id', unitId)
+    .eq('status', 'AGUARDANDO');
+  for (const p of pendentes ?? []) {
+    if (!p.user_id) continue;
+    await admin.from('profiles').delete().eq('id', p.user_id);
+    await admin.auth.admin.deleteUser(p.user_id);
+  }
+
   const { error: deleteError } = await supabase.from('units').delete().eq('id', unitId);
   if (deleteError) {
     return NextResponse.json({ error: 'Erro ao excluir a unidade.' }, { status: 500 });

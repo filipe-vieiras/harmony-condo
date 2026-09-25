@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -31,6 +31,14 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const senhaCriada = searchParams.get('senhaCriada') === '1';
+  const [cadastroAberto, setCadastroAberto] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/autocadastro/publico')
+      .then((r) => r.json())
+      .then((body) => setCadastroAberto(!!body.aberto))
+      .catch(() => {});
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +210,14 @@ function LoginForm() {
           </form>
 
           <p className="mt-6 text-center text-[12px] text-slate-500">
-            Não tem acesso? Entre em contato com o síndico do condomínio.
+            {cadastroAberto ? (
+              <>
+                Primeiro acesso?{' '}
+                <a href="/cadastro" className="font-semibold text-[#0A6E9C] hover:underline">Cadastre a sua unidade</a>
+              </>
+            ) : (
+              'Não tem acesso? Entre em contato com o síndico do condomínio.'
+            )}
           </p>
         </div>
 
