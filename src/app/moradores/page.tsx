@@ -32,7 +32,10 @@ import {
   Check,
   CheckCircle2,
   AlertTriangle,
+  FileSpreadsheet,
+  Loader2,
 } from 'lucide-react';
+import { baixarPlanilhaMoradoresVeiculos } from '@/lib/exportarPlanilha';
 
 export default function MoradoresPage() {
   return (
@@ -43,7 +46,7 @@ export default function MoradoresPage() {
 }
 
 function MoradoresContent() {
-  const { currentUser, units, pendingInvites, autocadastros, addUnit, updateUnit, deleteUnit, sendInviteForUnit } = useApp();
+  const { currentUser, units, vehicles, pendingInvites, autocadastros, addUnit, updateUnit, deleteUnit, sendInviteForUnit, registrarExportacaoPlanilha } = useApp();
   const { confirm } = useDialog();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBloco, setFilterBloco] = useState<string>('TODOS');
@@ -53,6 +56,7 @@ function MoradoresContent() {
   const [copiedUnitId, setCopiedUnitId] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [exportando, setExportando] = useState(false);
 
   useEscapeToClose(showModal, () => setShowModal(false));
 
@@ -122,6 +126,24 @@ function MoradoresContent() {
     setNovasObservacoes('');
     setDemaisMoradores([]);
     setEditingUnitId(null);
+  };
+
+  const handleExportar = async () => {
+    setExportando(true);
+    setFeedbackMsg(null);
+    try {
+      const totais = await baixarPlanilhaMoradoresVeiculos(units, vehicles, autocadastros);
+      await registrarExportacaoPlanilha(totais);
+      setFeedbackMsg({
+        type: 'success',
+        text: `Planilha baixada: ${totais.moradores} linha(s) de moradores e ${totais.veiculos} veículo(s). O arquivo tem telefone, e-mail e CPF — evite compartilhar em grupos.`,
+      });
+    } catch (err) {
+      console.error('Erro ao exportar planilha', err);
+      setFeedbackMsg({ type: 'error', text: 'Não foi possível gerar a planilha. Tente novamente.' });
+    } finally {
+      setExportando(false);
+    }
   };
 
   const handleOpenCreate = () => {
@@ -298,6 +320,23 @@ function MoradoresContent() {
             <Printer className="h-4 w-4 text-slate-500" />
             <span>Imprimir Relação</span>
           </button>
+
+          {isAdmin(currentUser.role) && (
+            <button
+              type="button"
+              onClick={handleExportar}
+              disabled={exportando || units.length === 0}
+              title="Baixa um arquivo Excel com uma aba de moradores e outra de veículos"
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exportando ? (
+                <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+              )}
+              <span>Exportar Excel</span>
+            </button>
+          )}
 
           {isAdmin(currentUser.role) && (
             <button

@@ -104,6 +104,8 @@ interface AppContextType {
   importarUnidades: (linhas: Array<{ bloco: string; numero: string }>) => Promise<{ success: boolean; message: string }>;
   decidirAutocadastros: (ids: string[], acao: 'VALIDAR' | 'RECUSAR', motivo?: string) => Promise<{ success: boolean; message: string; detalhes: string[] }>;
   corrigirMeuAutocadastro: (dados: AutocadastroDados) => Promise<{ success: boolean; message: string }>;
+  /** Registra no histórico que a planilha de moradores e veículos foi baixada (dados pessoais — LGPD). */
+  registrarExportacaoPlanilha: (totais: { moradores: number; veiculos: number }) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -251,6 +253,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     const updated = await fetchAuditLogs(supabase);
     setAuditLogs(updated);
+  };
+
+  const registrarExportacaoPlanilha = async (totais: { moradores: number; veiculos: number }) => {
+    await recordAudit('Exportou planilha de moradores e veículos', 'UNIDADES', totais);
   };
 
   const fetchAuditLogsData = async (modulo?: string) => {
@@ -1098,6 +1104,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         importarUnidades,
         decidirAutocadastros,
         corrigirMeuAutocadastro,
+        registrarExportacaoPlanilha,
       }}
     >
       {children}
