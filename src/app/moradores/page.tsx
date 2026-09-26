@@ -493,7 +493,9 @@ function MoradoresContent() {
 
               <div className="flex items-center gap-2 text-slate-600">
                 <Mail className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                <span className="truncate">{u.proprietarioEmail}</span>
+                <span className="truncate">
+                  {u.moradores && u.moradores.length > 0 ? (u.moradores[0].email ?? u.proprietarioEmail) : u.proprietarioEmail}
+                </span>
               </div>
 
               {(() => {
