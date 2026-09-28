@@ -456,7 +456,9 @@ function rowToNotification(r: Record<string, unknown>): InAppNotification {
     mensagem: r.mensagem as string,
     tipo: r.tipo as InAppNotification['tipo'],
     data: new Date(r.created_at as string).toLocaleDateString('pt-BR'),
-    lida: r.lida as boolean,
+    // "Lida" é por usuário (0028): a RLS de notification_reads só devolve as
+    // linhas do próprio usuário, então basta existir uma.
+    lida: Array.isArray(r.notification_reads) && r.notification_reads.length > 0,
     unidadeAlvo: (r.unidade_alvo as string) ?? undefined,
     unidadeIdAlvo: (r.unidade_id_alvo as string) ?? undefined,
     perfilAlvo: (r.perfil_alvo as InAppNotification['perfilAlvo']) ?? undefined,
@@ -467,7 +469,7 @@ function rowToNotification(r: Record<string, unknown>): InAppNotification {
 export async function fetchNotifications(supabase: SupabaseClient): Promise<InAppNotification[]> {
   const { data, error } = await supabase
     .from('notifications')
-    .select('*')
+    .select('*, notification_reads(user_id)')
     .order('created_at', { ascending: false })
     .limit(50);
   if (error) { console.error('fetchNotifications:', error); return []; }
@@ -491,13 +493,15 @@ export async function insertNotification(
 }
 
 export async function markNotifReadDB(supabase: SupabaseClient, id: string): Promise<void> {
-  const { error } = await supabase.from('notifications').update({ lida: true }).eq('id', id);
-  if (error) console.error('markNotifReadDB:', error);
+  await markAllNotifsReadDB(supabase, [id]);
 }
 
 export async function markAllNotifsReadDB(supabase: SupabaseClient, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  const { error } = await supabase.from('notifications').update({ lida: true }).in('id', ids);
+  // user_id vem do default auth.uid(); ignoreDuplicates = já lida não é erro.
+  const { error } = await supabase
+    .from('notification_reads')
+    .upsert(ids.map((notification_id) => ({ notification_id })), { onConflict: 'notification_id,user_id', ignoreDuplicates: true });
   if (error) console.error('markAllNotifsReadDB:', error);
 }
 

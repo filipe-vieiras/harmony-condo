@@ -179,7 +179,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
                             <p className="mt-0.5 text-xs text-slate-600">{n.mensagem}</p>
                             <div className="mt-1 flex items-center justify-between text-[12px] text-slate-500">
                               <span>{n.data}</span>
-                              {n.linkDestino && (
+                              {n.linkDestino && (n.linkDestino === '/' || /^\/[^/\\]/.test(n.linkDestino)) && (
                                 <Link
                                   href={n.linkDestino}
                                   className="font-medium text-[#0A6E9C] hover:underline"

@@ -65,7 +65,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
       return;
     }
     if (modo === 'novo') {
-      if (senha.length < 6) return setErro('A senha precisa ter no mínimo 6 caracteres.');
+      if (senha.length < 8) return setErro('A senha precisa ter no mínimo 8 caracteres.');
       if (senha !== confirmarSenha) return setErro('As senhas não coincidem.');
       if (!consentimento) return setErro('É preciso concordar com a exibição do seu nome na lista de unidades.');
       Object.assign(payload, { email, senha, consentimento, website });
@@ -138,11 +138,11 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
               </div>
               <div>
                 <label htmlFor="ac-senha" className={labelCls}>Crie uma senha</label>
-                <input id="ac-senha" type="password" required minLength={6} autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} className={inputCls} />
+                <input id="ac-senha" type="password" required minLength={8} autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} className={inputCls} />
               </div>
               <div>
                 <label htmlFor="ac-senha2" className={labelCls}>Confirme a senha</label>
-                <input id="ac-senha2" type="password" required minLength={6} autoComplete="new-password" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)} className={inputCls} />
+                <input id="ac-senha2" type="password" required minLength={8} autoComplete="new-password" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)} className={inputCls} />
               </div>
             </>
           )}

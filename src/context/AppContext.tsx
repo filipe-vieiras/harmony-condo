@@ -919,6 +919,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           : `Sua solicitação para ${targetRes.data} foi recusada: ${motivoRecusa ?? 'Incompatibilidade com o regimento.'}`,
         tipo: 'RESERVA',
         unidadeAlvo: targetRes.unidade,
+        // A reserva guarda bloco/número em texto; a notificação precisa da FK
+        // para chegar só à unidade certa.
+        unidadeIdAlvo: units.find(
+          (u) => u.bloco === targetRes.bloco && u.numero.trim().toLowerCase() === targetRes.unidade.trim().toLowerCase()
+        )?.id,
         linkDestino: '/reservas',
       });
     }
@@ -942,11 +947,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const visibleNotifications = notifications.filter((n) => {
     if (isAdmin(currentUser?.role)) return true;
     if (n.perfilAlvo && n.perfilAlvo !== currentUser?.role) return false;
-    // unidadeIdAlvo (FK) é a fonte confiável quando presente; unidadeAlvo (texto)
-    // fica como fallback pra notificações antigas ou de outros fluxos que ainda não migraram.
+    // Alvo de unidade só pela FK — o texto "101" não diz o bloco (A-101 x B-101).
     if (n.unidadeIdAlvo) return n.unidadeIdAlvo === minhaUnidade?.id;
-    if (n.unidadeAlvo && n.unidadeAlvo !== currentUser?.unidade) return false;
-    return true;
+    return !n.unidadeAlvo;
   });
 
   const unreadNotificationCount = visibleNotifications.filter((n) => !n.lida).length;
