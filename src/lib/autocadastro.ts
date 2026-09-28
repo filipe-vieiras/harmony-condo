@@ -82,7 +82,7 @@ export function validarNovaConta(body: unknown): { ok: true; dados: Autocadastro
   const email = texto(b.email, 120).toLowerCase();
   const senha = typeof b.senha === 'string' ? b.senha : '';
   if (!EMAIL_RE.test(email)) return { ok: false, erro: 'Informe um e-mail válido.' };
-  if (senha.length < 6) return { ok: false, erro: 'A senha precisa ter no mínimo 6 caracteres.' };
+  if (senha.length < 8) return { ok: false, erro: 'A senha precisa ter no mínimo 8 caracteres.' };
   if (senha.length > 72) return { ok: false, erro: 'A senha pode ter no máximo 72 caracteres.' };
   if (b.consentimento !== true) return { ok: false, erro: 'É preciso concordar com a exibição do seu nome na lista de unidades.' };
   return { ok: true, dados: { ...base.dados, email, senha } };

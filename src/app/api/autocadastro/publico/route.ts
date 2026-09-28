@@ -75,7 +75,9 @@ export async function POST(request: NextRequest) {
     const msg = authError?.message?.toLowerCase() ?? '';
     if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
       return NextResponse.json(
-        { error: 'Já existe uma conta com esse e-mail. Entre pela tela de login (use "Esqueceu a senha?" se precisar).' },
+        // Mensagem neutra: não confirma com todas as letras que o e-mail é de
+        // um morador. O limite de 5 envios/hora torna a varredura inviável.
+        { error: 'Não foi possível criar a conta com esse e-mail. Se você já se cadastrou antes, entre pela tela de login (use "Esqueceu a senha?" se precisar).' },
         { status: 409 }
       );
     }
