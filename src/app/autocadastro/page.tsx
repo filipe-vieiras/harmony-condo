@@ -44,7 +44,7 @@ interface LinhaUnidade {
 
 const SITUACAO: Record<Situacao, { label: string; cls: string }> = {
   VALIDADO: { label: 'Validada', cls: 'bg-emerald-50 text-emerald-800' },
-  AGUARDANDO: { label: 'Aguardando validação', cls: 'bg-amber-50 text-amber-800' },
+  AGUARDANDO: { label: 'Aguardando validação', cls: 'bg-pendente-50 text-pendente-800' },
   CONFLITO: { label: 'Conflito', cls: 'bg-red-50 text-red-800' },
   SEM_CADASTRO: { label: 'Sem cadastro', cls: 'bg-slate-100 text-slate-600' },
 };
@@ -129,12 +129,12 @@ function AutocadastroContent() {
 
   if (!isAdmin(currentUser.role)) {
     return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+      <div className="rounded-2xl border border-pendente-200 bg-pendente-50 p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-pendente-100 text-pendente-700">
           <Lock className="h-6 w-6" />
         </div>
-        <h2 className="mt-4 text-base font-bold text-amber-900">Área Restrita</h2>
-        <p className="mx-auto mt-2 max-w-md text-xs text-amber-700">
+        <h2 className="mt-4 text-base font-bold text-pendente-900">Área Restrita</h2>
+        <p className="mx-auto mt-2 max-w-md text-xs text-pendente-700">
           A validação de cadastros é reservada ao Síndico, ao Subsíndico e à Administradora.
         </p>
       </div>
@@ -223,7 +223,7 @@ function AutocadastroContent() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center no-print">
         <div>
           <div className="flex items-center gap-2">
-            <ClipboardCheck className="h-6 w-6 text-[#00A8E8]" />
+            <ClipboardCheck className="h-6 w-6 text-accent" />
             <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Autocadastro de Moradores</h1>
           </div>
           <p className="mt-1 text-xs text-slate-500">
@@ -269,7 +269,7 @@ function AutocadastroContent() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <Link2 className="h-4 w-4 text-[#00A8E8]" /> Link do formulário
+                <Link2 className="h-4 w-4 text-accent" /> Link do formulário
               </h2>
               <p className="mt-1 text-xs text-slate-500">
                 {autocadastroAberto
@@ -299,14 +299,14 @@ function AutocadastroContent() {
             <button
               type="button"
               onClick={handleCopiar}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#0B2545] px-3 py-2 text-xs font-semibold text-white hover:bg-[#134074]"
+              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
             >
               {copiado ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copiado ? 'Copiado!' : 'Copiar'}
             </button>
           </div>
           {units.length === 0 && (
-            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <p className="mt-3 rounded-xl bg-pendente-50 px-3 py-2 text-xs text-pendente-800">
               Importe as unidades antes de divulgar o link: o morador escolhe o apartamento de uma lista.
             </p>
           )}
@@ -315,7 +315,7 @@ function AutocadastroContent() {
         {/* Importação da planilha */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
           <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-            <FileUp className="h-4 w-4 text-[#00A8E8]" /> Importar unidades da planilha
+            <FileUp className="h-4 w-4 text-accent" /> Importar unidades da planilha
           </h2>
           <p className="mt-1 text-xs text-slate-500">
             Só bloco e número. Copie as duas colunas do Excel e cole abaixo, ou envie um CSV. Unidades já cadastradas são ignoradas.
@@ -327,10 +327,10 @@ function AutocadastroContent() {
             value={planilha}
             onChange={(e) => setPlanilha(e.target.value)}
             placeholder={'Bloco;Número\nA;101\nA;102\nB;101'}
-            className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+            className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
           />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[#0A6E9C] hover:underline">
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-accent-strong hover:underline">
               <Upload className="h-3.5 w-3.5" /> Enviar arquivo CSV
               <input type="file" accept=".csv,.txt,text/csv" onChange={handleArquivo} className="sr-only" />
             </label>
@@ -344,7 +344,7 @@ function AutocadastroContent() {
                 type="button"
                 onClick={handleImportar}
                 disabled={!previa || previa.linhas.length === 0 || importando}
-                className="rounded-xl bg-[#0B2545] px-3 py-2 text-xs font-semibold text-white hover:bg-[#134074] disabled:opacity-50"
+                className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
               >
                 {importando ? 'Importando...' : 'Importar'}
               </button>
@@ -374,7 +374,7 @@ function AutocadastroContent() {
                 onClick={() => setFiltro(f.valor)}
                 aria-pressed={filtro === f.valor}
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                  filtro === f.valor ? 'bg-[#0B2545] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  filtro === f.valor ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 {f.label}
@@ -420,7 +420,7 @@ function AutocadastroContent() {
                       checked={pendentesVisiveis.length > 0 && pendentesVisiveis.every((id) => selecionados.includes(id))}
                       disabled={pendentesVisiveis.length === 0}
                       onChange={(e) => setSelecionados(e.target.checked ? pendentesVisiveis : [])}
-                      className="h-4 w-4 accent-[#0B2545]"
+                      className="h-4 w-4 accent-primary"
                     />
                   </th>
                   <th className="px-4 py-2.5">Unidade</th>
@@ -441,7 +441,7 @@ function AutocadastroContent() {
                             aria-label={`Selecionar cadastro de ${p.nome}`}
                             checked={selecionados.includes(p.id)}
                             onChange={() => alternarSelecao(p.id)}
-                            className="h-4 w-4 accent-[#0B2545]"
+                            className="h-4 w-4 accent-primary"
                           />
                         )}
                       </td>
@@ -504,7 +504,7 @@ function AutocadastroContent() {
                             </div>
                           </div>
                         ) : l.situacao === 'VALIDADO' ? (
-                          <Link href="/moradores" className="text-[12px] font-semibold text-[#0A6E9C] hover:underline">Editar em Moradores</Link>
+                          <Link href="/moradores" className="text-[12px] font-semibold text-accent-strong hover:underline">Editar em Moradores</Link>
                         ) : (
                           <span className="text-[12px] text-slate-400">Nenhum envio</span>
                         )}

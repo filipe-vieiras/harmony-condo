@@ -128,7 +128,7 @@ function VeiculosContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div>
           <div className="flex items-center gap-2">
-            <Car className="h-6 w-6 text-[#00A8E8]" />
+            <Car className="h-6 w-6 text-accent" />
             <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
               Cadastro e Controle de Veículos
             </h1>
@@ -150,9 +150,9 @@ function VeiculosContent() {
 
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074]"
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
           >
-            <Plus className="h-4 w-4 text-[#00A8E8]" />
+            <Plus className="h-4 w-4 text-accent" />
             <span>Cadastrar Veículo</span>
           </button>
         </div>
@@ -199,7 +199,7 @@ function VeiculosContent() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Digite a placa (ex: BRA2E19), apartamento, vaga ou nome do morador..."
-          className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 font-medium shadow-2xs uppercase"
+          className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20 font-medium shadow-2xs uppercase"
         />
       </div>
 
@@ -236,13 +236,13 @@ function VeiculosContent() {
                     <td data-label="Veículo / Modelo" className="px-5 py-3.5 font-bold text-slate-900">
                       {v.marca} {v.modelo}
                       {v.status === 'VISITANTE' && (
-                        <span className="ml-2 rounded-md bg-amber-100 px-1.5 py-0.5 text-[12px] text-amber-800 font-bold">
+                        <span className="ml-2 rounded-md bg-pendente-100 px-1.5 py-0.5 text-[12px] text-pendente-800 font-bold">
                           Visitante
                         </span>
                       )}
                     </td>
                     <td data-label="Cor" className="px-5 py-3.5 text-slate-600">{v.cor}</td>
-                    <td data-label="Unidade" className="px-5 py-3.5 font-semibold text-[#0B2545]">
+                    <td data-label="Unidade" className="px-5 py-3.5 font-semibold text-primary">
                       Apto {v.unidade} - Bloco {v.bloco}
                     </td>
                     <td data-label="Vaga" className="px-5 py-3.5 font-mono text-slate-700 font-bold">
@@ -313,7 +313,7 @@ function VeiculosContent() {
                   placeholder="Ex: BRA2E19"
                   value={placa}
                   onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-mono uppercase font-bold focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-mono uppercase font-bold focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
 
@@ -327,7 +327,7 @@ function VeiculosContent() {
                     placeholder="Ex: Toyota"
                     value={marca}
                     onChange={(e) => setMarca(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                   />
                 </div>
                 <div>
@@ -339,7 +339,7 @@ function VeiculosContent() {
                     placeholder="Ex: Corolla"
                     value={modelo}
                     onChange={(e) => setModelo(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                   />
                 </div>
               </div>
@@ -353,7 +353,7 @@ function VeiculosContent() {
                     placeholder="Ex: Preto"
                     value={cor}
                     onChange={(e) => setCor(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                   />
                 </div>
                 <div>
@@ -364,7 +364,7 @@ function VeiculosContent() {
                     placeholder="Ex: G2-45"
                     value={vaga}
                     onChange={(e) => setVaga(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                   />
                 </div>
               </div>
@@ -380,7 +380,7 @@ function VeiculosContent() {
                     placeholder="304"
                     value={unidade}
                     onChange={(e) => setUnidade(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20 disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -390,7 +390,7 @@ function VeiculosContent() {
                     value={bloco}
                     disabled={isMorador}
                     onChange={(e) => setBloco(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20 disabled:bg-slate-100 disabled:text-slate-500"
                   >
                     <option value="A">Bloco A</option>
                     <option value="B">Bloco B</option>
@@ -411,7 +411,7 @@ function VeiculosContent() {
                   required
                   value={proprietarioNome}
                   onChange={(e) => setProprietarioNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
 
@@ -422,7 +422,7 @@ function VeiculosContent() {
                   type="text"
                   value={telefoneContato}
                   onChange={(e) => setTelefoneContato(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
 
@@ -438,7 +438,7 @@ function VeiculosContent() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white hover:bg-[#134074] disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSaving ? 'Salvando...' : 'Salvar Veículo'}
                 </button>

@@ -72,19 +72,19 @@ function DashboardContent() {
     <div className="space-y-6">
       
       {/* Banner de Boas-Vindas */}
-      <div className="rounded-3xl bg-gradient-to-r from-[#0B2545] via-[#134074] to-[#1D4E89] p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+      <div className="rounded-3xl bg-gradient-to-r from-primary via-primary-hover to-secondary p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
         <div className="absolute right-0 top-0 h-full w-1/3 opacity-10 pointer-events-none flex items-center justify-end pr-6">
           <Image src="/images/logo.png" alt="" width={562} height={508} aria-hidden="true" className="h-48 w-auto object-contain" />
         </div>
 
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-cyan-200 backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-accent-200 backdrop-blur-md">
             <span>Portal Condominial Harmony Residence</span>
           </div>
           <h1 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl text-white">
             Olá, {currentUser.name}
           </h1>
-          <p className="mt-1 text-xs sm:text-sm text-cyan-100">
+          <p className="mt-1 text-xs sm:text-sm text-accent-100">
             {isAdmin(currentUser.role) && 'Painel de controle geral: gestão administrativa, ocorrências disciplinares e validação de reservas.'}
             {currentUser.role === 'PORTARIA' && 'Guarita de controle: identificação instantânea de veículos, consulta de moradores e agenda das áreas comuns.'}
             {currentUser.role === 'CONSELHO' && 'Auditoria e acompanhamento fiscal: fiscalização de multas, reservas e transparência condominial.'}
@@ -160,7 +160,7 @@ function DashboardContent() {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {currentUser.role === 'MORADOR' ? 'Minha Unidade' : 'Unidades'}
             </span>
-            <div className="rounded-xl bg-blue-50 p-2 text-[#0B2545]">
+            <div className="rounded-xl bg-blue-50 p-2 text-primary">
               <Users className="h-5 w-5" />
             </div>
           </div>
@@ -179,7 +179,7 @@ function DashboardContent() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Veículos</span>
-            <div className="rounded-xl bg-cyan-50 p-2 text-[#00A8E8]">
+            <div className="rounded-xl bg-accent-50 p-2 text-accent">
               <Car className="h-5 w-5" />
             </div>
           </div>
@@ -211,7 +211,7 @@ function DashboardContent() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avisos do Mural</span>
-              <div className="rounded-xl bg-amber-50 p-2 text-amber-600">
+              <div className="rounded-xl bg-pendente-50 p-2 text-pendente-600">
                 <Megaphone className="h-5 w-5" />
               </div>
             </div>
@@ -242,24 +242,24 @@ function DashboardContent() {
 
       {/* ÁREA DE AÇÃO RÁPIDA: Solicitações de Reserva Pendentes para o Síndico */}
       {isAdmin(currentUser.role) && pendingReservations.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-xs">
+        <div className="rounded-2xl border border-pendente-200 bg-pendente-50/70 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
-              <Clock className="h-4 w-4 text-amber-600" />
+            <div className="flex items-center gap-2 text-pendente-900 font-bold text-sm">
+              <Clock className="h-4 w-4 text-pendente-600" />
               <span>Solicitações de Reserva Aguardando Sua Aprovação ({pendingReservations.length})</span>
             </div>
-            <Link href="/reservas" className="text-xs font-semibold text-[#0B2545] hover:underline">
+            <Link href="/reservas" className="text-xs font-semibold text-primary hover:underline">
               Ver todas na agenda →
             </Link>
           </div>
 
           <div className="mt-3 space-y-2">
             {pendingReservations.map((r) => (
-              <div key={r.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl bg-white p-3.5 border border-amber-200/80 shadow-2xs gap-3">
+              <div key={r.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl bg-white p-3.5 border border-pendente-200/80 shadow-2xs gap-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-xs text-slate-900">{r.espacoNome}</span>
-                    <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[12px] font-bold text-amber-800">
+                    <span className="rounded-md bg-pendente-100 px-2 py-0.5 text-[12px] font-bold text-pendente-800">
                       Pendente
                     </span>
                   </div>
@@ -333,10 +333,10 @@ function DashboardContent() {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Megaphone className="h-5 w-5 text-[#00A8E8]" />
+              <Megaphone className="h-5 w-5 text-accent" />
               <h2 className="text-base font-bold text-slate-900">Mural de Avisos & Comunicados</h2>
             </div>
-            <Link href="/mural" className="text-xs font-semibold text-[#0B2545] hover:underline">
+            <Link href="/mural" className="text-xs font-semibold text-primary hover:underline">
               Ver mural completo →
             </Link>
           </div>
@@ -352,7 +352,7 @@ function DashboardContent() {
               <div
                 key={notice.id}
                 className={`rounded-2xl border bg-white p-5 shadow-xs transition hover:shadow-md ${
-                  notice.fixado ? 'border-sky-300 ring-1 ring-sky-100' : 'border-slate-200'
+                  notice.fixado ? 'border-accent-300 ring-1 ring-accent-100' : 'border-slate-200'
                 }`}
               >
                 <div className="flex items-center justify-between text-xs">
@@ -361,9 +361,9 @@ function DashboardContent() {
                       notice.categoria === 'URGENTE'
                         ? 'bg-red-100 text-red-800'
                         : notice.categoria === 'ASSEMBLEIA'
-                        ? 'bg-blue-100 text-[#0B2545]'
+                        ? 'bg-blue-100 text-primary'
                         : notice.categoria === 'MANUTENCAO'
-                        ? 'bg-amber-100 text-amber-800'
+                        ? 'bg-pendente-100 text-pendente-800'
                         : 'bg-slate-100 text-slate-800'
                     }`}
                   >
@@ -376,7 +376,7 @@ function DashboardContent() {
                 <p className="mt-1 text-xs text-slate-600 line-clamp-2">{notice.conteudo}</p>
 
                 {notice.anexoNome && (
-                  <div className="mt-3 flex items-center gap-1.5 text-xs text-[#00A8E8] font-medium">
+                  <div className="mt-3 flex items-center gap-1.5 text-xs text-accent font-medium">
                     <FileText className="h-3.5 w-3.5" />
                     <span>Anexo: {notice.anexoNome}</span>
                   </div>
@@ -396,7 +396,7 @@ function DashboardContent() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
             <Link
               href="/reservas"
-              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-[#00A8E8] hover:bg-sky-50/40"
+              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
             >
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
@@ -412,10 +412,10 @@ function DashboardContent() {
 
             <Link
               href="/links"
-              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-[#00A8E8] hover:bg-sky-50/40"
+              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
             >
               <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-blue-50 p-2 text-[#0B2545]">
+                <div className="rounded-lg bg-blue-50 p-2 text-primary">
                   <FileText className="h-4 w-4" />
                 </div>
                 <div>
@@ -428,10 +428,10 @@ function DashboardContent() {
 
             <Link
               href="/veiculos"
-              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-[#00A8E8] hover:bg-sky-50/40"
+              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
             >
               <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-cyan-50 p-2 text-[#00A8E8]">
+                <div className="rounded-lg bg-accent-50 p-2 text-accent">
                   <Car className="h-4 w-4" />
                 </div>
                 <div>
@@ -463,8 +463,8 @@ function DashboardContent() {
 
           {/* Zeladoria — dados vêm do cadastro em Links & Documentos */}
           {zelador?.nome && (
-            <div className="rounded-2xl border border-slate-200 bg-[#0B2545] p-5 text-white shadow-xs">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-200">
+            <div className="rounded-2xl border border-slate-200 bg-primary p-5 text-white shadow-xs">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-accent-200">
                 Zeladoria
               </h3>
               <p className="mt-2 text-base font-bold text-white">{zelador.nome}</p>
@@ -475,7 +475,7 @@ function DashboardContent() {
                 <div className="mt-3 pt-3 border-t border-white/10">
                   <a
                     href={`tel:${zelador.telefone.replace(/[^0-9]/g, '')}`}
-                    className="text-sm font-semibold text-cyan-100 hover:underline"
+                    className="text-sm font-semibold text-accent-100 hover:underline"
                   >
                     {zelador.telefone}
                   </a>

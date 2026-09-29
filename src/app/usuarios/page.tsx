@@ -61,12 +61,12 @@ function UsuariosContent() {
 
   if (!isAdmin(currentUser.role)) {
     return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+      <div className="rounded-2xl border border-pendente-200 bg-pendente-50 p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-pendente-100 text-pendente-700">
           <Lock className="h-6 w-6" />
         </div>
-        <h2 className="mt-4 text-base font-bold text-amber-900">Área Restrita</h2>
-        <p className="mx-auto mt-2 max-w-md text-xs text-amber-700">
+        <h2 className="mt-4 text-base font-bold text-pendente-900">Área Restrita</h2>
+        <p className="mx-auto mt-2 max-w-md text-xs text-pendente-700">
           A gestão de usuários e convites de acesso é reservada ao Síndico, ao Subsíndico e à Administradora.
         </p>
       </div>
@@ -153,8 +153,8 @@ function UsuariosContent() {
   };
 
   const statusBadge: Record<string, { label: string; bg: string; text: string; icon: React.ReactNode }> = {
-    PENDENTE: { label: 'Link pendente de gerar', bg: 'bg-amber-50', text: 'text-amber-800', icon: <Clock className="h-3 w-3" /> },
-    ENVIADO: { label: 'Link gerado', bg: 'bg-sky-50', text: 'text-sky-800', icon: <CheckCircle2 className="h-3 w-3" /> },
+    PENDENTE: { label: 'Link pendente de gerar', bg: 'bg-pendente-50', text: 'text-pendente-800', icon: <Clock className="h-3 w-3" /> },
+    ENVIADO: { label: 'Link gerado', bg: 'bg-accent-50', text: 'text-accent-800', icon: <CheckCircle2 className="h-3 w-3" /> },
     ERRO: { label: 'Erro ao gerar', bg: 'bg-red-50', text: 'text-red-800', icon: <AlertTriangle className="h-3 w-3" /> },
   };
 
@@ -164,7 +164,7 @@ function UsuariosContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <UserCog className="h-6 w-6 text-[#00A8E8]" />
+            <UserCog className="h-6 w-6 text-accent" />
             <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Usuários & Convites de Acesso</h1>
           </div>
           <p className="mt-1 text-xs text-slate-500">
@@ -174,9 +174,9 @@ function UsuariosContent() {
 
         <button
           onClick={handleOpenModal}
-          className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074]"
+          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
         >
-          <Plus className="h-4 w-4 text-[#00A8E8]" />
+          <Plus className="h-4 w-4 text-accent" />
           <span>Novo Usuário da Equipe</span>
         </button>
       </div>
@@ -289,9 +289,9 @@ function UsuariosContent() {
             <button
               onClick={handleSendSelected}
               disabled={selectedIds.length === 0 || sending}
-              className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Link2 className="h-3.5 w-3.5 text-[#00A8E8]" />
+              <Link2 className="h-3.5 w-3.5 text-accent" />
               <span>{sending ? 'Gerando...' : `Gerar Links Selecionados (${selectedIds.length})`}</span>
             </button>
           )}
@@ -308,7 +308,7 @@ function UsuariosContent() {
                       aria-label="Selecionar todos os convites"
                       checked={selectedIds.length === pendentes.length}
                       onChange={toggleSelectAll}
-                      className="rounded border-slate-300 text-[#0B2545] focus:ring-[#00A8E8]"
+                      className="rounded border-slate-300 text-primary focus:ring-accent-strong"
                     />
                   )}
                 </th>
@@ -338,7 +338,7 @@ function UsuariosContent() {
                             aria-label={`Selecionar convite de ${i.nome}`}
                             checked={selectedIds.includes(i.id)}
                             onChange={() => toggleSelected(i.id)}
-                            className="rounded border-slate-300 text-[#0B2545] focus:ring-[#00A8E8]"
+                            className="rounded border-slate-300 text-primary focus:ring-accent-strong"
                           />
                         )}
                       </td>
@@ -412,7 +412,7 @@ function UsuariosContent() {
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <UserCog className="h-5 w-5 text-[#00A8E8]" />
+                <UserCog className="h-5 w-5 text-accent" />
                 <h3 id="usuario-modal-title" className="text-base font-bold text-slate-900">Novo Usuário da Equipe</h3>
               </div>
               <button onClick={() => setShowModal(false)} aria-label="Fechar" className="rounded-lg p-1 text-slate-500 hover:bg-slate-100">
@@ -429,7 +429,7 @@ function UsuariosContent() {
                   required
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
               <div>
@@ -440,7 +440,7 @@ function UsuariosContent() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
               <div>
@@ -449,7 +449,7 @@ function UsuariosContent() {
                   id="usuario-perfil"
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 >
                   {STAFF_ROLES.map((r) => (
                     <option key={r} value={r} disabled={isRoleTaken(r)}>
@@ -473,7 +473,7 @@ function UsuariosContent() {
                 <button
                   type="submit"
                   disabled={isRoleTaken(role)}
-                  className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white hover:bg-[#134074] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Adicionar à Fila de Convites
                 </button>

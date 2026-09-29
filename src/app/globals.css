@@ -1,16 +1,63 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #0B2545;
-  --color-primary-hover: #134074;
-  --color-secondary: #1D4E89;
-  --color-accent: #00A8E8;
-  --color-accent-hover: #0096D1;
-  --color-neutral-bg: #F4F7FB;
+  /* Identidade: tinta (preto quente) + tangerina, sobre base off-white quente.
+     Style tile aprovado em 29/09/2026 (direção D). DESIGN.md tem as regras. */
+  --color-primary: #0E0E0C;
+  --color-primary-hover: #2A2A26;
+  --color-primary-deep: #000000;
+  --color-secondary: #3A3A34;
+
+  --color-accent: #FF8A4C;
+  --color-accent-hover: #F07535;
+  /* Tangerina escura: única versão do destaque legível como TEXTO ou foco
+     sobre fundo claro (5,5:1). A tangerina pura é só fundo, com texto preto. */
+  --color-accent-strong: #B4501C;
+  --color-accent-50: #FFF4EC;
+  --color-accent-100: #FFE6D5;
+  --color-accent-200: #FFCBAA;
+  --color-accent-300: #FFAD7C;
+  --color-accent-400: #FF9A61;
+  --color-accent-500: #FF8A4C;
+  --color-accent-600: #E86F2E;
+  --color-accent-700: #B4501C;
+  --color-accent-800: #8C3F18;
+  --color-accent-900: #6E3316;
+
+  /* Pendente (aguardando ciência, validação, aprovação). Azul-claro para não
+     se confundir com a tangerina; vermelho segue para multa/urgente. */
+  --color-pendente-50: #EFF6FD;
+  --color-pendente-100: #DCEBFA;
+  --color-pendente-200: #C3DCF5;
+  --color-pendente-300: #A9CBEF;
+  --color-pendente-400: #7FAEE3;
+  --color-pendente-500: #5A91D3;
+  --color-pendente-600: #3F74B8;
+  --color-pendente-700: #2F5C96;
+  --color-pendente-800: #274C7A;
+  --color-pendente-900: #213F63;
+
+  /* Cinzas quentes no lugar do slate frio (o app usa slate-* em todo lugar). */
+  --color-slate-50: #FAFAF7;
+  --color-slate-100: #F4F3EF;
+  --color-slate-200: #E6E3DC;
+  --color-slate-300: #D4D0C7;
+  --color-slate-400: #A8A39A;
+  --color-slate-500: #78736B;
+  --color-slate-600: #57534C;
+  --color-slate-700: #44403A;
+  --color-slate-800: #292622;
+  --color-slate-900: #1A1816;
+  --color-slate-950: #0E0E0C;
+
+  --color-neutral-bg: #F2EFE9;
   --color-surface: #FFFFFF;
-  --color-border: #E2E8F0;
-  --color-text-primary: #0F172A;
-  --color-text-secondary: #475569;
+  --color-border: #E6E3DC;
+  --color-text-primary: #0E0E0C;
+  --color-text-secondary: #57534C;
+
+  --font-sans: var(--font-body), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-display-face), var(--font-body), system-ui, sans-serif;
 
   /* Corpo de 14px (DESIGN.md: body-md). O text-xs do Tailwind (12px) era usado
      para quase todo o conteúdo e ficava pequeno para moradores e portaria. */
@@ -19,15 +66,22 @@
 }
 
 :root {
-  --background: #F4F7FB;
-  --foreground: #0F172A;
+  --background: #F2EFE9;
+  --foreground: #0E0E0C;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Títulos na fonte de display. */
+h1,
+h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
 /* iOS Safari dá zoom ao focar campos com fonte menor que 16px. */

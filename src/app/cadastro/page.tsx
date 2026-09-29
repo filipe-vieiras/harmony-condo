@@ -41,27 +41,27 @@ export default function CadastroPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#07162c] via-[#0B2545] to-[#134074] px-4 py-8 sm:py-12">
+    <div className="min-h-screen bg-gradient-to-br from-primary-deep via-primary to-primary-hover px-4 py-8 sm:py-12">
       <div className="mx-auto w-full max-w-2xl">
         <div className="flex flex-col items-center text-center">
           <Image src="/images/logo.png" alt="Harmony Residence" width={562} height={508} preload className="h-20 w-auto rounded-2xl object-contain shadow-2xl ring-1 ring-white/20" />
           <h1 className="mt-5 text-2xl font-bold tracking-tight text-white">Cadastro de Moradores</h1>
-          <p className="mt-2 max-w-md text-sm text-cyan-100/90">
+          <p className="mt-2 max-w-md text-sm text-accent-100/90">
             Preencha os dados da sua unidade. Você entra no portal na hora; o acesso completo é liberado depois que o síndico confirmar o cadastro.
           </p>
         </div>
 
         <div className="mt-6 rounded-3xl border border-white/10 bg-white p-5 shadow-2xl sm:p-8">
           {estado.tipo === 'carregando' && (
-            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-[#0B2545]" /></div>
+            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           )}
 
           {estado.tipo === 'fechado' && (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700"><Lock className="h-6 w-6" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-pendente-100 text-pendente-700"><Lock className="h-6 w-6" /></div>
               <p className="text-sm font-semibold text-slate-900">O cadastro pelo link está fechado</p>
               <p className="max-w-sm text-xs text-slate-500">Fale com o síndico do condomínio para receber o seu acesso.</p>
-              <a href="/login" className="mt-1 text-xs font-medium text-[#0A6E9C] hover:underline">Já tenho cadastro — entrar</a>
+              <a href="/login" className="mt-1 text-xs font-medium text-accent-strong hover:underline">Já tenho cadastro — entrar</a>
             </div>
           )}
 
@@ -72,7 +72,7 @@ export default function CadastroPage() {
               <>
                 <AutocadastroForm modo="novo" unidades={estado.unidades} submitLabel="Enviar cadastro e entrar" onSubmit={handleSubmit} />
                 <p className="mt-5 text-center text-xs text-slate-500">
-                  Já tem cadastro? <a href="/login" className="font-medium text-[#0A6E9C] hover:underline">Entrar</a>
+                  Já tem cadastro? <a href="/login" className="font-medium text-accent-strong hover:underline">Entrar</a>
                 </p>
               </>
             )
@@ -87,7 +87,7 @@ export default function CadastroPage() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-xs text-cyan-100/70">Harmony Residence • Sistema Operacional e Convivência Digital</p>
+        <p className="mt-4 text-center text-xs text-accent-100/70">Harmony Residence • Sistema Operacional e Convivência Digital</p>
       </div>
     </div>
   );

@@ -142,7 +142,7 @@ function LinksContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
           <div>
             <div className="flex items-center gap-2">
-              <Link2 className="h-6 w-6 text-[#00A8E8]" />
+              <Link2 className="h-6 w-6 text-accent" />
               <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
                 Links Importantes & Documentos Oficiais
               </h1>
@@ -157,9 +157,9 @@ function LinksContent() {
               <button
                 type="button"
                 onClick={handleOpenNewDoc}
-                className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074]"
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
               >
-                <Plus className="h-4 w-4 text-[#00A8E8]" />
+                <Plus className="h-4 w-4 text-accent" />
                 <span>Cadastrar Link / Documento</span>
               </button>
             )}
@@ -238,7 +238,7 @@ function LinksContent() {
                     <span className="text-xs text-slate-500 block font-semibold">Contato:</span>
                     <a
                       href={`tel:${c.telefone?.replace(/[^0-9]/g, '')}`}
-                      className="text-base font-bold text-[#0B2545] hover:text-[#0A6E9C] transition"
+                      className="text-base font-bold text-primary hover:text-accent-strong transition"
                     >
                       {c.telefone || 'Consulte a portaria'}
                     </a>
@@ -248,7 +248,7 @@ function LinksContent() {
                       href={c.linkExterno}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-[#0A6E9C] hover:underline flex items-center gap-1"
+                      className="text-xs text-accent-strong hover:underline flex items-center gap-1"
                     >
                       <span>Mais info</span>
                       <ExternalLink className="h-3 w-3" />
@@ -261,7 +261,7 @@ function LinksContent() {
             {/* Zelador Atual */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md relative group">
               <div className="flex items-start justify-between">
-                <div className="rounded-xl bg-amber-50 p-2.5 text-amber-700">
+                <div className="rounded-xl bg-pendente-50 p-2.5 text-pendente-700">
                   <Wrench className="h-5 w-5" />
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -271,7 +271,7 @@ function LinksContent() {
                       onClick={handleOpenZeladorModal}
                       title="Editar Dados do Zelador"
                       aria-label="Editar dados do zelador"
-                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
+                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-accent-50 hover:text-accent-strong no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -291,7 +291,7 @@ function LinksContent() {
                 {zelador?.telefone ? (
                   <a
                     href={`tel:${zelador.telefone.replace(/[^0-9]/g, '')}`}
-                    className="text-base font-bold text-[#0B2545] hover:text-[#0A6E9C] transition"
+                    className="text-base font-bold text-primary hover:text-accent-strong transition"
                   >
                     {zelador.telefone}
                   </a>
@@ -304,17 +304,17 @@ function LinksContent() {
             {/* Administradora Predial Card */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md relative group">
               <div className="flex items-start justify-between">
-                <div className="rounded-xl bg-blue-50 p-2.5 text-[#0B2545]">
+                <div className="rounded-xl bg-blue-50 p-2.5 text-primary">
                   <Building className="h-5 w-5" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Badge className="bg-blue-100 text-[#0B2545]">Financeiro</Badge>
+                  <Badge className="bg-blue-100 text-primary">Financeiro</Badge>
                   {isSindico && (
                     <button
                       onClick={handleOpenPortalModal}
                       title="Editar Portal da Administradora"
                       aria-label="Editar Portal da Administradora"
-                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-sky-50 hover:text-[#0A6E9C] no-print"
+                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-accent-50 hover:text-accent-strong no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -333,7 +333,7 @@ function LinksContent() {
                     href={portalAdministradora.linkExterno}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A6E9C] hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-accent-strong hover:underline"
                   >
                     <span>Acessar Portal do Condômino</span>
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -349,7 +349,7 @@ function LinksContent() {
         {/* Documentos Oficiais em PDF / Nuvem */}
         <div className="space-y-3 pt-4">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <FileCheck2 className="h-4 w-4 text-[#00A8E8]" />
+            <FileCheck2 className="h-4 w-4 text-accent" />
             <span>Documentos Regulatórios & Atas Oficiais</span>
           </h2>
 
@@ -366,7 +366,7 @@ function LinksContent() {
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[12px] font-bold text-[#0B2545]">
+                      <span className="rounded-md bg-accent-50 px-2 py-0.5 text-[12px] font-bold text-primary">
                         {doc.categoria}
                       </span>
                       <div className="flex items-center gap-2">
@@ -401,7 +401,7 @@ function LinksContent() {
                       href={doc.linkExterno}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-1.5 font-bold text-[#0B2545] transition hover:bg-[#0B2545] hover:text-white no-print"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-1.5 font-bold text-primary transition hover:bg-primary hover:text-white no-print"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                       <span>Abrir Documento</span>
@@ -425,7 +425,7 @@ function LinksContent() {
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[#00A8E8]" />
+                <FileText className="h-5 w-5 text-accent" />
                 <h3 id="doc-modal-title" className="text-base font-bold text-slate-900">Cadastrar Novo Documento / Link</h3>
               </div>
               <button
@@ -447,7 +447,7 @@ function LinksContent() {
                   placeholder="Ex: Ata da Assembleia Geral Ordinária 2026, Polícia Militar"
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
 
@@ -458,7 +458,7 @@ function LinksContent() {
                     id="doc-categoria"
                     value={categoria}
                     onChange={(e) => setCategoria(e.target.value as DocumentLink['categoria'])}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20 font-semibold text-slate-800"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20 font-semibold text-slate-800"
                   >
                     <option value="ATA">Ata de Assembleia</option>
                     <option value="REGIMENTO">Regimento Interno</option>
@@ -477,7 +477,7 @@ function LinksContent() {
                       placeholder="Ex: 190 ou (11) 99999-9999"
                       value={telefone}
                       onChange={(e) => setTelefone(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                     />
                   </div>
                 ) : (
@@ -489,7 +489,7 @@ function LinksContent() {
                       placeholder="Ex: PDF (1.5 MB)"
                       value={tamanhoArquivo}
                       onChange={(e) => setTamanhoArquivo(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                     />
                   </div>
                 )}
@@ -504,7 +504,7 @@ function LinksContent() {
                   placeholder="Ex: Decisões aprovadas na assembleia de eleição do síndico e previsão orçamentária."
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
 
@@ -519,7 +519,7 @@ function LinksContent() {
                   placeholder="https://drive.google.com/file/d/... ou https://..."
                   value={linkExterno}
                   onChange={(e) => setLinkExterno(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
                 <span className="text-[12px] text-slate-500">
                   Insira a URL pública ou compartilhada do arquivo para os moradores acessarem.
@@ -536,7 +536,7 @@ function LinksContent() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white hover:bg-[#134074]"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
                 >
                   Salvar Documento
                 </button>
@@ -558,7 +558,7 @@ function LinksContent() {
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <Wrench className="h-5 w-5 text-amber-600" />
+                <Wrench className="h-5 w-5 text-pendente-600" />
                 <h3 id="zelador-modal-title" className="text-base font-bold text-slate-900">Dados do Zelador Atual</h3>
               </div>
               <button
@@ -580,7 +580,7 @@ function LinksContent() {
                   placeholder="Ex: Sr. Antonio"
                   value={zNome}
                   onChange={(e) => setZNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
               <div>
@@ -592,7 +592,7 @@ function LinksContent() {
                   placeholder="Ex: (11) 98777-6655 / Ramal 91"
                   value={zTelefone}
                   onChange={(e) => setZTelefone(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
               <div>
@@ -604,7 +604,7 @@ function LinksContent() {
                   placeholder="Ex: Das 08h às 17h, de segunda a sábado"
                   value={zHorario}
                   onChange={(e) => setZHorario(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
               <div>
@@ -615,7 +615,7 @@ function LinksContent() {
                   placeholder="Ex: Ausente aos domingos e feriados."
                   value={zObs}
                   onChange={(e) => setZObs(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
 
@@ -629,7 +629,7 @@ function LinksContent() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white hover:bg-[#134074]"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
                 >
                   Salvar
                 </button>
@@ -651,7 +651,7 @@ function LinksContent() {
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <Building className="h-5 w-5 text-[#0B2545]" />
+                <Building className="h-5 w-5 text-primary" />
                 <h3 id="portal-modal-title" className="text-base font-bold text-slate-900">Portal da Administradora</h3>
               </div>
               <button
@@ -673,7 +673,7 @@ function LinksContent() {
                   placeholder="Ex: Emissão de 2ª via de boletos e demonstrativos de despesas."
                   value={pDescricao}
                   onChange={(e) => setPDescricao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
               <div>
@@ -685,7 +685,7 @@ function LinksContent() {
                   placeholder="https://portal.suaadministradora.com.br"
                   value={pLink}
                   onChange={(e) => setPLink(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
                 />
               </div>
 
@@ -699,7 +699,7 @@ function LinksContent() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white hover:bg-[#134074]"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
                 >
                   Salvar
                 </button>

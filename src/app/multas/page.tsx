@@ -71,14 +71,14 @@ function MultasContent() {
   if (isProvisorio(currentUser)) return <AguardandoValidacao recurso="As notificações e multas" />;
   if (currentUser.role === 'PORTARIA') {
     return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+      <div className="rounded-2xl border border-pendente-200 bg-pendente-50 p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-pendente-100 text-pendente-700">
           <Lock className="h-6 w-6" />
         </div>
-        <h2 className="mt-4 text-base font-bold text-amber-900">
+        <h2 className="mt-4 text-base font-bold text-pendente-900">
           Acesso Restrito às Notificações e Multas
         </h2>
-        <p className="mx-auto mt-2 max-w-md text-xs text-amber-700">
+        <p className="mx-auto mt-2 max-w-md text-xs text-pendente-700">
           Por diretrizes de sigilo, LGPD e preservação da convivência no condomínio, a equipe de portaria não tem acesso ao prontuário disciplinar e financeiro dos moradores.
         </p>
       </div>
@@ -109,7 +109,7 @@ function MultasContent() {
   });
 
   const statusLabels: Record<FineStatus, { label: string; bg: string; text: string }> = {
-    PENDENTE_CIENCIA: { label: 'Pendente de Ciência', bg: 'bg-amber-100', text: 'text-amber-800' },
+    PENDENTE_CIENCIA: { label: 'Pendente de Ciência', bg: 'bg-pendente-100', text: 'text-pendente-800' },
     CIENCIA_REGISTRADA: { label: 'Ciência Registrada', bg: 'bg-blue-100', text: 'text-blue-800' },
     EM_RECURSO: { label: 'Em Recurso', bg: 'bg-purple-100 text-purple-900', text: 'text-purple-900' },
     RECURSO_DEFERIDO: { label: 'Recurso Deferido (Anulada)', bg: 'bg-emerald-100', text: 'text-emerald-800' },
@@ -281,7 +281,7 @@ function MultasContent() {
                       {fine.numeroProtocolo}
                     </span>
                     <div>
-                      <span className="text-xs font-bold text-[#0B2545]">
+                      <span className="text-xs font-bold text-primary">
                         Unidade {fine.unidade} - Bloco {fine.bloco}
                       </span>
                       <span className="text-xs text-slate-500 ml-2">({fine.moradorNome})</span>
@@ -290,7 +290,7 @@ function MultasContent() {
 
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
-                    <Badge className={fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}>
+                    <Badge className={fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'}>
                       {fine.tipo === 'MULTA' ? `Multa: R$ ${fine.valor.toFixed(2)}` : 'Advertência Formal'}
                     </Badge>
                   </div>
@@ -318,7 +318,7 @@ function MultasContent() {
 
                   <Link
                     href={`/multas/${fine.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#0B2545] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#134074] no-print"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-hover no-print"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     <span>Abrir Prontuário & Recurso →</span>
@@ -391,7 +391,7 @@ function MultasContent() {
                 <div>
                   <label htmlFor="multa-unidade" className="block text-xs font-semibold text-slate-700">Unidade Infratora</label>
                   {units.length === 0 ? (
-                    <p className="mt-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700">
+                    <p className="mt-1 rounded-xl border border-pendente-200 bg-pendente-50 px-3 py-2 text-[12px] text-pendente-700">
                       Nenhuma unidade cadastrada. Cadastre a unidade em Moradores antes de emitir uma notificação.
                     </p>
                   ) : (
