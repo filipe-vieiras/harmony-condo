@@ -401,9 +401,9 @@ function ReservasContent() {
                     setReservaFormError(null);
                     setShowModal(true);
                   }}
-                  className={`w-full rounded-xl py-2.5 text-xs font-bold transition ${
+                  className={`w-full rounded-xl py-2.5 text-xs font-semibold transition ${
                     isAtivo
-                      ? 'bg-slate-100 text-primary hover:bg-primary hover:text-white'
+                      ? 'bg-primary text-white shadow-xs hover:bg-primary-hover'
                       : 'bg-slate-100 text-slate-500 cursor-not-allowed'
                   }`}
                 >
