@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/Badge';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { PainelProvisorio } from '@/components/autocadastro/PainelProvisorio';
-import { InicioMorador } from '@/components/morador/InicioMorador';
 import {
   Users,
   Car,
@@ -19,6 +18,8 @@ import {
   Megaphone,
   ArrowRight,
   Clock,
+  CheckCircle2,
+  AlertTriangle,
   FileText,
   Search,
   Check,
@@ -50,10 +51,12 @@ function DashboardContent() {
 
   if (!currentUser) return <DashboardSkeleton />;
   if (isProvisorio(currentUser)) return <PainelProvisorio />;
-  if (currentUser.role === 'MORADOR') return <InicioMorador />;
 
   // Filtros de acordo com o papel ativo
   const pendingReservations = reservations.filter((r) => r.status === 'PENDENTE');
+  const myReservations = reservations.filter((r) => r.unidade === currentUser.unidade);
+  const myFines = fines.filter((f) => f.unidade === currentUser.unidade);
+  const pendingScienceFines = myFines.filter((f) => f.status === 'PENDENTE_CIENCIA');
   const activeAppeals = fines.filter((f) => f.status === 'EM_RECURSO');
 
   // Busca rápida de veículo (otimizada para Portaria)
@@ -85,6 +88,9 @@ function DashboardContent() {
             {isAdmin(currentUser.role) && 'Painel de controle geral: gestão administrativa, ocorrências disciplinares e validação de reservas.'}
             {currentUser.role === 'PORTARIA' && 'Guarita de controle: identificação instantânea de veículos, consulta de moradores e agenda das áreas comuns.'}
             {currentUser.role === 'CONSELHO' && 'Auditoria e acompanhamento fiscal: fiscalização de multas, reservas e transparência condominial.'}
+            {currentUser.role === 'MORADOR' && (currentUser.unidade
+              ? `Gestão da Unidade ${currentUser.unidade} Bloco ${currentUser.bloco}: seus comunicados, multas e reservas.`
+              : 'Seus comunicados, multas e reservas.')}
           </p>
         </div>
       </div>
@@ -151,13 +157,22 @@ function DashboardContent() {
         {/* Card 1 */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unidades</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {currentUser.role === 'MORADOR' ? 'Minha Unidade' : 'Unidades'}
+            </span>
             <div className="rounded-xl bg-blue-50 p-2 text-primary">
               <Users className="h-5 w-5" />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-bold text-slate-900">{units.length}</p>
-          <p className="mt-0.5 text-xs text-slate-500">Apartamentos cadastrados</p>
+          {/* Morador só recebe a própria unidade do banco (RLS), então a contagem geral não faria sentido pra ele. */}
+          <p className="mt-3 text-2xl font-bold text-slate-900">
+            {currentUser.role === 'MORADOR'
+              ? (currentUser.unidade ? `${currentUser.unidade}-${currentUser.bloco}` : '—')
+              : units.length}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {currentUser.role === 'MORADOR' ? 'Apartamento vinculado ao seu acesso' : 'Apartamentos cadastrados'}
+          </p>
         </div>
 
         {/* Card 2 */}
@@ -176,13 +191,21 @@ function DashboardContent() {
         {currentUser.role !== 'PORTARIA' ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Notificações</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                {currentUser.role === 'MORADOR' ? 'Minhas Multas' : 'Notificações'}
+              </span>
               <div className="rounded-xl bg-red-50 p-2 text-red-600">
                 <ShieldAlert className="h-5 w-5" />
               </div>
             </div>
-            <p className="mt-3 text-2xl font-bold text-slate-900">{fines.length}</p>
-            <p className="mt-0.5 text-xs text-slate-500">{activeAppeals.length} recurso(s) em análise</p>
+            <p className="mt-3 text-2xl font-bold text-slate-900">
+              {currentUser.role === 'MORADOR' ? myFines.length : fines.length}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {currentUser.role === 'MORADOR' 
+                ? (pendingScienceFines.length > 0 ? `${pendingScienceFines.length} pendente(s) de ciência` : 'Nenhuma pendente')
+                : `${activeAppeals.length} recurso(s) em análise`}
+            </p>
           </div>
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
@@ -205,7 +228,9 @@ function DashboardContent() {
               <CalendarDays className="h-5 w-5" />
             </div>
           </div>
-          <p className="mt-3 text-2xl font-bold text-slate-900">{reservations.length}</p>
+          <p className="mt-3 text-2xl font-bold text-slate-900">
+            {currentUser.role === 'MORADOR' ? myReservations.length : reservations.length}
+          </p>
           <p className="mt-0.5 text-xs text-slate-500">
             {isAdmin(currentUser.role) 
               ? `${pendingReservations.length} aguardando aprovação`
@@ -269,6 +294,34 @@ function DashboardContent() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ÁREA DE AÇÃO RÁPIDA: Alerta de Multa Pendente de Ciência para o Morador */}
+      {currentUser.role === 'MORADOR' && pendingScienceFines.length > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50/80 p-5 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-red-100 p-2 text-red-600 mt-0.5">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-red-900">
+                Atenção: Notificação Disciplinar Pendente de Ciência Formal
+              </h3>
+              <p className="text-xs text-red-700 mt-1">
+                Foi registrada uma notificação para a sua unidade com prazo legal para confirmação de leitura ou interposição de defesa/recurso online.
+              </p>
+              <div className="mt-3">
+                <Link
+                  href={`/multas/${pendingScienceFines[0].id}`}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-red-700"
+                >
+                  <span>Abrir Notificação {pendingScienceFines[0].numeroProtocolo}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}
