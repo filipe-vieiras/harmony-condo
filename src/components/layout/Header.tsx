@@ -63,8 +63,8 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
     SUBSINDICO: { label: 'Subsíndico', badgeColor: 'bg-cyan-100 text-cyan-900 border-cyan-200' },
     ADM: { label: 'Administradora', badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-200' },
     PORTARIA: { label: 'Portaria & Acesso', badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-200' },
-    CONSELHO: { label: 'Conselho Fiscal', badgeColor: 'bg-amber-100 text-amber-900 border-amber-200' },
-    MORADOR: { label: 'Morador', badgeColor: 'bg-sky-100 text-sky-900 border-sky-200' },
+    CONSELHO: { label: 'Conselho Fiscal', badgeColor: 'bg-pendente-100 text-pendente-900 border-pendente-200' },
+    MORADOR: { label: 'Morador', badgeColor: 'bg-accent-100 text-accent-900 border-accent-200' },
   };
 
   const userRole = currentUser?.role ?? 'MORADOR';
@@ -95,7 +95,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
               className="h-10 w-auto object-contain"
             />
             <div className="hidden sm:block">
-              <span className="text-xs font-semibold uppercase tracking-widest text-[#0A6E9C]">
+              <span className="text-xs font-semibold uppercase tracking-widest text-accent-strong">
                 Portal Condominial
               </span>
             </div>
@@ -139,7 +139,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
                   {unreadNotificationCount > 0 && (
                     <button
                       onClick={markAllNotificationsAsRead}
-                      className="text-xs text-[#0A6E9C] hover:underline font-medium"
+                      className="text-xs text-accent-strong hover:underline font-medium"
                     >
                       Marcar lidas
                     </button>
@@ -156,7 +156,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
                       <div
                         key={n.id}
                         onClick={() => markNotificationAsRead(n.id)}
-                        className={`p-3.5 transition hover:bg-slate-50 cursor-pointer ${!n.lida ? 'bg-sky-50/50' : ''}`}
+                        className={`p-3.5 transition hover:bg-slate-50 cursor-pointer ${!n.lida ? 'bg-accent-50/50' : ''}`}
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 shrink-0">
@@ -182,7 +182,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
                               {n.linkDestino && (n.linkDestino === '/' || /^\/[^/\\]/.test(n.linkDestino)) && (
                                 <Link
                                   href={n.linkDestino}
-                                  className="font-medium text-[#0A6E9C] hover:underline"
+                                  className="font-medium text-accent-strong hover:underline"
                                   onClick={() => setShowNotifications(false)}
                                 >
                                   Ver detalhes →
@@ -211,7 +211,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
               aria-haspopup="true"
               className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 transition hover:bg-slate-100"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0B2545] font-semibold text-xs text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-semibold text-xs text-white">
                 {userInitials}
               </div>
               <div className="hidden text-left sm:block">

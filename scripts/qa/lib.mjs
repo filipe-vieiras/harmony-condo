@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 
-const ALVO = process.env.QA_ALVO ?? 'staging';
+export const ALVO = process.env.QA_ALVO ?? 'staging';
 export const SITE = ALVO === 'producao' ? 'https://harmony-condo-pm-track.vercel.app' : (process.env.QA_SITE ?? 'http://localhost:3000');
 export const DOMINIO = 'qa.harmony.test';
 export const SENHA = 'Qa-Harmony-2026!';

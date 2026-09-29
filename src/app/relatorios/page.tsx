@@ -36,14 +36,14 @@ function RelatoriosContent() {
   if (!currentUser) return null;
   if (!isAdmin(currentUser.role) && currentUser.role !== 'CONSELHO') {
     return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+      <div className="rounded-2xl border border-pendente-200 bg-pendente-50 p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-pendente-100 text-pendente-700">
           <Lock className="h-6 w-6" />
         </div>
-        <h2 className="mt-4 text-base font-bold text-amber-900">
+        <h2 className="mt-4 text-base font-bold text-pendente-900">
           Área Restrita à Auditoria e Gestão
         </h2>
-        <p className="mx-auto mt-2 max-w-md text-xs text-amber-700">
+        <p className="mx-auto mt-2 max-w-md text-xs text-pendente-700">
           O módulo de relatórios consolidados e prestação de contas é reservado à administração do condomínio (Síndico, Subsíndico e Administradora) e aos membros do Conselho Fiscal.
         </p>
       </div>
@@ -121,7 +121,7 @@ function RelatoriosContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div>
           <div className="flex items-center gap-2">
-            <FileSpreadsheet className="h-6 w-6 text-[#00A8E8]" />
+            <FileSpreadsheet className="h-6 w-6 text-accent" />
             <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
               Relatórios Executivos & Auditoria Fiscal
             </h1>
@@ -146,9 +146,9 @@ function RelatoriosContent() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074]"
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
           >
-            <Printer className="h-4 w-4 text-[#00A8E8]" />
+            <Printer className="h-4 w-4 text-accent" />
             <span>Imprimir Relatório Oficial (PDF)</span>
           </button>
         </div>
@@ -161,7 +161,7 @@ function RelatoriosContent() {
           onClick={() => setActiveTab('INDICADORES')}
           className={`pb-3 px-4 text-xs font-semibold border-b-2 transition flex items-center gap-2 ${
             activeTab === 'INDICADORES'
-              ? 'border-[#00A8E8] text-[#0B2545]'
+              ? 'border-accent text-primary'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -173,7 +173,7 @@ function RelatoriosContent() {
           onClick={() => setActiveTab('AUDITORIA')}
           className={`pb-3 px-4 text-xs font-semibold border-b-2 transition flex items-center gap-2 ${
             activeTab === 'AUDITORIA'
-              ? 'border-[#00A8E8] text-[#0B2545]'
+              ? 'border-accent text-primary'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -194,7 +194,7 @@ function RelatoriosContent() {
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ciência Digital</span>
-              <p className="mt-2 text-2xl font-bold text-[#0B2545]">
+              <p className="mt-2 text-2xl font-bold text-primary">
                 {fines.length > 0 ? `${Math.round((totalMultasComCiencia / fines.length) * 100)}%` : '100%'}
               </p>
               <p className="mt-0.5 text-xs text-slate-500">{totalMultasComCiencia} de {fines.length} com confirmação</p>
@@ -210,7 +210,7 @@ function RelatoriosContent() {
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reservas Aprovadas</span>
-              <p className="mt-2 text-2xl font-bold text-[#00A8E8]">{totalReservasAprovadas}</p>
+              <p className="mt-2 text-2xl font-bold text-accent">{totalReservasAprovadas}</p>
               <p className="mt-0.5 text-xs text-slate-500">Eventos sociais realizados</p>
             </div>
           </div>
@@ -244,7 +244,7 @@ function RelatoriosContent() {
                   {fines.map((f) => (
                     <tr key={f.id} className="hover:bg-slate-50/50">
                       <td data-label="Protocolo" className="px-4 py-3 font-mono font-bold text-slate-900">{f.numeroProtocolo}</td>
-                      <td data-label="Unidade" className="px-4 py-3 font-semibold text-[#0B2545]">Apto {f.unidade}-{f.bloco}</td>
+                      <td data-label="Unidade" className="px-4 py-3 font-semibold text-primary">Apto {f.unidade}-{f.bloco}</td>
                       <td data-label="Infração / Artigo" className="px-4 py-3 max-w-xs truncate text-slate-600" title={f.artigoRegimento}>
                         {f.artigoRegimento}
                       </td>
@@ -259,7 +259,7 @@ function RelatoriosContent() {
                             <span>Confirmada</span>
                           </span>
                         ) : (
-                          <span className="text-amber-700 font-medium">Pendente</span>
+                          <span className="text-pendente-700 font-medium">Pendente</span>
                         )}
                       </td>
                       <td data-label="Recurso" className="px-4 py-3">
@@ -284,7 +284,7 @@ function RelatoriosContent() {
             {/* Distribuição de Ocupação */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <div className="flex items-center gap-2 mb-4">
-                <Users className="h-4 w-4 text-[#0B2545]" />
+                <Users className="h-4 w-4 text-primary" />
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                   Distribuição de Ocupação das Unidades
                 </h2>
@@ -297,7 +297,7 @@ function RelatoriosContent() {
                 </div>
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <span className="text-slate-600">Ocupados por Proprietários:</span>
-                  <strong className="text-[#0B2545]">{totalProprietarios} ({Math.round((totalProprietarios / (units.length || 1)) * 100)}%)</strong>
+                  <strong className="text-primary">{totalProprietarios} ({Math.round((totalProprietarios / (units.length || 1)) * 100)}%)</strong>
                 </div>
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <span className="text-slate-600">Ocupados por Inquilinos:</span>
@@ -342,7 +342,7 @@ function RelatoriosContent() {
                   onClick={() => setFiltroModulo(m.id)}
                   className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition ${
                     filtroModulo === m.id
-                      ? 'bg-[#0B2545] text-white shadow-xs'
+                      ? 'bg-primary text-white shadow-xs'
                       : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
@@ -357,7 +357,7 @@ function RelatoriosContent() {
                 placeholder="Filtrar por ação ou autor..."
                 value={buscaAuditoria}
                 onChange={(e) => setBuscaAuditoria(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-hidden"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-hidden"
               />
             </div>
           </div>
@@ -366,7 +366,7 @@ function RelatoriosContent() {
           <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
             <div className="border-b border-slate-200 bg-slate-50/75 p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-[#00A8E8]" />
+                <ShieldAlert className="h-4 w-4 text-accent" />
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                   Trilha de Auditoria do Sistema ({logsFiltrados.length} evento{logsFiltrados.length === 1 ? '' : 's'})
                 </h2>
@@ -411,11 +411,11 @@ function RelatoriosContent() {
                             log.modulo === 'MULTAS'
                               ? 'bg-red-50 text-red-700 border border-red-100'
                               : log.modulo === 'RESERVAS'
-                              ? 'bg-sky-50 text-sky-700 border border-sky-100'
+                              ? 'bg-accent-50 text-accent-700 border border-accent-100'
                               : log.modulo === 'UNIDADES'
                               ? 'bg-blue-50 text-blue-700 border border-blue-100'
                               : log.modulo === 'ESPACOS'
-                              ? 'bg-amber-50 text-amber-700 border border-amber-100'
+                              ? 'bg-pendente-50 text-pendente-700 border border-pendente-100'
                               : log.modulo === 'DOCUMENTOS'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                               : 'bg-slate-100 text-slate-700'

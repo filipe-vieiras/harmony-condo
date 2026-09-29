@@ -9,7 +9,7 @@ import type { DiretorioUnidade } from '@/types';
 
 const SITUACAO: Record<DiretorioUnidade['situacao'], { label: string; cls: string }> = {
   VALIDADO: { label: 'Confirmado', cls: 'bg-emerald-50 text-emerald-800' },
-  AGUARDANDO_VALIDACAO: { label: 'Aguardando validação', cls: 'bg-amber-50 text-amber-800' },
+  AGUARDANDO_VALIDACAO: { label: 'Aguardando validação', cls: 'bg-pendente-50 text-pendente-800' },
   SEM_CADASTRO: { label: 'Sem cadastro', cls: 'bg-slate-100 text-slate-600' },
 };
 
@@ -35,7 +35,7 @@ export function ListaUnidades() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <Users className="h-6 w-6 text-[#00A8E8]" />
+          <Users className="h-6 w-6 text-accent" />
           <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Lista de Unidades</h1>
         </div>
         <p className="mt-1 text-xs text-slate-500">
@@ -51,13 +51,13 @@ export function ListaUnidades() {
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por apartamento ou nome..."
           aria-label="Buscar por apartamento ou nome"
-          className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+          className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
         {linhas === null ? (
-          <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-[#0B2545]" /></div>
+          <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
         ) : filtradas.length === 0 ? (
           <p className="py-10 text-center text-xs text-slate-500">Nenhuma unidade encontrada.</p>
         ) : (
@@ -65,7 +65,7 @@ export function ListaUnidades() {
             {filtradas.map((l, i) => (
               <li key={`${l.bloco}-${l.numero}-${i}`} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-[#0B2545] text-white">
+                  <div className="flex h-9 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-primary text-white">
                     <span className="text-xs font-bold leading-none">{l.numero}</span>
                     <span className="mt-0.5 text-[10px] leading-none text-cyan-200">Bl. {l.bloco}</span>
                   </div>

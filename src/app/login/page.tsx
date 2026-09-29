@@ -83,7 +83,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col justify-center bg-gradient-to-br from-[#07162c] via-[#0B2545] to-[#134074] py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen flex-col justify-center bg-gradient-to-br from-primary-deep via-primary to-primary-hover py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
 
         {/* LOGO OFICIAL — Requisito: No login */}
@@ -133,7 +133,7 @@ function LoginForm() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu.email@condominio.com"
                   required
-                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </div>
             </div>
@@ -154,14 +154,14 @@ function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-11 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-11 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   aria-pressed={showPassword}
-                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-slate-500 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00A8E8]/40"
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-slate-500 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -186,7 +186,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="font-medium text-[#0A6E9C] hover:underline"
+                className="font-medium text-accent-strong hover:underline"
               >
                 Esqueceu a senha?
               </button>
@@ -196,7 +196,7 @@ function LoginForm() {
               type="submit"
               id="btn-login"
               disabled={isLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0B2545] py-2.5 px-4 text-xs font-semibold text-white shadow-md transition hover:bg-[#134074] focus:outline-none focus:ring-2 focus:ring-[#00A8E8] disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 text-xs font-semibold text-white shadow-md transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -213,7 +213,7 @@ function LoginForm() {
             {cadastroAberto ? (
               <>
                 Primeiro acesso?{' '}
-                <a href="/cadastro" className="font-semibold text-[#0A6E9C] hover:underline">Cadastre a sua unidade</a>
+                <a href="/cadastro" className="font-semibold text-accent-strong hover:underline">Cadastre a sua unidade</a>
               </>
             ) : (
               'Não tem acesso? Entre em contato com o síndico do condomínio.'

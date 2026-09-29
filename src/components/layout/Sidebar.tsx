@@ -138,9 +138,9 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       <div className="space-y-6">
         
         {/* Identificação de Perfil Ativo */}
-        <div className="rounded-xl bg-[#0B2545]/5 p-3 border border-[#0B2545]/10">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#0B2545]">
-            <Sparkles className="h-4 w-4 text-[#00A8E8]" />
+        <div className="rounded-xl bg-primary/5 p-3 border border-primary/10">
+          <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+            <Sparkles className="h-4 w-4 text-accent" />
             <span>Perfil Ativo:</span>
           </div>
           <p className="mt-1 text-xs font-bold text-slate-900">
@@ -171,12 +171,12 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
                 onClick={onCloseMobile}
                 className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-medium transition ${
                   isActive
-                    ? 'bg-[#0B2545] text-white shadow-xs font-semibold'
+                    ? 'bg-primary text-white shadow-xs font-semibold'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`h-4 w-4 ${isActive ? 'text-[#00A8E8]' : 'text-slate-500'}`} />
+                  <Icon className={`h-4 w-4 ${isActive ? 'text-accent' : 'text-slate-500'}`} />
                   <span>{item.label}</span>
                 </div>
 

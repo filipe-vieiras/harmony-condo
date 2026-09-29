@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider>
       <DialogProvider>
-      <div className="flex min-h-screen flex-col bg-[#F4F7FB]">
+      <div className="flex min-h-screen flex-col bg-neutral-bg">
         {/* Header no topo */}
         <Header 
           onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} 

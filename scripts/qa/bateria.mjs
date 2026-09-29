@@ -1,5 +1,5 @@
 // Bateria completa: fluxos por perfil + segurança. QA_ALVO=staging|producao.
-import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, SITE, URL_SB, ANON } from './lib.mjs';
+import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, ALVO } from './lib.mjs';
 
 const email = (n) => `${n}@${DOMINIO}`;
 const hoje = new Date().toISOString().slice(0, 10);
@@ -26,6 +26,12 @@ await criarUsuario(email('adm'), { name: 'QA Administradora', role: 'ADM' });
 const cAdm = await clientDe(email('adm')); const ckAdm = await cookieDe(email('adm'));
 // Staging já tem Síndico/Subsíndico do seed; em produção a fila convida todos.
 const { data: existentes } = await admin.from('profiles').select('role').in('role', ['SINDICO', 'SUBSINDICO']);
+if (ALVO === 'producao' && existentes.length) {
+  // Em produção, Síndico/Subsíndico existentes são pessoas reais: nunca reaproveitar.
+  console.error('Abortado: produção já tem Síndico/Subsíndico reais. A bateria só roda em produção antes do lançamento.');
+  await limparQA();
+  process.exit(1);
+}
 const equipe = [['sindico', 'QA Síndico', 'SINDICO'], ['subsindico', 'QA Subsíndico', 'SUBSINDICO'], ['portaria', 'QA Portaria', 'PORTARIA'], ['conselho', 'QA Conselho', 'CONSELHO']]
   .filter(([, , r]) => !existentes.some((e) => e.role === r));
 const { data: fila, error: filaErr } = await cAdm.from('pending_invites').insert(equipe.map(([n, nome, role]) => ({ nome, email: email(n), role, status: 'PENDENTE' }))).select();

@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+// Texto corrido.
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-body",
+});
+
+// Títulos (h1/h2 e a classe font-display).
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display-face",
 });
 
 export const metadata: Metadata = {
@@ -22,8 +30,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={inter.variable}>
-      <body className="min-h-screen bg-[#F4F7FB] text-slate-900 antialiased selection:bg-[#00A8E8]/20 selection:text-[#0B2545]">
+    <html lang="pt-BR" className={`${jakarta.variable} ${bricolage.variable}`}>
+      <body className="min-h-screen bg-neutral-bg text-slate-900 antialiased selection:bg-accent/20 selection:text-primary">
         {children}
       </body>
     </html>

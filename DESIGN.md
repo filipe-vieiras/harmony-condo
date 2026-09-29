@@ -8,6 +8,7 @@ colors:
   secondary: "#1D4E89"
   accent: "#00A8E8"
   accent-hover: "#0096D1"
+  accent-strong: "#0A6E9C"
   neutral-bg: "#F4F7FB"
   surface: "#FFFFFF"
   surface-hover: "#F8FAFC"
@@ -22,39 +23,39 @@ colors:
   status-fine: "#B91C1C"
 typography:
   headline-display:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Bricolage Grotesque, system-ui, sans-serif"
     fontSize: 32px
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: -0.02em
   headline-lg:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Bricolage Grotesque, system-ui, sans-serif"
     fontSize: 24px
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: -0.01em
   headline-md:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Bricolage Grotesque, system-ui, sans-serif"
     fontSize: 18px
     fontWeight: 600
     lineHeight: 1.4
   body-lg:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
     fontSize: 16px
     fontWeight: 400
     lineHeight: 1.5
   body-md:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.5
   body-sm:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
     fontSize: 12px
     fontWeight: 500
     lineHeight: 1.4
   label-md:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
     fontSize: 13px
     fontWeight: 600
     lineHeight: 1.3
@@ -99,6 +100,7 @@ O **Harmony Residence** expressa sofisticação, tranquilidade e transparência 
 3. **Relatórios e Vias Impressas:** Presença no cabeçalho de atas, comprovantes de reserva e notificações de multa para conferir fé e autoridade institucional.
 
 ## Colors
+Os valores vivem em `src/app/globals.css` (`@theme`). No código, use só as classes dos tokens (`bg-primary`, `text-accent-strong`, `bg-accent-50`, `bg-pendente-50`…), nunca cor fixa (`bg-[#...]`): trocar a paleta é editar um arquivo só.
 - **Primary (`#0B2545`):** Azul marinho meia-noite institucional, utilizado em headers, navegação principal e botões mestres.
 - **Secondary (`#1D4E89`):** Tom de suporte para cartões informativos e cabeçalhos secundários.
 - **Accent (`#00A8E8`):** Ciano vibrante retirado da gota do logotipo, orientando chamadas de ação (CTA) e destaques visuais.
@@ -111,7 +113,8 @@ O **Harmony Residence** expressa sofisticação, tranquilidade e transparência 
   - `status-fine` (`#B91C1C`): Notificações e multas disciplinares.
 
 ## Typography
-A tipografia adota **Inter / system-ui**, garantindo legibilidade impecável para tabelas de moradores, placas de veículos na portaria e redação de recursos.
+- **Títulos (h1/h2, `font-display`):** Bricolage Grotesque.
+- **Texto:** Plus Jakarta Sans. Ambas pelo `next/font` (hospedadas no próprio site, sem pedido ao Google).
 
 ## Layout
 - Grid responsivo de 12 colunas para desktop.
@@ -127,6 +130,6 @@ A tipografia adota **Inter / system-ui**, garantindo legibilidade impecável par
 
 ## Do's and Don'ts
 - **DO:** Manter alto contraste de leitura para todas as tabelas e formulários.
-- **DO:** Usar badges coloridos claros com texto escuro para status (`bg-amber-50 text-amber-800`).
+- **DO:** Usar badges coloridos claros com texto escuro para status (`bg-pendente-50 text-pendente-800`, que hoje é o âmbar).
 - **DON'T:** Usar temas roxos/violetas (proibido pelas diretrizes do projeto).
 - **DON'T:** Poluir visualmente o painel da portaria — a busca de placa deve ser o centro das atenções.

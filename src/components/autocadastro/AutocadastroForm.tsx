@@ -32,7 +32,7 @@ interface Props {
 
 // 16px no celular: abaixo disso o iOS dá zoom ao focar o campo (o link chega pelo WhatsApp).
 const inputCls =
-  'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20';
+  'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20';
 const labelCls = 'block text-xs font-semibold text-slate-700';
 const sectionCls = 'space-y-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4';
 
@@ -87,7 +87,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
 
       <div className={sectionCls}>
         <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
-          <Building2 className="h-3.5 w-3.5 text-[#00A8E8]" /> Sua unidade
+          <Building2 className="h-3.5 w-3.5 text-accent" /> Sua unidade
         </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
@@ -115,7 +115,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
 
       <div className={sectionCls}>
         <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
-          <UserRound className="h-3.5 w-3.5 text-[#00A8E8]" /> Responsável pela unidade
+          <UserRound className="h-3.5 w-3.5 text-accent" /> Responsável pela unidade
         </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -152,10 +152,10 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
       <div className={sectionCls}>
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
-            <Users className="h-3.5 w-3.5 text-[#00A8E8]" /> Outros moradores
+            <Users className="h-3.5 w-3.5 text-accent" /> Outros moradores
           </h3>
           {dependentes.length < MAX_DEPENDENTES && (
-            <button type="button" onClick={() => setDependentes((p) => [...p, { nome: '', telefone: '' }])} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#0A6E9C] hover:bg-sky-50">
+            <button type="button" onClick={() => setDependentes((p) => [...p, { nome: '', telefone: '' }])} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-accent-strong hover:bg-accent-50">
               <Plus className="h-3.5 w-3.5" /> Adicionar
             </button>
           )}
@@ -184,10 +184,10 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
       <div className={sectionCls}>
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
-            <Car className="h-3.5 w-3.5 text-[#00A8E8]" /> Veículos
+            <Car className="h-3.5 w-3.5 text-accent" /> Veículos
           </h3>
           {veiculos.length < MAX_VEICULOS && (
-            <button type="button" onClick={() => setVeiculos((p) => [...p, { placa: '', marca: '', modelo: '', cor: '' }])} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#0A6E9C] hover:bg-sky-50">
+            <button type="button" onClick={() => setVeiculos((p) => [...p, { placa: '', marca: '', modelo: '', cor: '' }])} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-accent-strong hover:bg-accent-50">
               <Plus className="h-3.5 w-3.5" /> Adicionar
             </button>
           )}
@@ -227,7 +227,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
 
       {modo === 'novo' && (
         <label className="flex items-start gap-2.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-xs text-slate-700">
-          <input type="checkbox" checked={consentimento} onChange={(e) => setConsentimento(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B2545]" />
+          <input type="checkbox" checked={consentimento} onChange={(e) => setConsentimento(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-primary" />
           <span>
             Concordo que meu <strong>nome</strong> e minha <strong>unidade</strong> fiquem visíveis para os demais moradores na lista de unidades do condomínio.
             Telefone, e-mail, CPF e veículos ficam restritos à administração.
@@ -248,7 +248,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
             Cancelar
           </button>
         )}
-        <button type="submit" disabled={enviando} className="flex items-center justify-center gap-2 rounded-xl bg-[#0B2545] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#134074] disabled:opacity-60">
+        <button type="submit" disabled={enviando} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-primary-hover disabled:opacity-60">
           {enviando && <Loader2 className="h-4 w-4 animate-spin" />}
           {submitLabel}
         </button>

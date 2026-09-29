@@ -59,7 +59,7 @@ function MultaDetalheContent() {
         <p className="mt-1 text-xs text-slate-500">O registro solicitado não existe ou foi removido.</p>
         <Link
           href="/multas"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Voltar para Notificações</span>
@@ -81,7 +81,7 @@ function MultaDetalheContent() {
         </p>
         <Link
           href="/multas"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Voltar</span>
@@ -128,7 +128,7 @@ function MultaDetalheContent() {
       <div className="flex items-center justify-between no-print">
         <Link
           href="/multas"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#0B2545]"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Voltar para Lista de Multas</span>
@@ -174,12 +174,12 @@ function MultaDetalheContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
           <div>
             <div className="flex items-center gap-2">
-              <span className="rounded-xl bg-[#0B2545] px-3 py-1 font-mono text-sm font-bold text-white tracking-wider">
+              <span className="rounded-xl bg-primary px-3 py-1 font-mono text-sm font-bold text-white tracking-wider">
                 {fine.numeroProtocolo}
               </span>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                  fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'
                 }`}
               >
                 {fine.tipo === 'MULTA' ? `Multa: R$ ${fine.valor.toFixed(2)}` : 'Advertência Formal'}
@@ -196,7 +196,7 @@ function MultaDetalheContent() {
 
           <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200/80 text-right sm:text-right">
             <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Unidade Notificada</span>
-            <p className="text-lg font-bold text-[#0B2545]">
+            <p className="text-lg font-bold text-primary">
               Apartamento {fine.unidade} - Bloco {fine.bloco}
             </p>
             <p className="text-xs text-slate-600 font-medium">{fine.moradorNome}</p>
@@ -206,7 +206,7 @@ function MultaDetalheContent() {
         {/* Artigo e Fato Gerador */}
         <div className="mt-6 space-y-4 text-xs sm:text-sm">
           <div className="rounded-2xl bg-slate-50/80 p-4 border border-slate-200">
-            <span className="font-bold text-slate-900 block mb-1 text-xs uppercase tracking-wider text-[#0A6E9C]">
+            <span className="font-bold text-slate-900 block mb-1 text-xs uppercase tracking-wider text-accent-strong">
               Dispositivo Legal Infringido (Regimento Interno)
             </span>
             <p className="font-semibold text-slate-800">{fine.artigoRegimento}</p>
@@ -260,7 +260,7 @@ function MultaDetalheContent() {
                     <span>Ciência Confirmada</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-pendente-100 px-2.5 py-0.5 text-xs font-bold text-pendente-800">
                     <Clock className="h-3.5 w-3.5" />
                     <span>Aguardando Confirmação</span>
                   </span>
@@ -296,7 +296,7 @@ function MultaDetalheContent() {
         <div className="mt-6 border-t border-slate-100 pt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Scale className="h-5 w-5 text-[#00A8E8]" />
+              <Scale className="h-5 w-5 text-accent" />
               <h3 className="text-base font-bold text-slate-900">
                 Processo de Defesa & Recurso Administrativo
               </h3>
@@ -306,7 +306,7 @@ function MultaDetalheContent() {
               <button
                 type="button"
                 onClick={() => setShowRecursoForm(true)}
-                className="rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#134074] no-print"
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover no-print"
               >
                 Interpor Recurso Online
               </button>
@@ -315,7 +315,7 @@ function MultaDetalheContent() {
 
           {/* Formulário de Recurso para o Morador */}
           {showRecursoForm && (
-            <form onSubmit={handleSendAppeal} className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/50 p-5 space-y-3 no-print">
+            <form onSubmit={handleSendAppeal} className="mt-4 rounded-2xl border border-accent-200 bg-accent-50/50 p-5 space-y-3 no-print">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-900">Redigir Justificativa / Defesa</span>
                 <button
@@ -335,7 +335,7 @@ function MultaDetalheContent() {
                 value={textoRecurso}
                 onChange={(e) => setTextoRecurso(e.target.value)}
                 placeholder="Apresente seus argumentos e motivos para o cancelamento ou relevação da sanção..."
-                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
 
               <div>
@@ -346,14 +346,14 @@ function MultaDetalheContent() {
                   placeholder="Ex: Comprovante_Prestador.pdf ou Foto_Local.jpg"
                   value={anexoNome}
                   onChange={(e) => setAnexoNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </div>
 
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 rounded-xl bg-[#0B2545] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#134074]"
+                  className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white transition hover:bg-primary-hover"
                 >
                   <Send className="h-3.5 w-3.5" />
                   <span>Protocolar Recurso</span>
@@ -376,7 +376,7 @@ function MultaDetalheContent() {
                         ? 'bg-emerald-100 text-emerald-800'
                         : fine.recurso.status === 'INDEFERIDO'
                         ? 'bg-red-100 text-red-800'
-                        : 'bg-amber-100 text-amber-800'
+                        : 'bg-pendente-100 text-pendente-800'
                     }`}
                   >
                     {fine.recurso.status === 'EM_ANALISE' ? 'Em Análise pelo Síndico' : fine.recurso.status}
@@ -388,7 +388,7 @@ function MultaDetalheContent() {
                 </p>
 
                 {fine.recurso.anexoNome && (
-                  <div className="mt-2 flex items-center gap-1 text-xs text-[#0A6E9C] font-semibold">
+                  <div className="mt-2 flex items-center gap-1 text-xs text-accent-strong font-semibold">
                     <FileText className="h-3.5 w-3.5" />
                     <span>Anexo Protocolado: {fine.recurso.anexoNome}</span>
                   </div>
@@ -419,8 +419,8 @@ function MultaDetalheContent() {
                 </div>
               ) : isAdmin(currentUser.role) ? (
                 /* Painel de Julgamento para o Síndico */
-                <div className="rounded-2xl border border-[#0B2545]/20 bg-[#0B2545]/5 p-5 space-y-3 no-print">
-                  <h4 className="text-xs font-bold text-[#0B2545] uppercase tracking-wider">
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-3 no-print">
+                  <h4 className="text-xs font-bold text-primary uppercase tracking-wider">
                     Julgamento Administrativo (Área do Síndico)
                   </h4>
                   <p className="text-xs text-slate-600">
@@ -434,7 +434,7 @@ function MultaDetalheContent() {
                     placeholder="Justificativa da decisão..."
                     value={respostaSindico}
                     onChange={(e) => setRespostaSindico(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-[#00A8E8] focus:outline-none focus:ring-2 focus:ring-[#00A8E8]/20"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                   />
 
                   <div className="flex items-center justify-end gap-2 pt-2">

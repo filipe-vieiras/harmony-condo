@@ -1,16 +1,54 @@
 @import "tailwindcss";
 
 @theme {
+  /* Paleta institucional (azul-marinho + ciano do logotipo). Em 29/09/2026 a
+     tangerina do style tile foi testada e descartada; ficaram só as fontes.
+     No código, use sempre estes tokens, nunca cor fixa (bg-[#...]). */
   --color-primary: #0B2545;
   --color-primary-hover: #134074;
+  /* Fundo mais escuro dos gradientes do cabeçalho. */
+  --color-primary-deep: #07162c;
   --color-secondary: #1D4E89;
+
   --color-accent: #00A8E8;
   --color-accent-hover: #0096D1;
+  /* Destaque em tom escuro, legível como texto sobre fundo claro. */
+  --color-accent-strong: #0A6E9C;
+  /* Tons claros do destaque (chips, fundos de ícone) = escala sky do Tailwind.
+     Valores literais: var(--color-sky-*) só existe no CSS final se alguma
+     classe usar sky-* direto, e nenhuma usa — a cor ficaria vazia. */
+  --color-accent-50: oklch(97.7% 0.013 236.62);
+  --color-accent-100: oklch(95.1% 0.026 236.824);
+  --color-accent-200: oklch(90.1% 0.058 230.902);
+  --color-accent-300: oklch(82.8% 0.111 230.318);
+  --color-accent-400: oklch(74.6% 0.16 232.661);
+  --color-accent-500: oklch(68.5% 0.169 237.323);
+  --color-accent-600: oklch(58.8% 0.158 241.966);
+  --color-accent-700: oklch(50% 0.134 242.749);
+  --color-accent-800: oklch(44.3% 0.11 240.79);
+  --color-accent-900: oklch(39.1% 0.09 240.876);
+
+  /* Pendente (aguardando ciência, validação, aprovação) = escala amber do
+     Tailwind, em valores literais pelo mesmo motivo. */
+  --color-pendente-50: oklch(98.7% 0.022 95.277);
+  --color-pendente-100: oklch(96.2% 0.059 95.617);
+  --color-pendente-200: oklch(92.4% 0.12 95.746);
+  --color-pendente-300: oklch(87.9% 0.169 91.605);
+  --color-pendente-400: oklch(82.8% 0.189 84.429);
+  --color-pendente-500: oklch(76.9% 0.188 70.08);
+  --color-pendente-600: oklch(66.6% 0.179 58.318);
+  --color-pendente-700: oklch(55.5% 0.163 48.998);
+  --color-pendente-800: oklch(47.3% 0.137 46.201);
+  --color-pendente-900: oklch(41.4% 0.112 45.904);
+
   --color-neutral-bg: #F4F7FB;
   --color-surface: #FFFFFF;
   --color-border: #E2E8F0;
   --color-text-primary: #0F172A;
   --color-text-secondary: #475569;
+
+  --font-sans: var(--font-body), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-display-face), var(--font-body), system-ui, sans-serif;
 
   /* Corpo de 14px (DESIGN.md: body-md). O text-xs do Tailwind (12px) era usado
      para quase todo o conteúdo e ficava pequeno para moradores e portaria. */
@@ -26,8 +64,15 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Títulos na fonte de display. */
+h1,
+h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }
 
 /* iOS Safari dá zoom ao focar campos com fonte menor que 16px. */

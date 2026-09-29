@@ -39,16 +39,16 @@ export function PainelProvisorio() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl bg-gradient-to-r from-[#0B2545] via-[#134074] to-[#1D4E89] p-6 text-white shadow-lg sm:p-8">
+      <div className="rounded-3xl bg-gradient-to-r from-primary via-primary-hover to-secondary p-6 text-white shadow-lg sm:p-8">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Olá, {currentUser.name}</h1>
         <p className="mt-1 text-sm text-cyan-100">Bem-vindo(a) ao portal do condomínio.</p>
       </div>
 
-      <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-        <Hourglass className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+      <div className="flex items-start gap-3 rounded-2xl border border-pendente-200 bg-pendente-50 p-5">
+        <Hourglass className="mt-0.5 h-5 w-5 shrink-0 text-pendente-700" />
         <div>
-          <p className="text-sm font-bold text-amber-900">Seu cadastro está aguardando a validação do síndico</p>
-          <p className="mt-1 text-xs text-amber-800">
+          <p className="text-sm font-bold text-pendente-900">Seu cadastro está aguardando a validação do síndico</p>
+          <p className="mt-1 text-xs text-pendente-800">
             Enquanto isso você já acompanha o mural e a lista de unidades. Multas, reservas e veículos da sua unidade são liberados depois da validação.
           </p>
         </div>
@@ -68,7 +68,7 @@ export function PainelProvisorio() {
               <h2 className="text-sm font-bold text-slate-900">Meu cadastro</h2>
               <p className="mt-0.5 text-xs text-slate-500">Confira os dados enviados. Se algo estiver errado, corrija antes da validação.</p>
             </div>
-            <button onClick={() => setEditando(true)} className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-[#0B2545] hover:bg-slate-50">
+            <button onClick={() => setEditando(true)} className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-slate-50">
               <Pencil className="h-3.5 w-3.5" /> Corrigir
             </button>
           </div>
@@ -106,11 +106,11 @@ export function PainelProvisorio() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Link href="/mural" className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition hover:shadow-md">
-          <Megaphone className="h-5 w-5 text-[#00A8E8]" />
+          <Megaphone className="h-5 w-5 text-accent" />
           <span className="text-sm font-semibold text-slate-900">Mural de Avisos</span>
         </Link>
         <Link href="/moradores" className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition hover:shadow-md">
-          <Users className="h-5 w-5 text-[#00A8E8]" />
+          <Users className="h-5 w-5 text-accent" />
           <span className="text-sm font-semibold text-slate-900">Lista de Unidades</span>
         </Link>
       </div>
