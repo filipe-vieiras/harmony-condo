@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { AppProvider } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -8,6 +9,21 @@ import { DialogProvider } from '@/components/ui/DialogProvider';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Menu aberto: Esc fecha e a página de trás não rola.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [mobileMenuOpen]);
 
   return (
     <AppProvider>
@@ -27,18 +43,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          {/* Drawer mobile */}
-          {mobileMenuOpen && (
-            <div className="fixed inset-0 z-50 flex lg:hidden no-print">
-              <div
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
-                onClick={() => setMobileMenuOpen(false)}
-              />
-              <div className="relative flex w-full max-w-xs flex-1 flex-col bg-white pt-5 pb-4 shadow-2xl">
+          {/* Drawer mobile: fica sempre montado e só desliza, para animar
+              também o fechamento. Fechado, é inert (Tab e leitor de tela
+              ignoram) e não recebe toques. */}
+          <div
+            className={`fixed inset-0 z-50 flex lg:hidden no-print ${mobileMenuOpen ? '' : 'pointer-events-none'}`}
+            inert={!mobileMenuOpen}
+          >
+            <div
+              className={`fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300 ease-out motion-reduce:transition-none ${
+                mobileMenuOpen ? 'opacity-100' : 'opacity-0'
+              }`}
+              onClick={() => setMobileMenuOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Menu de navegação"
+              className={`relative flex w-full max-w-xs flex-1 flex-col bg-white pb-4 shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none ${
+                mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+              }`}
+            >
+              <div className="flex items-center justify-between px-4 pt-3">
+                <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">Menu</span>
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Fechar menu"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 <Sidebar onCloseMobile={() => setMobileMenuOpen(false)} />
               </div>
             </div>
-          )}
+          </div>
 
           {/* Área de Conteúdo Principal */}
           {/* min-w-0 é essencial aqui: sem isso, um item flex nunca encolhe
