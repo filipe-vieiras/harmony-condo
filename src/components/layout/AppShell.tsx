@@ -1,22 +1,36 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AppProvider } from '@/context/AppContext';
+import { AppProvider, useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { DialogProvider } from '@/components/ui/DialogProvider';
+import { AbasMorador } from '@/components/morador/AbasMorador';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   return (
     <AppProvider>
       <DialogProvider>
+        <Moldura>{children}</Moldura>
+      </DialogProvider>
+    </AppProvider>
+  );
+}
+
+// Separado do AppShell porque precisa do useApp (o perfil decide a navegação).
+function Moldura({ children }: { children: React.ReactNode }) {
+  const { currentUser } = useApp();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Morador navega por abas embaixo no celular; a equipe segue com o hambúrguer.
+  const abasEmbaixo = currentUser?.role === 'MORADOR';
+
+  return (
       <div className="flex min-h-screen flex-col bg-neutral-bg">
         {/* Header no topo */}
-        <Header 
-          onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} 
+        <Header
+          onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
           mobileMenuOpen={mobileMenuOpen}
+          esconderMenuMobile={abasEmbaixo}
         />
 
         <div className="mx-auto flex w-full max-w-7xl flex-1 px-4 sm:px-6 lg:px-8">
@@ -45,12 +59,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               abaixo da largura do seu conteúdo mais largo (ex: uma tabela),
               mesmo esse conteúdo tendo overflow-x-auto próprio — o resultado
               é a página inteira forçando scroll horizontal no celular. */}
-          <main className="min-w-0 flex-1 py-6 lg:pl-6">
+          {/* pb-28 no celular do morador: espaço para as abas fixas embaixo. */}
+          <main className={`min-w-0 flex-1 py-6 lg:pl-6 ${abasEmbaixo ? 'pb-28 lg:pb-6' : ''}`}>
             {children}
           </main>
         </div>
+
+        <AbasMorador onAbrirMenu={() => setMobileMenuOpen(true)} />
       </div>
-      </DialogProvider>
-    </AppProvider>
   );
 }

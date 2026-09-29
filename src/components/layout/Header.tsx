@@ -19,9 +19,11 @@ import {
 interface HeaderProps {
   onToggleMobileMenu?: () => void;
   mobileMenuOpen?: boolean;
+  /** Morador: o menu do celular fica nas abas embaixo (AbasMorador). */
+  esconderMenuMobile?: boolean;
 }
 
-export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
+export function Header({ onToggleMobileMenu, mobileMenuOpen, esconderMenuMobile }: HeaderProps) {
   const { 
     currentUser, 
     notifications, 
@@ -76,14 +78,16 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
         
         {/* Logo & Marca (Obrigatório no Header — item 2) */}
         <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={onToggleMobileMenu}
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
-            aria-label="Abrir menu de navegação"
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          {!esconderMenuMobile && (
+            <button
+              type="button"
+              onClick={onToggleMobileMenu}
+              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+              aria-label="Abrir menu de navegação"
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          )}
 
           <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-95">
             <Image
