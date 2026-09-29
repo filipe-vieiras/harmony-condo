@@ -46,7 +46,7 @@ export default function CadastroPage() {
         <div className="flex flex-col items-center text-center">
           <Image src="/images/logo.png" alt="Harmony Residence" width={562} height={508} preload className="h-20 w-auto rounded-2xl object-contain shadow-2xl ring-1 ring-white/20" />
           <h1 className="mt-5 text-2xl font-bold tracking-tight text-white">Cadastro de Moradores</h1>
-          <p className="mt-2 max-w-md text-sm text-accent-100/90">
+          <p className="mt-2 max-w-md text-sm text-cyan-100/90">
             Preencha os dados da sua unidade. Você entra no portal na hora; o acesso completo é liberado depois que o síndico confirmar o cadastro.
           </p>
         </div>
@@ -87,7 +87,7 @@ export default function CadastroPage() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-xs text-accent-100/70">Harmony Residence • Sistema Operacional e Convivência Digital</p>
+        <p className="mt-4 text-center text-xs text-cyan-100/70">Harmony Residence • Sistema Operacional e Convivência Digital</p>
       </div>
     </div>
   );

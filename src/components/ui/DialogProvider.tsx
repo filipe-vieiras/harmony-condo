@@ -97,7 +97,7 @@ function DialogView({
   const canConfirm = !isReason || text.trim().length > 0;
   const confirmClasses = options.destructive || isReason
     ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500/40'
-    : 'bg-primary hover:bg-primary-hover focus-visible:ring-accent-strong/40';
+    : 'bg-primary hover:bg-primary-hover focus-visible:ring-accent/40';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 no-print">
@@ -143,7 +143,7 @@ function DialogView({
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={active.options.placeholder ?? 'Explique o motivo para o morador'}
-              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
             />
           </div>
         )}
@@ -152,7 +152,7 @@ function DialogView({
           <button
             type="button"
             onClick={cancel}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/40"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             Cancelar
           </button>

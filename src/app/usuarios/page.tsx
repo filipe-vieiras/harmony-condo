@@ -308,7 +308,7 @@ function UsuariosContent() {
                       aria-label="Selecionar todos os convites"
                       checked={selectedIds.length === pendentes.length}
                       onChange={toggleSelectAll}
-                      className="rounded border-slate-300 text-primary focus:ring-accent-strong"
+                      className="rounded border-slate-300 text-primary focus:ring-accent"
                     />
                   )}
                 </th>
@@ -338,7 +338,7 @@ function UsuariosContent() {
                             aria-label={`Selecionar convite de ${i.nome}`}
                             checked={selectedIds.includes(i.id)}
                             onChange={() => toggleSelected(i.id)}
-                            className="rounded border-slate-300 text-primary focus:ring-accent-strong"
+                            className="rounded border-slate-300 text-primary focus:ring-accent"
                           />
                         )}
                       </td>
@@ -429,7 +429,7 @@ function UsuariosContent() {
                   required
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </div>
               <div>
@@ -440,7 +440,7 @@ function UsuariosContent() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </div>
               <div>
@@ -449,7 +449,7 @@ function UsuariosContent() {
                   id="usuario-perfil"
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 >
                   {STAFF_ROLES.map((r) => (
                     <option key={r} value={r} disabled={isRoleTaken(r)}>

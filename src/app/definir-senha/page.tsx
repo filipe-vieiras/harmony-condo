@@ -105,7 +105,7 @@ export default function DefinirSenhaPage() {
         <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
           Criar Senha de Acesso
         </h2>
-        <p className="mt-2 text-center text-xs text-accent-200">
+        <p className="mt-2 text-center text-xs text-cyan-200">
           Defina a senha que você vai usar para entrar no Portal Condominial
         </p>
       </div>
@@ -154,7 +154,7 @@ export default function DefinirSenhaPage() {
                     placeholder="••••••••"
                     required
                     minLength={8}
-                    className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                    className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                   />
                 </div>
               </div>
@@ -174,7 +174,7 @@ export default function DefinirSenhaPage() {
                     placeholder="••••••••"
                     required
                     minLength={8}
-                    className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                    className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                   />
                 </div>
               </div>
@@ -189,7 +189,7 @@ export default function DefinirSenhaPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 text-xs font-semibold text-white shadow-md transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-accent-strong disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 text-xs font-semibold text-white shadow-md transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
               >
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -204,7 +204,7 @@ export default function DefinirSenhaPage() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-xs text-accent-100/70">
+        <p className="mt-4 text-center text-xs text-cyan-100/70">
           Harmony Residence • Sistema Operacional e Convivência Digital
         </p>
       </div>

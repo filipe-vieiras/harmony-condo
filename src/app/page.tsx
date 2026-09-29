@@ -78,13 +78,13 @@ function DashboardContent() {
         </div>
 
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-accent-200 backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-cyan-200 backdrop-blur-md">
             <span>Portal Condominial Harmony Residence</span>
           </div>
           <h1 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl text-white">
             Olá, {currentUser.name}
           </h1>
-          <p className="mt-1 text-xs sm:text-sm text-accent-100">
+          <p className="mt-1 text-xs sm:text-sm text-cyan-100">
             {isAdmin(currentUser.role) && 'Painel de controle geral: gestão administrativa, ocorrências disciplinares e validação de reservas.'}
             {currentUser.role === 'PORTARIA' && 'Guarita de controle: identificação instantânea de veículos, consulta de moradores e agenda das áreas comuns.'}
             {currentUser.role === 'CONSELHO' && 'Auditoria e acompanhamento fiscal: fiscalização de multas, reservas e transparência condominial.'}
@@ -179,7 +179,7 @@ function DashboardContent() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Veículos</span>
-            <div className="rounded-xl bg-accent-50 p-2 text-accent">
+            <div className="rounded-xl bg-cyan-50 p-2 text-accent">
               <Car className="h-5 w-5" />
             </div>
           </div>
@@ -431,7 +431,7 @@ function DashboardContent() {
               className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
             >
               <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-accent-50 p-2 text-accent">
+                <div className="rounded-lg bg-cyan-50 p-2 text-accent">
                   <Car className="h-4 w-4" />
                 </div>
                 <div>
@@ -464,7 +464,7 @@ function DashboardContent() {
           {/* Zeladoria — dados vêm do cadastro em Links & Documentos */}
           {zelador?.nome && (
             <div className="rounded-2xl border border-slate-200 bg-primary p-5 text-white shadow-xs">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-accent-200">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-200">
                 Zeladoria
               </h3>
               <p className="mt-2 text-base font-bold text-white">{zelador.nome}</p>
@@ -475,7 +475,7 @@ function DashboardContent() {
                 <div className="mt-3 pt-3 border-t border-white/10">
                   <a
                     href={`tel:${zelador.telefone.replace(/[^0-9]/g, '')}`}
-                    className="text-sm font-semibold text-accent-100 hover:underline"
+                    className="text-sm font-semibold text-cyan-100 hover:underline"
                   >
                     {zelador.telefone}
                   </a>

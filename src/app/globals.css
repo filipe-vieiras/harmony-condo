@@ -1,60 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  /* Identidade: tinta (preto quente) + tangerina, sobre base off-white quente.
-     Style tile aprovado em 29/09/2026 (direção D). DESIGN.md tem as regras. */
-  --color-primary: #0E0E0C;
-  --color-primary-hover: #2A2A26;
-  --color-primary-deep: #000000;
-  --color-secondary: #3A3A34;
+  /* Paleta institucional (azul-marinho + ciano do logotipo). Em 29/09/2026 a
+     tangerina do style tile foi testada e descartada; ficaram só as fontes.
+     No código, use sempre estes tokens, nunca cor fixa (bg-[#...]). */
+  --color-primary: #0B2545;
+  --color-primary-hover: #134074;
+  /* Fundo mais escuro dos gradientes do cabeçalho. */
+  --color-primary-deep: #07162c;
+  --color-secondary: #1D4E89;
 
-  --color-accent: #FF8A4C;
-  --color-accent-hover: #F07535;
-  /* Tangerina escura: única versão do destaque legível como TEXTO ou foco
-     sobre fundo claro (5,5:1). A tangerina pura é só fundo, com texto preto. */
-  --color-accent-strong: #B4501C;
-  --color-accent-50: #FFF4EC;
-  --color-accent-100: #FFE6D5;
-  --color-accent-200: #FFCBAA;
-  --color-accent-300: #FFAD7C;
-  --color-accent-400: #FF9A61;
-  --color-accent-500: #FF8A4C;
-  --color-accent-600: #E86F2E;
-  --color-accent-700: #B4501C;
-  --color-accent-800: #8C3F18;
-  --color-accent-900: #6E3316;
+  --color-accent: #00A8E8;
+  --color-accent-hover: #0096D1;
+  /* Destaque em tom escuro, legível como texto sobre fundo claro. */
+  --color-accent-strong: #0A6E9C;
+  /* Tons claros do destaque (chips, fundos de ícone). */
+  --color-accent-50: var(--color-accent-50);
+  --color-accent-100: var(--color-accent-100);
+  --color-accent-200: var(--color-accent-200);
+  --color-accent-300: var(--color-accent-300);
+  --color-accent-400: var(--color-accent-400);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+  --color-accent-800: var(--color-accent-800);
+  --color-accent-900: var(--color-accent-900);
 
-  /* Pendente (aguardando ciência, validação, aprovação). Azul-claro para não
-     se confundir com a tangerina; vermelho segue para multa/urgente. */
-  --color-pendente-50: #EFF6FD;
-  --color-pendente-100: #DCEBFA;
-  --color-pendente-200: #C3DCF5;
-  --color-pendente-300: #A9CBEF;
-  --color-pendente-400: #7FAEE3;
-  --color-pendente-500: #5A91D3;
-  --color-pendente-600: #3F74B8;
-  --color-pendente-700: #2F5C96;
-  --color-pendente-800: #274C7A;
-  --color-pendente-900: #213F63;
+  /* Pendente (aguardando ciência, validação, aprovação). */
+  --color-pendente-50: var(--color-pendente-50);
+  --color-pendente-100: var(--color-pendente-100);
+  --color-pendente-200: var(--color-pendente-200);
+  --color-pendente-300: var(--color-pendente-300);
+  --color-pendente-400: var(--color-pendente-400);
+  --color-pendente-500: var(--color-pendente-500);
+  --color-pendente-600: var(--color-pendente-600);
+  --color-pendente-700: var(--color-pendente-700);
+  --color-pendente-800: var(--color-pendente-800);
+  --color-pendente-900: var(--color-pendente-900);
 
-  /* Cinzas quentes no lugar do slate frio (o app usa slate-* em todo lugar). */
-  --color-slate-50: #FAFAF7;
-  --color-slate-100: #F4F3EF;
-  --color-slate-200: #E6E3DC;
-  --color-slate-300: #D4D0C7;
-  --color-slate-400: #A8A39A;
-  --color-slate-500: #78736B;
-  --color-slate-600: #57534C;
-  --color-slate-700: #44403A;
-  --color-slate-800: #292622;
-  --color-slate-900: #1A1816;
-  --color-slate-950: #0E0E0C;
-
-  --color-neutral-bg: #F2EFE9;
+  --color-neutral-bg: #F4F7FB;
   --color-surface: #FFFFFF;
-  --color-border: #E6E3DC;
-  --color-text-primary: #0E0E0C;
-  --color-text-secondary: #57534C;
+  --color-border: #E2E8F0;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #475569;
 
   --font-sans: var(--font-body), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-display-face), var(--font-body), system-ui, sans-serif;
@@ -66,8 +54,8 @@
 }
 
 :root {
-  --background: #F2EFE9;
-  --foreground: #0E0E0C;
+  --background: #F4F7FB;
+  --foreground: #0F172A;
 }
 
 body {

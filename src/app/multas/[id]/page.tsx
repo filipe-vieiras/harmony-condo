@@ -335,7 +335,7 @@ function MultaDetalheContent() {
                 value={textoRecurso}
                 onChange={(e) => setTextoRecurso(e.target.value)}
                 placeholder="Apresente seus argumentos e motivos para o cancelamento ou relevação da sanção..."
-                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
 
               <div>
@@ -346,7 +346,7 @@ function MultaDetalheContent() {
                   placeholder="Ex: Comprovante_Prestador.pdf ou Foto_Local.jpg"
                   value={anexoNome}
                   onChange={(e) => setAnexoNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </div>
 
@@ -434,7 +434,7 @@ function MultaDetalheContent() {
                     placeholder="Justificativa da decisão..."
                     value={respostaSindico}
                     onChange={(e) => setRespostaSindico(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                   />
 
                   <div className="flex items-center justify-end gap-2 pt-2">

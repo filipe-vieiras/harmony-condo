@@ -382,7 +382,7 @@ function MoradoresContent() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por número do apartamento ou nome do morador..."
-            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           />
         </div>
 
@@ -391,7 +391,7 @@ function MoradoresContent() {
           <select
             value={filterBloco}
             onChange={(e) => setFilterBloco(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-accent-strong focus:outline-none"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-accent focus:outline-none"
           >
             <option value="TODOS">Todos os Blocos</option>
             <option value="A">Bloco A</option>
@@ -662,7 +662,7 @@ function MoradoresContent() {
                       placeholder="Ex: 602"
                       value={novoNumero}
                       onChange={(e) => setNovoNumero(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
                   </div>
                   <div>
@@ -671,7 +671,7 @@ function MoradoresContent() {
                       id="unidade-bloco"
                       value={novoBloco}
                       onChange={(e) => setNovoBloco(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20 font-semibold text-slate-800"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-800"
                     >
                       <option value="A">Bloco A</option>
                       <option value="B">Bloco B</option>
@@ -683,7 +683,7 @@ function MoradoresContent() {
                       id="unidade-tipo-ocupacao"
                       value={novoTipo}
                       onChange={(e) => setNovoTipo(e.target.value as 'PROPRIETARIO' | 'INQUILINO')}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20 font-semibold text-slate-800"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-800"
                     >
                       <option value="PROPRIETARIO">Proprietário Residente</option>
                       <option value="INQUILINO">Locatário (Inquilino)</option>
@@ -700,7 +700,7 @@ function MoradoresContent() {
                       placeholder="Ex: G1-12, G1-14"
                       value={novasVagas}
                       onChange={(e) => setNovasVagas(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
                   </div>
                   <div>
@@ -711,7 +711,7 @@ function MoradoresContent() {
                       placeholder="Ex: 1 cão (Shih-tzu)"
                       value={novosAnimais}
                       onChange={(e) => setNovosAnimais(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
                   </div>
                 </div>
@@ -739,7 +739,7 @@ function MoradoresContent() {
                       placeholder="Nome do responsável"
                       value={titularNome}
                       onChange={(e) => setTitularNome(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
                   </div>
                   <div>
@@ -750,7 +750,7 @@ function MoradoresContent() {
                       placeholder="000.000.000-00"
                       value={titularRgCpf}
                       onChange={(e) => setTitularRgCpf(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
                   </div>
                 </div>
@@ -765,7 +765,7 @@ function MoradoresContent() {
                       placeholder="(11) 90000-0000"
                       value={titularTelefone}
                       onChange={(e) => setTitularTelefone(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
                   </div>
                   <div>
@@ -777,7 +777,7 @@ function MoradoresContent() {
                       placeholder="morador@exemplo.com"
                       value={titularEmail}
                       onChange={(e) => setTitularEmail(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
                   </div>
                 </div>
@@ -797,7 +797,7 @@ function MoradoresContent() {
                           placeholder="Nome do Proprietário"
                           value={proprietarioNome}
                           onChange={(e) => setProprietarioNome(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                         />
                       </div>
                       <div>
@@ -808,7 +808,7 @@ function MoradoresContent() {
                           placeholder="Telefone do Proprietário"
                           value={proprietarioTelefone}
                           onChange={(e) => setProprietarioTelefone(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                         />
                       </div>
                       <div>
@@ -819,7 +819,7 @@ function MoradoresContent() {
                           placeholder="E-mail do Proprietário"
                           value={proprietarioEmail}
                           onChange={(e) => setProprietarioEmail(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                         />
                       </div>
                     </div>
@@ -885,7 +885,7 @@ function MoradoresContent() {
                               placeholder="Nome completo do residente"
                               value={m.nome}
                               onChange={(e) => handleUpdateMorador(index, 'nome', e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                             />
                           </div>
                           <div>
@@ -894,7 +894,7 @@ function MoradoresContent() {
                               id={`morador-tipo-${index}`}
                               value={m.tipo}
                               onChange={(e) => handleUpdateMorador(index, 'tipo', e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20 font-semibold text-slate-700"
+                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-700"
                             >
                               <option value="DEPENDENTE">Dependente / Família</option>
                               <option value="INQUILINO">Co-inquilino</option>
@@ -908,7 +908,7 @@ function MoradoresContent() {
                               placeholder="Telefone / Contato"
                               value={m.telefone}
                               onChange={(e) => handleUpdateMorador(index, 'telefone', e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                             />
                           </div>
                         </div>

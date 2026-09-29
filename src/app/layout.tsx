@@ -31,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={`${jakarta.variable} ${bricolage.variable}`}>
-      <body className="min-h-screen bg-neutral-bg text-slate-900 antialiased selection:bg-accent/30 selection:text-primary">
+      <body className="min-h-screen bg-neutral-bg text-slate-900 antialiased selection:bg-accent/20 selection:text-primary">
         {children}
       </body>
     </html>

@@ -33,7 +33,7 @@ const texto = (v?: string | null): CellObject | null => {
 };
 
 const cabecalho = (titulos: string[]): Linha =>
-  titulos.map((t): CellObject => ({ value: t, fontWeight: 'bold', backgroundColor: '#0E0E0C', textColor: '#FFFFFF' }));
+  titulos.map((t): CellObject => ({ value: t, fontWeight: 'bold', backgroundColor: '#0B2545', textColor: '#FFFFFF' }));
 
 function ordenarUnidades<T extends { bloco: string; numero: string }>(lista: T[]): T[] {
   return [...lista].sort(

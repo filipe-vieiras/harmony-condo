@@ -327,7 +327,7 @@ function AutocadastroContent() {
             value={planilha}
             onChange={(e) => setPlanilha(e.target.value)}
             placeholder={'Bloco;Número\nA;101\nA;102\nB;101'}
-            className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+            className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-accent-strong hover:underline">

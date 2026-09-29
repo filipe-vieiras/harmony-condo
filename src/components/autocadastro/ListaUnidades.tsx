@@ -51,7 +51,7 @@ export function ListaUnidades() {
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por apartamento ou nome..."
           aria-label="Buscar por apartamento ou nome"
-          className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/20"
+          className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
       </div>
 
@@ -67,7 +67,7 @@ export function ListaUnidades() {
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-9 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-primary text-white">
                     <span className="text-xs font-bold leading-none">{l.numero}</span>
-                    <span className="mt-0.5 text-[10px] leading-none text-accent-200">Bl. {l.bloco}</span>
+                    <span className="mt-0.5 text-[10px] leading-none text-cyan-200">Bl. {l.bloco}</span>
                   </div>
                   <span className={`truncate text-sm ${l.responsavel ? 'font-semibold text-slate-900' : 'italic text-slate-400'}`}>
                     {l.responsavel ?? 'Ninguém cadastrado ainda'}

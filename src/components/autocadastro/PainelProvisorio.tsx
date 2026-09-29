@@ -41,7 +41,7 @@ export function PainelProvisorio() {
     <div className="space-y-6">
       <div className="rounded-3xl bg-gradient-to-r from-primary via-primary-hover to-secondary p-6 text-white shadow-lg sm:p-8">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Olá, {currentUser.name}</h1>
-        <p className="mt-1 text-sm text-accent-100">Bem-vindo(a) ao portal do condomínio.</p>
+        <p className="mt-1 text-sm text-cyan-100">Bem-vindo(a) ao portal do condomínio.</p>
       </div>
 
       <div className="flex items-start gap-3 rounded-2xl border border-pendente-200 bg-pendente-50 p-5">
