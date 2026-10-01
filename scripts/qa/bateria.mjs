@@ -39,12 +39,18 @@ ok(!filaErr, `ADM coloca ${equipe.length} convites na fila`);
 const env1 = await api('/api/convites/enviar', { method: 'POST', cookie: ckAdm, body: { ids: fila.map((f) => f.id) } });
 ok(env1.status === 200 && env1.data.results.every((r) => r.ok), `links gerados: ${env1.data?.results?.filter((r) => r.ok).length}/${fila.length}`);
 for (const r of env1.data.results.filter((x) => x.ok)) {
-  const loc = (await fetch(r.link, { redirect: 'manual' })).headers.get('location') ?? '';
-  const hash = new URLSearchParams(loc.split('#')[1] ?? '');
+  const role = fila.find((f) => f.id === r.id).role.padEnd(10);
+  const url = new URL(r.link);
+  ok(url.pathname === '/definir-senha' && url.searchParams.has('token_hash'), `${role} link aponta para a página do app (não para o link de uso único do Supabase)`);
+  // Robôs de pré-visualização (WhatsApp, e-mail) abrem o link antes da pessoa: não podem gastar o token.
+  for (let i = 0; i < 2; i++) await fetch(r.link, { headers: { 'user-agent': 'WhatsApp/2.23.20 A' } });
+  // A pessoa toca em "Continuar" (verifyOtp no navegador) e define a senha.
   const c = anon();
-  const s = await c.auth.setSession({ access_token: hash.get('access_token'), refresh_token: hash.get('refresh_token') });
-  const u = s.error ? s : await c.auth.updateUser({ password: SENHA });
-  ok(!u.error, `${fila.find((f) => f.id === r.id).role.padEnd(10)} define senha pelo link (destino: ${loc.split('#')[0]})`);
+  const v = await c.auth.verifyOtp({ token_hash: url.searchParams.get('token_hash'), type: url.searchParams.get('type') });
+  const u = v.error ? v : await c.auth.updateUser({ password: SENHA });
+  ok(!u.error, `${role} define senha pelo link, mesmo depois de 2 robôs abrirem o link ${u.error?.message ?? ''}`);
+  const reuso = await anon().auth.verifyOtp({ token_hash: url.searchParams.get('token_hash'), type: url.searchParams.get('type') });
+  ok(!!reuso.error, `${role} o mesmo link não vale uma segunda vez`);
 }
 // Em staging, usa os Síndico/Subsíndico do seed trocando só a senha para a de QA.
 for (const [n, role] of [['sindico', 'SINDICO'], ['subsindico', 'SUBSINDICO']]) {

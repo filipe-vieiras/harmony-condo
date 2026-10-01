@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ADMIN_ROLES } from '@/lib/roles';
+import { montarLinkAcesso } from '@/lib/linkAcesso';
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
@@ -60,5 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: linkError?.message ?? 'Falha ao gerar o link de redefinição.' }, { status: 500 });
   }
 
-  return NextResponse.json({ link: linkData.properties.action_link });
+  // Link para a nossa página (token só é gasto no toque em "Continuar"), não o
+  // action_link do Supabase, que robôs de pré-visualização consomem.
+  return NextResponse.json({ link: montarLinkAcesso(origin, linkData.properties) });
 }

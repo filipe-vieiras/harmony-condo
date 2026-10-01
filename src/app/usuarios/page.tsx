@@ -146,7 +146,7 @@ function UsuariosContent() {
       await navigator.clipboard.writeText(res.link);
       setCopiedId(`reset-${userId}`);
       setTimeout(() => setCopiedId((current) => (current === `reset-${userId}` ? null : current)), 2000);
-      setFeedbackMsg({ type: 'success', text: `${res.message} Link copiado — cole e envie pro usuário.` });
+      setFeedbackMsg({ type: 'success', text: `${res.message} Link copiado — cole e envie pro usuário. Atenção: gerar um novo link cancela o anterior, vale só o último.` });
     } catch {
       setFeedbackMsg({ type: 'success', text: res.message });
     }
