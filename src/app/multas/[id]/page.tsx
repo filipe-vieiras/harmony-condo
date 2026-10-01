@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
+import { useDialog } from '@/components/ui/DialogProvider';
 import { isAdmin } from '@/lib/roles';
 import { formatarData, formatarMoeda } from '@/lib/formatadores';
 import {
   ShieldAlert,
   ArrowLeft, 
   CheckCircle2, 
+  AlertCircle,
   Clock, 
   FileText, 
   Send, 
@@ -48,6 +50,16 @@ function MultaDetalheContent() {
   const [respostaSindico, setRespostaSindico] = useState('');
   const [showRecursoForm, setShowRecursoForm] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [erroJustificativa, setErroJustificativa] = useState(false);
+  const { confirm } = useDialog();
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const justificativaRef = useRef<HTMLTextAreaElement>(null);
+
+  // A faixa fica no topo da página; no celular o morador/síndico está lá embaixo, na
+  // ação. Traz a faixa para o meio da tela para o resultado não passar despercebido.
+  useEffect(() => {
+    if (feedbackMsg) feedbackRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [feedbackMsg]);
 
   const fine = fines.find((f) => f.id === id);
 
@@ -105,9 +117,27 @@ function MultaDetalheContent() {
 
   const handleJudge = async (deferido: boolean) => {
     if (!respostaSindico.trim()) {
-      setFeedbackMsg({ type: 'error', text: 'Por favor, informe a justificativa da decisão.' });
+      // Erro ao lado do campo (não na faixa do topo, fora da tela) e foco nele.
+      setErroJustificativa(true);
+      justificativaRef.current?.focus();
       return;
     }
+    // A decisão não tem como ser refeita pelo app: o painel de julgamento some depois
+    // de gravada. Por isso a confirmação, com o efeito dito em fatos.
+    const ok = await confirm(
+      deferido
+        ? {
+            title: 'Aceitar o recurso e anular a multa?',
+            message: 'A multa será anulada e a sua justificativa ficará registrada para o morador. Esta decisão não pode ser desfeita no aplicativo.',
+            confirmLabel: 'Aceitar recurso',
+          }
+        : {
+            title: 'Negar o recurso e manter a multa?',
+            message: 'A multa continua valendo e a sua justificativa ficará registrada para o morador. Esta decisão não pode ser desfeita no aplicativo.',
+            confirmLabel: 'Negar recurso',
+          }
+    );
+    if (!ok) return;
     const res = await judgeFineAppeal(fine.id, deferido, respostaSindico);
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     if (res.success) setRespostaSindico('');
@@ -152,7 +182,9 @@ function MultaDetalheContent() {
       {/* Mensagem de Feedback */}
       {feedbackMsg && (
         <div
-          className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
+          ref={feedbackRef}
+          role={feedbackMsg.type === 'error' ? 'alert' : 'status'}
+          className={`scroll-mt-20 rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
             feedbackMsg.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
               : 'bg-red-50 text-red-900 border border-red-200'
@@ -328,13 +360,6 @@ function MultaDetalheContent() {
             <form onSubmit={handleSendAppeal} className="mt-4 rounded-2xl border border-accent-200 bg-accent-50/50 p-5 space-y-3 no-print">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-900">Redigir Justificativa / Defesa</span>
-                <button
-                  type="button"
-                  onClick={() => setShowRecursoForm(false)}
-                  className="text-xs text-slate-500 hover:text-slate-800"
-                >
-                  Cancelar
-                </button>
               </div>
 
               <label htmlFor="recurso-texto" className="sr-only">Justificativa do recurso</label>
@@ -345,13 +370,20 @@ function MultaDetalheContent() {
                 value={textoRecurso}
                 onChange={(e) => setTextoRecurso(e.target.value)}
                 placeholder="Apresente seus argumentos e motivos para o cancelamento ou relevação da sanção..."
-                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
               />
 
-              <div className="flex justify-end pt-2">
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowRecursoForm(false)}
+                  className="flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white transition hover:bg-primary-hover"
+                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white transition hover:bg-primary-hover"
                 >
                   <Send className="h-3.5 w-3.5" />
                   <span>Protocolar Recurso</span>
@@ -425,32 +457,51 @@ function MultaDetalheContent() {
                     Analise os argumentos do condômino e profira o julgamento fundamentado:
                   </p>
 
-                  <label htmlFor="julgamento-resposta" className="sr-only">Justificativa da decisão</label>
+                  <label htmlFor="julgamento-resposta" className="block text-xs font-semibold text-slate-700">
+                    Justificativa da decisão <span className="text-red-700">(obrigatória)</span>
+                  </label>
                   <textarea
                     id="julgamento-resposta"
+                    ref={justificativaRef}
                     rows={3}
-                    placeholder="Justificativa da decisão..."
+                    placeholder="Explique o motivo da decisão..."
                     value={respostaSindico}
-                    onChange={(e) => setRespostaSindico(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    aria-invalid={erroJustificativa}
+                    aria-describedby={erroJustificativa ? 'julgamento-erro' : undefined}
+                    onChange={(e) => {
+                      setRespostaSindico(e.target.value);
+                      if (erroJustificativa) setErroJustificativa(false);
+                    }}
+                    className={`w-full rounded-xl border bg-white p-3 text-xs text-slate-900 focus:outline-none focus:ring-2 ${
+                      erroJustificativa
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-300/40'
+                        : 'border-slate-200 focus:border-accent-strong focus:ring-accent-strong/30'
+                    }`}
                   />
+                  {erroJustificativa && (
+                    <p id="julgamento-erro" role="alert" className="flex items-center gap-1.5 text-xs font-semibold text-red-700">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>Informe a justificativa da decisão para continuar.</span>
+                    </p>
+                  )}
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => handleJudge(false)}
-                      className="flex items-center gap-1.5 rounded-xl border border-red-300 bg-white px-4 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50"
-                    >
-                      <X className="h-4 w-4" />
-                      <span>Indeferir (Manter Sanção)</span>
-                    </button>
+                  {/* Os dois botões têm o mesmo peso visual: a decisão não deve ser empurrada por cor. */}
+                  <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
                     <button
                       type="button"
                       onClick={() => handleJudge(true)}
-                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+                      className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-800 transition hover:bg-slate-50 sm:w-auto"
                     >
-                      <Check className="h-4 w-4" />
-                      <span>Deferir (Anular Multa)</span>
+                      <Check className="h-4 w-4 text-emerald-600" />
+                      <span>Aceitar recurso (anular multa)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleJudge(false)}
+                      className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-800 transition hover:bg-slate-50 sm:w-auto"
+                    >
+                      <X className="h-4 w-4 text-red-600" />
+                      <span>Negar recurso (manter multa)</span>
                     </button>
                   </div>
                 </div>

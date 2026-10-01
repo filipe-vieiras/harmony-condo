@@ -32,7 +32,7 @@ interface Props {
 
 // 16px no celular: abaixo disso o iOS dá zoom ao focar o campo (o link chega pelo WhatsApp).
 const inputCls =
-  'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20';
+  'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30';
 const labelCls = 'block text-xs font-semibold text-slate-700';
 const sectionCls = 'space-y-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4';
 
@@ -138,7 +138,8 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
               </div>
               <div>
                 <label htmlFor="ac-senha" className={labelCls}>Crie uma senha</label>
-                <input id="ac-senha" type="password" required minLength={8} autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} className={inputCls} />
+                <input id="ac-senha" type="password" required minLength={8} autoComplete="new-password" aria-describedby="ac-senha-ajuda" value={senha} onChange={(e) => setSenha(e.target.value)} className={inputCls} />
+                <p id="ac-senha-ajuda" className="mt-1 text-xs text-slate-500">Mínimo de 8 caracteres.</p>
               </div>
               <div>
                 <label htmlFor="ac-senha2" className={labelCls}>Confirme a senha</label>

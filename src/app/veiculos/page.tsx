@@ -9,6 +9,7 @@ import { Vehicle } from '@/types';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
+import { useModalFocus } from '@/lib/useModalFocus';
 import {
   Car,
   Search,
@@ -51,11 +52,15 @@ function VeiculosContent() {
   // o texto digitado com o exemplo em vez de substituí-lo.
   const [unidade, setUnidade] = useState(currentUser?.unidade || '');
   const [vaga, setVaga] = useState('');
-  const [proprietarioNome, setProprietarioNome] = useState(currentUser?.name || '');
-  const [telefoneContato, setTelefoneContato] = useState(currentUser?.telefone || '');
+  // Só o morador cadastra o veículo dele mesmo (nome e telefone vêm do perfil). Quem é
+  // da equipe (Portaria, Síndico...) cadastra o de outra pessoa: começa vazio, senão o
+  // nome do porteiro seria salvo como dono do veículo por engano.
+  const [proprietarioNome, setProprietarioNome] = useState(currentUser?.role === 'MORADOR' ? currentUser.name : '');
+  const [telefoneContato, setTelefoneContato] = useState(currentUser?.role === 'MORADOR' ? currentUser.telefone || '' : '');
   const [status, setStatus] = useState<'ATIVO' | 'VISITANTE'>('ATIVO');
 
   useEscapeToClose(showModal, () => setShowModal(false));
+  useModalFocus(showModal);
 
   // O perfil do usuário carrega de forma assíncrona — se o componente monta
   // antes disso, o useState inicial fica preso vazio/'A'. Sincroniza assim
@@ -64,6 +69,16 @@ function VeiculosContent() {
     if (currentUser?.unidade) setUnidade(currentUser.unidade);
     if (currentUser?.bloco) setBloco(currentUser.bloco);
   }, [currentUser?.unidade, currentUser?.bloco]);
+
+  // O perfil chega depois do primeiro render: o morador tem o nome e o telefone dele
+  // preenchidos ao abrir o formulário (sem sobrescrever o que já digitou).
+  const abrirModal = () => {
+    if (currentUser?.role === 'MORADOR') {
+      setProprietarioNome((atual) => atual || currentUser.name);
+      setTelefoneContato((atual) => atual || currentUser.telefone || '');
+    }
+    setShowModal(true);
+  };
 
   const filteredVehicles = vehicles.filter((v) => {
     const term = searchTerm.toLowerCase();
@@ -114,6 +129,8 @@ function VeiculosContent() {
 
   const isMorador = currentUser.role === 'MORADOR';
   const minhaUnidade = units.find((u) => u.usuarioId === currentUser.id);
+  // Sem ação para o perfil (ex.: Portaria): no celular a célula some, em vez de mostrar "AÇÕES" vazio.
+  const podeRemover = (v: Vehicle) => isAdmin(currentUser.role) || (isMorador && v.unitId === minhaUnidade?.id);
 
   return (
     <div className="space-y-6">
@@ -151,7 +168,7 @@ function VeiculosContent() {
           </button>
 
           <button
-            onClick={() => setShowModal(true)}
+            onClick={abrirModal}
             className="order-1 flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:order-2 sm:min-h-0 sm:flex-none"
           >
             <Plus className="h-4 w-4 text-accent" />
@@ -163,6 +180,7 @@ function VeiculosContent() {
       {/* Mensagem de Feedback */}
       {feedbackMsg && (
         <div
+          role={feedbackMsg.type === 'error' ? 'alert' : 'status'}
           className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
             feedbackMsg.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
@@ -201,7 +219,7 @@ function VeiculosContent() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Buscar placa, apto, vaga ou nome"
-          className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-medium shadow-2xs uppercase placeholder:normal-case"
+          className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 font-medium shadow-2xs uppercase placeholder:normal-case"
         />
       </div>
 
@@ -257,8 +275,8 @@ function VeiculosContent() {
                         <span className="whitespace-nowrap">{v.telefoneContato}</span>
                       </div>
                     </td>
-                    <td data-label="Ações" className="px-5 py-3.5 text-right no-print">
-                      {(isAdmin(currentUser.role) || (isMorador && v.unitId === minhaUnidade?.id)) && (
+                    <td data-label="Ações" className={`px-5 py-3.5 text-right no-print ${podeRemover(v) ? '' : 'oculta-mobile'}`}>
+                      {podeRemover(v) && (
                         <button
                           onClick={async () => {
                             if (!(await confirm({ title: `Remover o veículo ${v.placa}?`, message: 'O veículo deixa de aparecer na garagem e na busca da portaria.', confirmLabel: 'Remover', destructive: true }))) return;
@@ -292,7 +310,7 @@ function VeiculosContent() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="veiculo-modal-title"
-            className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 id="veiculo-modal-title" className="text-base font-bold text-slate-900">Cadastrar Novo Veículo</h3>
@@ -315,11 +333,11 @@ function VeiculosContent() {
                   placeholder="Ex: BRA2E19"
                   value={placa}
                   onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-mono uppercase font-bold focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 font-mono uppercase font-bold focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="veiculo-marca" className="block text-xs font-semibold text-slate-700">Marca</label>
                   <input
@@ -329,7 +347,7 @@ function VeiculosContent() {
                     placeholder="Ex: Toyota"
                     value={marca}
                     onChange={(e) => setMarca(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   />
                 </div>
                 <div>
@@ -341,12 +359,12 @@ function VeiculosContent() {
                     placeholder="Ex: Corolla"
                     value={modelo}
                     onChange={(e) => setModelo(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="veiculo-cor" className="block text-xs font-semibold text-slate-700">Cor</label>
                   <input
@@ -355,7 +373,7 @@ function VeiculosContent() {
                     placeholder="Ex: Preto"
                     value={cor}
                     onChange={(e) => setCor(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   />
                 </div>
                 <div>
@@ -366,12 +384,12 @@ function VeiculosContent() {
                     placeholder="Ex: G2-45"
                     value={vaga}
                     onChange={(e) => setVaga(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="veiculo-apto" className="block text-xs font-semibold text-slate-700">Apartamento</label>
                   <input
@@ -382,7 +400,7 @@ function VeiculosContent() {
                     placeholder="304"
                     value={unidade}
                     onChange={(e) => setUnidade(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -392,7 +410,7 @@ function VeiculosContent() {
                     value={bloco}
                     disabled={isMorador}
                     onChange={(e) => setBloco(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 disabled:bg-slate-100 disabled:text-slate-500"
                   >
                     <option value="A">Bloco A</option>
                     <option value="B">Bloco B</option>
@@ -413,7 +431,7 @@ function VeiculosContent() {
                   required
                   value={proprietarioNome}
                   onChange={(e) => setProprietarioNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -424,7 +442,7 @@ function VeiculosContent() {
                   type="text"
                   value={telefoneContato}
                   onChange={(e) => setTelefoneContato(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -433,14 +451,14 @@ function VeiculosContent() {
                   type="button"
                   disabled={isSaving}
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 sm:min-h-0 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="min-h-11 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover sm:min-h-0 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSaving ? 'Salvando...' : 'Salvar Veículo'}
                 </button>

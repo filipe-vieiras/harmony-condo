@@ -10,6 +10,7 @@ import { FineStatus, Unit } from '@/types';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
+import { useModalFocus } from '@/lib/useModalFocus';
 import {
   ShieldAlert,
   Search,
@@ -66,6 +67,7 @@ function MultasContent() {
   const [fotoDescricao, setFotoDescricao] = useState('');
 
   useEscapeToClose(showModal, () => setShowModal(false));
+  useModalFocus(showModal);
 
   // Restrição estrita de acesso: PORTARIA NÃO VÊ MULTAS
   if (!currentUser) return null;

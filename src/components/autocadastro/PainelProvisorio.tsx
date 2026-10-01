@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Hourglass, Pencil, Megaphone, Users, Car, CheckCircle2, X } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
+import { useModalFocus } from '@/lib/useModalFocus';
 import { AutocadastroForm, type UnidadeOpcao } from '@/components/autocadastro/AutocadastroForm';
 import type { AutocadastroDados } from '@/lib/autocadastro';
 
@@ -15,6 +16,7 @@ export function PainelProvisorio() {
   const [aviso, setAviso] = useState<string | null>(null);
 
   useEscapeToClose(editando, () => setEditando(false));
+  useModalFocus(editando);
 
   useEffect(() => {
     fetch('/api/autocadastro/meu')

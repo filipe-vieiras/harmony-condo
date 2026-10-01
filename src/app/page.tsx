@@ -24,6 +24,7 @@ import {
   Search,
   Check,
   X,
+  Phone,
 } from 'lucide-react';
 import { formatarData, formatarIntervalo, pluralizar } from '@/lib/formatadores';
 
@@ -163,7 +164,8 @@ function DashboardContent() {
   );
 
   return (
-    <div className="space-y-6">
+    // flex-col em vez de space-y para a Portaria poder subir a busca (order) no celular.
+    <div className="flex flex-col gap-6">
       
       {/* Banner de Boas-Vindas */}
       <div className="rounded-3xl bg-gradient-to-r from-primary via-primary-hover to-secondary p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
@@ -193,7 +195,8 @@ function DashboardContent() {
 
       {/* PAINEL ESPECIAL DA PORTARIA: Busca Rápida de Placa */}
       {currentUser.role === 'PORTARIA' && (
-        <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-50/50 p-6 shadow-xs">
+        // No celular a busca vem antes do banner: é a tela de balcão, de uma mão só.
+        <div className="-order-1 rounded-2xl border-2 border-emerald-500/30 bg-emerald-50/50 p-4 shadow-xs sm:p-6 md:order-none">
           <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">
             <Car className="h-5 w-5 text-emerald-700" />
             <span>Módulo de Entrada e Identificação Rápida de Veículos</span>
@@ -203,13 +206,16 @@ function DashboardContent() {
           </p>
 
           <div className="mt-3 relative">
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-emerald-600" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-600" />
             <input
               type="text"
               value={searchPlate}
               onChange={(e) => setSearchPlate(e.target.value)}
-              placeholder="Digite a placa (ex: BRA2E19) ou número do apartamento..."
-              className="w-full rounded-xl border border-emerald-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 uppercase font-mono font-semibold"
+              placeholder="Placa ou apartamento"
+              aria-label="Buscar veículo pela placa, modelo ou número do apartamento"
+              autoCapitalize="characters"
+              autoComplete="off"
+              className="min-h-11 w-full rounded-xl border border-emerald-200 bg-white pl-10 pr-4 py-2.5 text-base sm:min-h-0 sm:text-xs text-slate-900 placeholder:text-slate-500 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-semibold not-placeholder-shown:font-mono not-placeholder-shown:uppercase"
             />
           </div>
 
@@ -221,23 +227,52 @@ function DashboardContent() {
                 </div>
               ) : (
                 filteredVehicles.map((v) => (
-                  <div key={v.id} className="p-3.5 flex items-center justify-between hover:bg-slate-50">
-                    <div className="flex items-center gap-3">
-                      <span className="rounded-lg bg-slate-900 text-white font-mono font-bold text-xs px-2.5 py-1 tracking-wider border border-slate-700">
-                        {v.placa}
-                      </span>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">{v.marca} {v.modelo} ({v.cor})</p>
-                        <p className="text-[12px] text-slate-500">
-                          Morador: <strong className="text-slate-800">{v.proprietarioNome}</strong> • Contato: {v.telefoneContato}
-                        </p>
+                  <div key={v.id} className="hover:bg-slate-50">
+                    {/* Celular: coluna, com a unidade em destaque primeiro (o porteiro quer saber para onde ligar). */}
+                    <div className="space-y-1 p-4 sm:hidden">
+                      <p className="font-display text-xl font-bold text-slate-900">
+                        Apto {v.unidade} – Bloco {v.bloco}
+                      </p>
+                      <p className="text-sm text-slate-700">
+                        Morador: <strong className="text-slate-900">{v.proprietarioNome}</strong>
+                      </p>
+                      {v.telefoneContato && (
+                        <a
+                          href={`tel:${v.telefoneContato.replace(/[^0-9+]/g, '')}`}
+                          className="flex min-h-11 w-fit items-center gap-2 text-sm font-semibold text-accent-strong underline"
+                        >
+                          <Phone className="h-4 w-4" />
+                          <span>{v.telefoneContato}</span>
+                        </a>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 font-mono text-sm font-bold tracking-wider text-white">
+                          {v.placa}
+                        </span>
+                        <span className="text-sm text-slate-700">{v.marca} {v.modelo} ({v.cor})</span>
                       </div>
+                      <p className="text-sm text-slate-600">Vaga: {v.vaga}</p>
                     </div>
-                    <div className="text-right">
-                      <Badge className="bg-emerald-100 text-emerald-800">
-                        Apto {v.unidade} - Bloco {v.bloco}
-                      </Badge>
-                      <p className="text-[12px] text-slate-500 mt-0.5">Vaga: {v.vaga}</p>
+
+                    {/* Computador: a linha de sempre. */}
+                    <div className="hidden items-center justify-between p-3.5 sm:flex">
+                      <div className="flex items-center gap-3">
+                        <span className="rounded-lg bg-slate-900 text-white font-mono font-bold text-xs px-2.5 py-1 tracking-wider border border-slate-700">
+                          {v.placa}
+                        </span>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{v.marca} {v.modelo} ({v.cor})</p>
+                          <p className="text-[12px] text-slate-500">
+                            Morador: <strong className="text-slate-800">{v.proprietarioNome}</strong> • Contato: {v.telefoneContato}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge className="bg-emerald-100 text-emerald-800">
+                          Apto {v.unidade} - Bloco {v.bloco}
+                        </Badge>
+                        <p className="text-[12px] text-slate-500 mt-0.5">Vaga: {v.vaga}</p>
+                      </div>
                     </div>
                   </div>
                 ))

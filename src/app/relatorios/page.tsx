@@ -358,7 +358,7 @@ function RelatoriosContent() {
                 placeholder="Filtrar por ação ou autor..."
                 value={buscaAuditoria}
                 onChange={(e) => setBuscaAuditoria(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-hidden"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-hidden focus:ring-2 focus:ring-accent-strong/30"
               />
             </div>
           </div>
