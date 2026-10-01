@@ -52,6 +52,14 @@ Migrações rodam primeiro em staging. Bateria de QA em `scripts/qa/`.
 - **Segurança:** cadastro público do Supabase desligado; acesso exige perfil; links de
   convite e redefinição apontam para o app e só gastam o token no toque em "Continuar"
   (robôs do WhatsApp gastavam o link); senha mínima de 8 caracteres.
+- **Um e-mail é uma conta; unidades se ligam a contas existentes (2026-10-01).** Caso real: o
+  síndico cadastrou a própria unidade (A-101) e o sistema tentou criar um segundo usuário.
+  Agora, ao cadastrar ou editar uma unidade, e no "Enviar convite" do card, e-mail que já tem
+  conta **não vira convite**: o síndico confirma (vendo nome e perfil) e a unidade é ligada à
+  conta. Contas da equipe (Síndico, Subsíndico, ADM) podem ter várias unidades; **Morador com
+  mais de uma unidade fica para a etapa 2** (o sistema assume uma unidade por morador; migração,
+  regras de acesso e seletor de unidade), condicionada a quantos proprietários da planilha têm
+  2 ou mais unidades. Especificação: `docs/specs/2026-10-01-vincular-unidade-a-conta-existente.md`.
 - **Limpeza da base pelo painel (botão "digite DELETE"): adiado**, por risco em produção.
   Se voltar: só Síndico, exportação obrigatória antes, registro que não pode ser apagado.
 
@@ -68,6 +76,11 @@ diferencial, **a validar com um síndico**.
 - O que o dono não gostou no Início novo do morador?
 
 ## Pendências conhecidas
+Reenviar da fila em Usuários & Convites um convite com erro ainda pode esbarrar em "already
+registered" (a tela de unidades já resolve o caso) · autocadastro de uma segunda unidade com o
+mesmo e-mail: formulário público não pode ligar a conta existente; futuro "Adicionar outra
+unidade" para morador logado · síndico julgando recurso de multa da própria unidade (risco de
+conflito de interesse, sem tratamento) ·
 Versão da exportação "sem dados sensíveis" (para mandar no grupo) · prazo de expiração dos
 links de acesso no Supabase (decisão de segurança × conforto) · senha 123456 da conta de
 administradora em produção deve ser trocada por uma forte.

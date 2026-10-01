@@ -1,4 +1,5 @@
 // Bateria completa: fluxos por perfil + segurança. QA_ALVO=staging|producao.
+import { avaliarVinculo } from '../../src/lib/vinculoUnidade.ts';
 import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, ALVO } from './lib.mjs';
 
 const email = (n) => `${n}@${DOMINIO}`;
@@ -185,6 +186,102 @@ ok(!!(await cX.from('notifications').insert({ titulo: 'QA intruso', mensagem: 'x
 ok(!!(await cX.from('audit_logs').insert({ usuario_id: (await cX.auth.getUser()).data.user.id, usuario_nome: 'x', usuario_role: 'x', acao: 'QA', modulo: 'SISTEMA' })).error, 'sem perfil NÃO grava histórico');
 const ckX = await cookieDe(email('intruso-api'));
 ok((await api('/api/autocadastro/decidir', { method: 'POST', cookie: ckX, body: { ids: [], acao: 'VALIDAR' } })).status === 403, 'sem perfil barrado nas rotas administrativas');
+
+console.log('\n## L. Vincular unidade a conta que já existe (e-mail repetido)');
+// Usa a regra real (src/lib/vinculoUnidade.ts) com os dados do banco e repete, com o
+// cliente de cada perfil, as gravações que o app faz ao vincular (units, pending_invites,
+// audit_logs): assim as regras de acesso (RLS) são testadas de verdade.
+const carregar = async () => {
+  const { data: ps } = await admin.from('profiles').select('*');
+  const { data: us } = await admin.from('units').select('*');
+  return {
+    contas: ps.map((p) => ({ id: p.id, name: p.name, email: p.email ?? '', role: p.role, bloco: p.bloco ?? undefined, unidade: p.unidade ?? undefined, cadastroValidado: p.cadastro_validado ?? true })),
+    unidades: us.map((u) => ({ id: u.id, bloco: u.bloco, numero: u.numero, usuarioId: u.usuario_id ?? undefined, moradores: u.moradores ?? [] })),
+  };
+};
+const novaUnidade = async (num, extra = {}) => (await admin.from('units').insert({ bloco: 'Q', numero: num, proprietario_nome: 'QA titular', proprietario_telefone: '', proprietario_email: '', tipo_ocupacao: 'PROPRIETARIO', moradores: [], vagas_garagem: [], animais: '', ...extra }).select().single()).data;
+const convitesDa = async (unitId) => (await admin.from('pending_invites').select('id,status').eq('unit_id', unitId)).data ?? [];
+const gravarVinculo = async (c, unit, conta, ator) => {
+  const up = await c.from('units').update({ usuario_id: conta.id, status_convite: 'ATIVO' }).eq('id', unit.id).select();
+  if (!up.data?.length) return false;
+  const velhos = (await c.from('pending_invites').select('id,status').eq('unit_id', unit.id)).data ?? [];
+  for (const i of velhos.filter((x) => x.status === 'PENDENTE' || x.status === 'ERRO')) await c.from('pending_invites').delete().eq('id', i.id);
+  await c.from('audit_logs').insert({ usuario_id: ator.id, usuario_nome: ator.name, usuario_role: ator.role, acao: `Vinculou a Unidade ${unit.bloco}-${unit.numero} à conta de ${conta.name}`, modulo: 'UNIDADES' });
+  return true;
+};
+const idsPerfis = Object.fromEntries((await admin.from('profiles').select('id,name,email,role')).data.filter((p) => p.email?.endsWith('@' + DOMINIO)).map((p) => [p.email.split('@')[0], p]));
+const unidadeSemVinculo = async (id) => { const { data } = await admin.from('units').select('usuario_id,status_convite').eq('id', id).single(); return data.usuario_id === null && data.status_convite !== 'ATIVO'; };
+
+// Item 1 e 3: e-mail sem conta segue o fluxo de convite; e-mail com espaços e maiúsculas é reconhecido.
+let { contas, unidades } = await carregar();
+ok(avaliarVinculo('ninguem@exemplo.test', {}, contas, unidades).tipo === 'SEM_CONTA', 'e-mail sem conta → segue o convite de sempre');
+ok(avaliarVinculo('   ', {}, contas, unidades).tipo === 'SEM_CONTA', 'e-mail em branco → segue o fluxo normal');
+const avEspaco = avaliarVinculo(`  ${email('sindico').toUpperCase().replace('QA.HARMONY.TEST', 'Qa.Harmony.Test')} `, {}, contas, unidades);
+ok(avEspaco.tipo === 'VINCULAR' && avEspaco.conta.id === idsPerfis.sindico.id, 'e-mail com espaços e maiúsculas é reconhecido como o da conta');
+
+// Itens 2, 7 e 8: Síndico, Subsíndico e ADM vinculam; convite com erro/pendente some; há auditoria.
+for (const [n, c, ator, num, statusConvite] of [['sindico', cSind, 'sindico', '201', 'ERRO'], ['subsindico', cSub, 'subsindico', '202', 'PENDENTE'], ['adm', cAdm, 'adm', '203', 'ERRO']]) {
+  const u = await novaUnidade(num, { moradores: [{ nome: 'QA titular', tipo: 'TITULAR', telefone: '', email: email(n) }], status_convite: 'PENDENTE' });
+  await admin.from('pending_invites').insert({ nome: 'QA titular', email: email(n), role: 'MORADOR', bloco: 'Q', unidade: num, unit_id: u.id, status: statusConvite, erro_mensagem: statusConvite === 'ERRO' ? 'already been registered' : null });
+  ({ contas, unidades } = await carregar());
+  const av = avaliarVinculo(email(n), { id: u.id }, contas, unidades);
+  ok(av.tipo === 'VINCULAR' && av.conta.id === idsPerfis[n].id, `${n}: e-mail com conta → pede confirmação (nome ${av.conta?.name}, perfil ${av.conta?.role})`);
+  ok(await gravarVinculo(c, u, av.conta, idsPerfis[ator]), `${n}: vincula a Q-${num}`);
+  const { data: depois } = await admin.from('units').select('usuario_id,status_convite').eq('id', u.id).single();
+  ok(depois.usuario_id === idsPerfis[n].id && depois.status_convite === 'ATIVO', `${n}: usuario_id e status ATIVO gravados`);
+  ok((await convitesDa(u.id)).length === 0, `${n}: convite ${statusConvite} da unidade foi removido (zero convites)`);
+  const { data: aud } = await admin.from('audit_logs').select('acao,modulo').eq('acao', `Vinculou a Unidade Q-${num} à conta de ${idsPerfis[n].name}`);
+  ok(aud?.length === 1 && aud[0].modulo === 'UNIDADES', `${n}: auditoria "Vinculou a Unidade Q-${num} à conta de ${idsPerfis[n].name}"`);
+}
+// A mesma conta de equipe pode ter outra unidade (síndico com 2 apartamentos).
+{
+  const u = await novaUnidade('204');
+  ({ contas, unidades } = await carregar());
+  ok(avaliarVinculo(email('sindico'), { id: u.id }, contas, unidades).tipo === 'VINCULAR', 'conta de equipe já ligada a outra unidade pode receber mais uma');
+}
+
+// Item 4: Morador sem nenhuma unidade vincula igual.
+{
+  const idSem = await criarUsuario(email('moradorsem'), { name: 'QA Morador Sem Unidade', role: 'MORADOR' });
+  const u = await novaUnidade('205');
+  await admin.from('pending_invites').insert({ nome: 'QA x', email: email('moradorsem'), role: 'MORADOR', bloco: 'Q', unidade: '205', unit_id: u.id, status: 'ERRO' });
+  ({ contas, unidades } = await carregar());
+  const av = avaliarVinculo(email('moradorsem'), { id: u.id }, contas, unidades);
+  ok(av.tipo === 'VINCULAR' && av.conta.id === idSem, 'Morador sem unidade → pode vincular');
+  ok(await gravarVinculo(cSind, u, av.conta, idsPerfis.sindico), 'Síndico vincula Q-205 ao Morador sem unidade');
+  const { data: dep } = await admin.from('units').select('usuario_id,status_convite').eq('id', u.id).single();
+  ok(dep.usuario_id === idSem && dep.status_convite === 'ATIVO' && (await convitesDa(u.id)).length === 0, 'Morador sem unidade: vínculo ATIVO e zero convites');
+}
+
+// Item 5: casos bloqueados não criam unidade, convite nem vínculo.
+{
+  await criarUsuario(email('moradorprov'), { name: 'QA Morador Provisório', role: 'MORADOR', cadastro_validado: false });
+  const u = await novaUnidade('206');
+  ({ contas, unidades } = await carregar());
+  const antesUnidades = unidades.length;
+  const comUnidade = avaliarVinculo(email('morador1'), { id: u.id }, contas, unidades);
+  ok(comUnidade.tipo === 'BLOQUEADO' && /já está ligada à unidade Q-101/.test(comUnidade.mensagem) && /mais de uma unidade/.test(comUnidade.mensagem), `Morador com unidade → bloqueado: "${comUnidade.mensagem}"`);
+  const prov = avaliarVinculo(email('moradorprov'), { id: u.id }, contas, unidades);
+  ok(prov.tipo === 'BLOQUEADO' && /aguarda validação em Autocadastro/.test(prov.mensagem), `conta provisória → bloqueada: "${prov.mensagem}"`);
+  const u201 = unidades.find((x) => x.numero === '201' && x.bloco === 'Q');
+  const outra = avaliarVinculo(email('subsindico'), { id: u201.id, usuarioId: u201.usuarioId }, contas, unidades);
+  ok(outra.tipo === 'BLOQUEADO' && outra.mensagem === `Esta unidade já está vinculada a ${idsPerfis.sindico.name}.`, `unidade já ligada a outra conta → bloqueada: "${outra.mensagem}"`);
+  ok(avaliarVinculo(email('sindico'), { id: u201.id, usuarioId: u201.usuarioId }, contas, unidades).tipo === 'JA_VINCULADA', 'unidade já ligada à mesma conta → nada a fazer');
+  ok(await unidadeSemVinculo(u.id) && (await convitesDa(u.id)).length === 0, 'nos bloqueios: unidade sem vínculo e nenhum convite criado');
+  ({ unidades } = await carregar());
+  ok(unidades.length === antesUnidades, 'nos bloqueios: nenhuma unidade nova foi criada');
+}
+
+// Item 9: só Síndico, Subsíndico e ADM gravam o vínculo; os demais são barrados pelo banco.
+{
+  const u = await novaUnidade('207', { status_convite: 'PENDENTE' });
+  await admin.from('pending_invites').insert({ nome: 'QA x', email: email('sindico'), role: 'MORADOR', bloco: 'Q', unidade: '207', unit_id: u.id, status: 'ERRO' });
+  for (const [nome, c] of [['Portaria', cPort], ['Conselho', cCons], ['Morador', cM1], ['Morador provisório', await clientDe(email('moradorprov'))]]) {
+    const r = await c.from('units').update({ usuario_id: idsPerfis.sindico.id, status_convite: 'ATIVO' }).eq('id', u.id).select();
+    await c.from('pending_invites').delete().eq('unit_id', u.id);
+    ok(!r.data?.length && await unidadeSemVinculo(u.id) && (await convitesDa(u.id)).length === 1, `${nome}: NÃO vincula nem apaga o convite (barrado pelo banco)`);
+  }
+}
 
 console.log('\n## Rotas administrativas por quem não é admin');
 const ckM1 = await cookieDe(email('morador1'));
