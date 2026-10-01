@@ -252,7 +252,7 @@ function AutocadastroContent() {
               {feedback.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />}
               <span>{feedback.text}</span>
             </div>
-            <button onClick={() => setFeedback(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-700">
+            <button onClick={() => setFeedback(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-700">
               <X className="h-4 w-4" />
             </button>
           </div>

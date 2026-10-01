@@ -68,7 +68,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
   };
 
   const userRole = currentUser?.role ?? 'MORADOR';
-  const userInitials = (currentUser?.name ?? 'U').slice(0, 2).toUpperCase();
+  const userInitials = (currentUser?.name ?? '').slice(0, 2).toUpperCase();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white shadow-xs no-print">
@@ -85,7 +85,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
 
-          <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-95">
+          <Link href="/" className="flex min-h-11 items-center gap-3 transition-opacity hover:opacity-95">
             <Image
               src="/images/logo.png"
               alt="Harmony Residence"

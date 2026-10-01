@@ -35,6 +35,20 @@ export default function DashboardPage() {
   );
 }
 
+/** Cartão de número: vira link (com área de toque e foco) quando recebe href. */
+function CartaoKpi({ href, destaque = false, children }: { href?: string; destaque?: boolean; children: React.ReactNode }) {
+  const visual = `rounded-2xl border p-5 shadow-xs ${destaque ? 'border-pendente-300 bg-pendente-50' : 'border-slate-200 bg-white'}`;
+  if (!href) return <div className={visual}>{children}</div>;
+  return (
+    <Link
+      href={href}
+      className={`${visual} block min-h-11 transition hover:border-accent-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent`}
+    >
+      {children}
+    </Link>
+  );
+}
+
 function DashboardContent() {
   const { 
     currentUser, 
@@ -59,6 +73,7 @@ function DashboardContent() {
   const myFines = fines.filter((f) => f.unidade === currentUser.unidade);
   const pendingScienceFines = myFines.filter((f) => f.status === 'PENDENTE_CIENCIA');
   const activeAppeals = fines.filter((f) => f.status === 'EM_RECURSO');
+  const ehMorador = currentUser.role === 'MORADOR';
 
   // Busca rápida de veículo (otimizada para Portaria)
   const filteredVehicles = searchPlate.trim()
@@ -68,6 +83,84 @@ function DashboardContent() {
         v.unidade.includes(searchPlate)
       )
     : [];
+
+  // Mesmo bloco em dois lugares: morador no celular o vê logo após o banner;
+  // no computador (e para os demais perfis) fica na coluna da direita.
+  const acessosRapidos = (
+    <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900">Acessos Rápidos</h2>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
+            <Link
+              href="/reservas"
+              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+                  <CalendarDays className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Reservar Espaço</p>
+                  <p className="text-[12px] text-slate-500">Salão nobre ou churrasqueira</p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-500" />
+            </Link>
+
+            <Link
+              href="/links"
+              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-blue-50 p-2 text-primary">
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Regimento Interno</p>
+                  <p className="text-[12px] text-slate-500">Normas e convenção em PDF</p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-500" />
+            </Link>
+
+            <Link
+              href="/veiculos"
+              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-cyan-50 p-2 text-accent">
+                  <Car className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Consultar Garagem</p>
+                  <p className="text-[12px] text-slate-500">Mapeamento de vagas e placas</p>
+                </div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-500" />
+            </Link>
+
+            {currentUser.role !== 'PORTARIA' && (
+              <Link
+                href="/multas"
+                className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-red-400 hover:bg-red-50/40"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-red-50 p-2 text-red-600">
+                    <ShieldAlert className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{ehMorador ? 'Minhas multas' : 'Painel de Infrações'}</p>
+                    <p className="text-[12px] text-slate-500">{ehMorador ? 'Ciência e recurso online' : 'Controle formal de ciência'}</p>
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-500" />
+              </Link>
+            )}
+          </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -95,6 +188,8 @@ function DashboardContent() {
           </p>
         </div>
       </div>
+
+      {ehMorador && <div className="lg:hidden">{acessosRapidos}</div>}
 
       {/* PAINEL ESPECIAL DA PORTARIA: Busca Rápida de Placa */}
       {currentUser.role === 'PORTARIA' && (
@@ -156,7 +251,7 @@ function DashboardContent() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         
         {/* Card 1 */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <CartaoKpi href={ehMorador ? '/moradores' : undefined}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {currentUser.role === 'MORADOR' ? 'Minha Unidade' : 'Unidades'}
@@ -174,10 +269,10 @@ function DashboardContent() {
           <p className="mt-0.5 text-xs text-slate-500">
             {currentUser.role === 'MORADOR' ? 'Apartamento vinculado ao seu acesso' : 'Apartamentos cadastrados'}
           </p>
-        </div>
+        </CartaoKpi>
 
         {/* Card 2 */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <CartaoKpi href={ehMorador ? '/veiculos' : undefined}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Veículos</span>
             <div className="rounded-xl bg-cyan-50 p-2 text-accent">
@@ -186,11 +281,14 @@ function DashboardContent() {
           </div>
           <p className="mt-3 text-2xl font-bold text-slate-900">{vehicles.length}</p>
           <p className="mt-0.5 text-xs text-slate-500">Veículos ativos no pátio</p>
-        </div>
+        </CartaoKpi>
 
         {/* Card 3 (Multas & Ocorrências - Não exibido para portaria) */}
         {currentUser.role !== 'PORTARIA' ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <CartaoKpi
+            href={ehMorador ? '/multas' : undefined}
+            destaque={ehMorador && pendingScienceFines.length > 0}
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {currentUser.role === 'MORADOR' ? 'Minhas Multas' : 'Notificações'}
@@ -202,14 +300,14 @@ function DashboardContent() {
             <p className="mt-3 text-2xl font-bold text-slate-900">
               {currentUser.role === 'MORADOR' ? myFines.length : fines.length}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className={`mt-0.5 text-xs ${ehMorador && pendingScienceFines.length > 0 ? 'font-semibold text-pendente-800' : 'text-slate-500'}`}>
               {currentUser.role === 'MORADOR' 
-                ? (pendingScienceFines.length > 0 ? pluralizar(pendingScienceFines.length, 'pendente de ciência', 'pendentes de ciência') : 'Nenhuma pendente')
+                ? (pendingScienceFines.length > 0 ? `${pendingScienceFines.length} aguardando sua ciência` : 'Nenhuma pendente')
                 : `${pluralizar(activeAppeals.length, 'recurso', 'recursos')} em análise`}
             </p>
-          </div>
+          </CartaoKpi>
         ) : (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <CartaoKpi>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avisos do Mural</span>
               <div className="rounded-xl bg-pendente-50 p-2 text-pendente-600">
@@ -218,11 +316,11 @@ function DashboardContent() {
             </div>
             <p className="mt-3 text-2xl font-bold text-slate-900">{notices.length}</p>
             <p className="mt-0.5 text-xs text-slate-500">Comunicados ativos</p>
-          </div>
+          </CartaoKpi>
         )}
 
         {/* Card 4 (Reservas de Áreas Comuns) */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+        <CartaoKpi href={ehMorador ? '/reservas' : undefined}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reservas</span>
             <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
@@ -237,7 +335,7 @@ function DashboardContent() {
               ? `${pendingReservations.length} aguardando aprovação`
               : 'Espaços solicitados'}
           </p>
-        </div>
+        </CartaoKpi>
 
       </div>
 
@@ -337,7 +435,7 @@ function DashboardContent() {
               <Megaphone className="h-5 w-5 text-accent" />
               <h2 className="text-base font-bold text-slate-900">Mural de Avisos & Comunicados</h2>
             </div>
-            <Link href="/mural" className="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline sm:min-h-0">
+            <Link href="/mural" className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap text-xs font-semibold text-primary hover:underline sm:min-h-0">
               Ver mural completo →
             </Link>
           </div>
@@ -390,77 +488,8 @@ function DashboardContent() {
 
         {/* Coluna 3: Acesso Rápido a Links e Agenda */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900">Acessos Rápidos</h2>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
-            <Link
-              href="/reservas"
-              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
-                  <CalendarDays className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Reservar Espaço</p>
-                  <p className="text-[12px] text-slate-500">Salão nobre ou churrasqueira</p>
-                </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-slate-500" />
-            </Link>
-
-            <Link
-              href="/links"
-              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-blue-50 p-2 text-primary">
-                  <FileText className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Regimento Interno</p>
-                  <p className="text-[12px] text-slate-500">Normas e convenção em PDF</p>
-                </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-slate-500" />
-            </Link>
-
-            <Link
-              href="/veiculos"
-              className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-accent hover:bg-accent-50/40"
-            >
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-cyan-50 p-2 text-accent">
-                  <Car className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Consultar Garagem</p>
-                  <p className="text-[12px] text-slate-500">Mapeamento de vagas e placas</p>
-                </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-slate-500" />
-            </Link>
-
-            {currentUser.role !== 'PORTARIA' && (
-              <Link
-                href="/multas"
-                className="flex items-center justify-between rounded-xl p-3 border border-slate-100 transition hover:border-red-400 hover:bg-red-50/40"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-red-50 p-2 text-red-600">
-                    <ShieldAlert className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-900">Painel de Infrações</p>
-                    <p className="text-[12px] text-slate-500">Controle formal de ciência</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-500" />
-              </Link>
-            )}
-          </div>
+          {/* Morador no celular já viu os acessos logo após o banner */}
+          {ehMorador ? <div className="hidden lg:block">{acessosRapidos}</div> : acessosRapidos}
 
           {/* Zeladoria — dados vêm do cadastro em Links & Documentos */}
           {zelador?.nome && (

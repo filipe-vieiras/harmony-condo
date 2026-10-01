@@ -202,7 +202,7 @@ function LoginForm() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <span>Entrar no Sistema</span>
+                  <span>Entrar</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}

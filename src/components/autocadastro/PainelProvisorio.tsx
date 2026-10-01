@@ -57,7 +57,7 @@ export function PainelProvisorio() {
       {aviso && (
         <div className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-900">
           <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" />{aviso}</span>
-          <button onClick={() => setAviso(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-700"><X className="h-4 w-4" /></button>
+          <button onClick={() => setAviso(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-700"><X className="h-4 w-4" /></button>
         </div>
       )}
 

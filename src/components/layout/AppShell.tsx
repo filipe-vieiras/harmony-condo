@@ -2,10 +2,33 @@
 
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { AppProvider } from '@/context/AppContext';
+import { usePathname } from 'next/navigation';
+import { AppProvider, useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { DialogProvider } from '@/components/ui/DialogProvider';
+
+/**
+ * Enquanto o perfil carrega, as telas internas renderizam null (ficava tudo em
+ * branco por 1 a 3s). Aqui o shell mostra blocos cinza no lugar. O Início tem o
+ * esqueleto dele (DashboardSkeleton), então não entra aqui. Sem usuário e sem
+ * carregamento, o filho segue como antes.
+ */
+function ConteudoPrincipal({ children }: { children: React.ReactNode }) {
+  const { currentUser, isLoading } = useApp();
+  const pathname = usePathname();
+  if (!currentUser && isLoading && pathname !== '/') {
+    return (
+      <div className="space-y-6 animate-pulse" role="status" aria-label="Carregando">
+        <div className="h-24 rounded-3xl bg-slate-200" />
+        <div className="h-28 rounded-2xl border border-slate-200 bg-white" />
+        <div className="h-28 rounded-2xl border border-slate-200 bg-white" />
+        <div className="h-28 rounded-2xl border border-slate-200 bg-white" />
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -88,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               mesmo esse conteúdo tendo overflow-x-auto próprio — o resultado
               é a página inteira forçando scroll horizontal no celular. */}
           <main className="min-w-0 flex-1 py-6 lg:pl-6">
-            {children}
+            <ConteudoPrincipal>{children}</ConteudoPrincipal>
           </main>
         </div>
       </div>
