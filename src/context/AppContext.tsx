@@ -21,6 +21,7 @@ import {
 } from '@/types';
 import type { AutocadastroDados } from '@/lib/autocadastro';
 import { isAdmin, SINGLETON_ROLES } from '@/lib/roles';
+import { avaliarVinculo, normalizarEmail, rotuloUnidade } from '@/lib/vinculoUnidade';
 import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
   fetchVehicles, insertVehicle, deleteVehicleDB,
@@ -38,14 +39,30 @@ import {
   fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
 
+/**
+ * Resultado das operações de unidade. `vinculoPendente` aparece quando o e-mail do
+ * morador principal já tem conta: nada foi salvo e a tela deve pedir confirmação
+ * ao síndico e repetir a chamada com `{ vincularContaId }`.
+ */
+export type ResultadoUnidade = {
+  success: boolean;
+  message: string;
+  vinculoPendente?: { conta: User; unidadeRotulo: string };
+};
+
+/** Confirmação do síndico para ligar a unidade a uma conta que já existe. */
+export interface OpcoesVinculo {
+  vincularContaId?: string;
+}
+
 interface AppContextType {
   currentUser: User | null;
   isLoading: boolean;
   units: Unit[];
-  addUnit: (unit: Omit<Unit, 'id'>) => Promise<{ success: boolean; message: string }>;
-  updateUnit: (id: string, unit: Partial<Unit>) => Promise<{ success: boolean; message: string }>;
+  addUnit: (unit: Omit<Unit, 'id'>, opcoes?: OpcoesVinculo) => Promise<ResultadoUnidade>;
+  updateUnit: (id: string, unit: Partial<Unit>, opcoes?: OpcoesVinculo) => Promise<ResultadoUnidade>;
   deleteUnit: (id: string) => Promise<{ success: boolean; message: string }>;
-  sendInviteForUnit: (unitId: string) => Promise<{ success: boolean; message: string }>;
+  sendInviteForUnit: (unitId: string, opcoes?: OpcoesVinculo) => Promise<ResultadoUnidade>;
   vehicles: Vehicle[];
   addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<{ success: boolean; message: string }>;
   deleteVehicle: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -266,7 +283,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── UNITS ──
 
-  const addUnit = async (unitData: Omit<Unit, 'id'>): Promise<{ success: boolean; message: string }> => {
+  // Liga a unidade a uma conta que já existe (sem criar usuário nem convite) e
+  // limpa convites pendentes ou com erro da mesma unidade. Só admin chega aqui.
+  const vincularUnidadeAConta = async (unit: Unit, conta: User): Promise<Unit | null> => {
+    const vinculada = await updateUnitDB(supabase, unit.id, { usuarioId: conta.id, statusConvite: 'ATIVO' });
+    if (!vinculada) return null;
+    setUnits((prev) => prev.map((u) => (u.id === unit.id ? vinculada : u)));
+
+    const obsoletos = pendingInvites.filter(
+      (i) => i.unitId === unit.id && (i.status === 'PENDENTE' || i.status === 'ERRO')
+    );
+    for (const invite of obsoletos) await deletePendingInviteDB(supabase, invite.id);
+    if (obsoletos.length) {
+      const ids = new Set(obsoletos.map((i) => i.id));
+      setPendingInvites((prev) => prev.filter((i) => !ids.has(i.id)));
+    }
+
+    await recordAudit(`Vinculou a Unidade ${rotuloUnidade(vinculada)} à conta de ${conta.name}`, 'UNIDADES', {
+      unitId: vinculada.id,
+      contaId: conta.id,
+      perfil: conta.role,
+      conviteRemovido: obsoletos.length > 0,
+    });
+    return vinculada;
+  };
+
+  // Decide, antes de qualquer gravação, o que fazer com o e-mail do morador principal.
+  // `resultado` presente = encerra a operação com ele (bloqueio ou falta de confirmação).
+  const decidirVinculo = (
+    email: string | undefined,
+    unidade: { id?: string; usuarioId?: string; bloco: string; numero: string },
+    opcoes?: OpcoesVinculo
+  ): { resultado?: ResultadoUnidade; conta?: User } => {
+    const av = avaliarVinculo(email, unidade, systemUsers, units);
+    if (av.tipo === 'BLOQUEADO') return { resultado: { success: false, message: av.mensagem } };
+    if (av.tipo !== 'VINCULAR') return {};
+    if (!isAdmin(currentUser?.role)) {
+      return { resultado: { success: false, message: 'Só o síndico, o subsíndico e a administradora podem vincular uma unidade a uma conta.' } };
+    }
+    if (opcoes?.vincularContaId !== av.conta.id) {
+      return {
+        resultado: {
+          success: false,
+          message: `Este e-mail já tem conta: ${av.conta.name}. Confirme para vincular a unidade.`,
+          vinculoPendente: { conta: av.conta, unidadeRotulo: rotuloUnidade(unidade) },
+        },
+      };
+    }
+    return { conta: av.conta };
+  };
+
+  const mensagemVinculo = (unit: Unit, conta: User, vinculada: Unit | null) =>
+    vinculada
+      ? `Unidade ${rotuloUnidade(unit)} vinculada à conta de ${conta.name}.`
+      : `Unidade ${rotuloUnidade(unit)} salva, mas não foi possível vinculá-la à conta de ${conta.name}. Use "Enviar convite" no card para tentar de novo.`;
+
+  const addUnit = async (unitData: Omit<Unit, 'id'>, opcoes?: OpcoesVinculo): Promise<ResultadoUnidade> => {
     const blocoNumeroDuplicado = units.some(
       (u) => u.bloco === unitData.bloco && u.numero.trim().toLowerCase() === unitData.numero.trim().toLowerCase()
     );
@@ -277,9 +349,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const prioritarioNovo = unitData.moradores.find(
       (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
     );
-    if (prioritarioNovo?.email) {
+    const decisao = decidirVinculo(prioritarioNovo?.email, unitData, opcoes);
+    if (decisao.resultado) return decisao.resultado;
+    // Conta de equipe (síndico, subsíndico...) pode ter mais de uma unidade; já a
+    // repetição de e-mail entre unidades sem conta continua barrada (erro de digitação).
+    const podeRepetirEmail = !!decisao.conta && decisao.conta.role !== 'MORADOR';
+    if (prioritarioNovo?.email && !podeRepetirEmail) {
       const emailJaVinculado = units.some((u) =>
-        u.moradores.some((m) => m.email && m.email.toLowerCase() === prioritarioNovo.email!.toLowerCase())
+        u.moradores.some((m) => m.email && normalizarEmail(m.email) === normalizarEmail(prioritarioNovo.email))
       );
       if (emailJaVinculado) {
         return { success: false, message: `O e-mail ${prioritarioNovo.email} já está vinculado a outra unidade.` };
@@ -305,6 +382,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         moradoresCount: created.moradores.length,
       }
     );
+
+    if (decisao.conta) {
+      const vinculada = await vincularUnidadeAConta(created, decisao.conta);
+      return { success: true, message: mensagemVinculo(created, decisao.conta, vinculada) };
+    }
 
     // Morador prioritário (TITULAR ou INQUILINO) com e-mail: cadastro já dispara
     // o convite de acesso na hora, sem precisar de um passo manual depois.
@@ -341,7 +423,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  const updateUnit = async (id: string, unitData: Partial<Unit>): Promise<{ success: boolean; message: string }> => {
+  const updateUnit = async (id: string, unitData: Partial<Unit>, opcoes?: OpcoesVinculo): Promise<ResultadoUnidade> => {
     if (unitData.bloco !== undefined || unitData.numero !== undefined) {
       const atual = units.find((u) => u.id === id);
       const novoBloco = unitData.bloco ?? atual?.bloco ?? '';
@@ -354,13 +436,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // E-mail do morador principal que vai valer depois da edição. Só é avaliado quando a
+    // unidade ainda não tem conta ligada ou quando o e-mail mudou (ver `decidirVinculo`).
+    const unidadeAtual = units.find((u) => u.id === id);
+    const principalDepois = (unitData.moradores ?? unidadeAtual?.moradores ?? []).find(
+      (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
+    );
+    const principalAntes = unidadeAtual?.moradores.find(
+      (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
+    );
+    const emailMudou = normalizarEmail(principalDepois?.email) !== normalizarEmail(principalAntes?.email);
+    let decisao: { resultado?: ResultadoUnidade; conta?: User } = {};
+    if (unidadeAtual && principalDepois?.email && (!unidadeAtual.usuarioId || emailMudou)) {
+      decisao = decidirVinculo(
+        principalDepois.email,
+        {
+          id,
+          usuarioId: unidadeAtual.usuarioId,
+          bloco: unitData.bloco ?? unidadeAtual.bloco,
+          numero: unitData.numero ?? unidadeAtual.numero,
+        },
+        opcoes
+      );
+      if (decisao.resultado) return decisao.resultado;
+    }
+    const contaDeEquipe = !!decisao.conta && decisao.conta.role !== 'MORADOR';
+
     if (unitData.moradores) {
       const prioritarioNovo = unitData.moradores.find(
         (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
       );
-      if (prioritarioNovo?.email) {
+      if (prioritarioNovo?.email && !contaDeEquipe) {
         const emailJaVinculado = units.some(
-          (u) => u.id !== id && u.moradores.some((m) => m.email && m.email.toLowerCase() === prioritarioNovo.email!.toLowerCase())
+          (u) => u.id !== id && u.moradores.some((m) => m.email && normalizarEmail(m.email) === normalizarEmail(prioritarioNovo.email))
         );
         if (emailJaVinculado) {
           return { success: false, message: `O e-mail ${prioritarioNovo.email} já está vinculado a outra unidade.` };
@@ -375,6 +483,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await recordAudit(`Atualizou cadastro da Unidade ${updated.numero} (Bloco ${updated.bloco})`, 'UNIDADES', {
       id,
     });
+
+    if (decisao.conta) {
+      const vinculada = await vincularUnidadeAConta(updated, decisao.conta);
+      return { success: true, message: mensagemVinculo(updated, decisao.conta, vinculada) };
+    }
 
     // Mantém a fila de convites sincronizada com a edição: corrige um convite já
     // enfileirado se o morador prioritário mudou, ou dispara um novo convite na
@@ -471,7 +584,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true, message: `Unidade ${target?.numero ?? ''} excluída com sucesso.` };
   };
 
-  const sendInviteForUnit = async (unitId: string): Promise<{ success: boolean; message: string }> => {
+  const sendInviteForUnit = async (unitId: string, opcoes?: OpcoesVinculo): Promise<ResultadoUnidade> => {
+    // E-mail que já tem conta nunca vira convite (o Supabase recusa): liga a unidade à conta.
+    const unidadeDoConvite = units.find((u) => u.id === unitId);
+    if (unidadeDoConvite) {
+      const emailPrincipal = unidadeDoConvite.moradores.find(
+        (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
+      )?.email;
+      const av = avaliarVinculo(emailPrincipal, unidadeDoConvite, systemUsers, units);
+      if (av.tipo === 'JA_VINCULADA') {
+        return { success: true, message: `Unidade ${rotuloUnidade(unidadeDoConvite)} já está vinculada à conta de ${av.conta.name}.` };
+      }
+      const decisao = decidirVinculo(emailPrincipal, unidadeDoConvite, opcoes);
+      if (decisao.resultado) return decisao.resultado;
+      if (decisao.conta) {
+        const vinculada = await vincularUnidadeAConta(unidadeDoConvite, decisao.conta);
+        return { success: !!vinculada, message: mensagemVinculo(unidadeDoConvite, decisao.conta, vinculada) };
+      }
+    }
+
     // Reaproveita um convite já enfileirado (mesmo que tenha ficado com erro antes,
     // ex: limite de e-mail do Supabase) em vez de duplicar um novo registro na fila.
     let invite = pendingInvites.find(

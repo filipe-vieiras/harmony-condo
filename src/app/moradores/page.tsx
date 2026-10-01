@@ -6,9 +6,9 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { Badge } from '@/components/ui/Badge';
-import { useApp } from '@/context/AppContext';
+import { useApp, type OpcoesVinculo, type ResultadoUnidade } from '@/context/AppContext';
 import { Unit } from '@/types';
-import { isAdmin } from '@/lib/roles';
+import { isAdmin, ROLE_LABELS } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { ListaUnidades } from '@/components/autocadastro/ListaUnidades';
 import {
@@ -185,6 +185,23 @@ function MoradoresContent() {
     }
   };
 
+  // Quando o e-mail do morador principal já tem conta, a operação volta sem salvar nada e
+  // com `vinculoPendente`: pergunta ao síndico e, se confirmar, repete ligando à conta.
+  const comConfirmacaoDeVinculo = async (
+    executar: (opcoes?: OpcoesVinculo) => Promise<ResultadoUnidade>
+  ): Promise<ResultadoUnidade> => {
+    const res = await executar();
+    if (!res.vinculoPendente) return res;
+    const { conta, unidadeRotulo } = res.vinculoPendente;
+    const confirmou = await confirm({
+      title: `Este e-mail já tem conta: ${conta.name} (${ROLE_LABELS[conta.role]}).`,
+      message: `Vincular a unidade ${unidadeRotulo} a ela? Nenhum convite será criado.`,
+      confirmLabel: 'Vincular unidade',
+    });
+    if (!confirmou) return { success: false, message: 'Nada foi salvo. Corrija o e-mail ou deixe-o em branco.' };
+    return executar({ vincularContaId: conta.id });
+  };
+
   // Remove um morador adicional direto pelo card, sem precisar abrir o modal de edição.
   const handleRemoveResidentFromCard = async (u: Unit, moradorIndex: number) => {
     const morador = u.moradores[moradorIndex];
@@ -192,7 +209,7 @@ function MoradoresContent() {
     if (!(await confirm({ title: `Remover ${morador.nome} da Unidade ${u.numero}?`, confirmLabel: 'Remover', destructive: true }))) return;
 
     const novosMoradores = u.moradores.filter((_, i) => i !== moradorIndex);
-    const res = await updateUnit(u.id, { moradores: novosMoradores });
+    const res = await comConfirmacaoDeVinculo((o) => updateUnit(u.id, { moradores: novosMoradores }, o));
     setFeedbackMsg({
       type: res.success ? 'success' : 'error',
       text: res.success ? `${morador.nome} removido(a) da Unidade ${u.numero}.` : res.message,
@@ -201,7 +218,7 @@ function MoradoresContent() {
 
   const handleSendInvite = async (u: Unit) => {
     setSendingInviteId(u.id);
-    const res = await sendInviteForUnit(u.id);
+    const res = await comConfirmacaoDeVinculo((o) => sendInviteForUnit(u.id, o));
     setSendingInviteId(null);
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
@@ -266,8 +283,8 @@ function MoradoresContent() {
     };
 
     const res = editingUnitId
-      ? await updateUnit(editingUnitId, payload)
-      : await addUnit(payload);
+      ? await comConfirmacaoDeVinculo((o) => updateUnit(editingUnitId, payload, o))
+      : await comConfirmacaoDeVinculo((o) => addUnit(payload, o));
 
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     setIsSaving(false);
