@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Lock, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Lock, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { ehTipoLinkAcesso, type TipoLinkAcesso } from '@/lib/linkAcesso';
 
 export default function DefinirSenhaPage() {
   // Criado uma única vez por montagem (não a cada render): essa página
@@ -15,6 +16,11 @@ export default function DefinirSenhaPage() {
   const router = useRouter();
 
   const [checkingSession, setCheckingSession] = useState(true);
+  // Link novo (?token_hash=…&type=…): o token só é gasto quando a pessoa toca em
+  // "Continuar". Robôs de pré-visualização (WhatsApp, e-mail) apenas leem esta
+  // página — se gastássemos ao abrir, o morador encontraria o link já usado.
+  const [tokenPendente, setTokenPendente] = useState<{ tokenHash: string; tipo: TipoLinkAcesso } | null>(null);
+  const [verificando, setVerificando] = useState(false);
   const [sessionValida, setSessionValida] = useState(false);
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
@@ -29,6 +35,15 @@ export default function DefinirSenhaPage() {
     // processamos o fragmento manualmente e chamamos setSession() direto,
     // que é a API pública documentada pra estabelecer uma sessão a partir de
     // tokens já em mãos.
+    const consulta = new URLSearchParams(window.location.search);
+    const tokenHash = consulta.get('token_hash');
+    const tipo = consulta.get('type');
+    if (tokenHash && ehTipoLinkAcesso(tipo)) {
+      setTokenPendente({ tokenHash, tipo });
+      setCheckingSession(false);
+      return;
+    }
+
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const accessToken = hashParams.get('access_token');
     const refreshToken = hashParams.get('refresh_token');
@@ -58,6 +73,24 @@ export default function DefinirSenhaPage() {
       setCheckingSession(false);
     });
   }, [supabase]);
+
+  const confirmarLink = async () => {
+    if (!tokenPendente) return;
+    setVerificando(true);
+    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      token_hash: tokenPendente.tokenHash,
+      type: tokenPendente.tipo,
+    });
+    setVerificando(false);
+    // Tira o token do endereço: já foi consumido (ou rejeitado).
+    window.history.replaceState(null, '', window.location.pathname);
+    setTokenPendente(null);
+    if (verifyError || !data.session) {
+      setSessionValida(false);
+      return;
+    }
+    setSessionValida(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,14 +157,42 @@ export default function DefinirSenhaPage() {
               <p className="text-sm font-semibold text-slate-900">Senha criada com sucesso!</p>
               <p className="text-xs text-slate-500">Redirecionando para a tela de login...</p>
             </div>
+          ) : tokenPendente ? (
+            <div className="flex flex-col items-center gap-3 py-2 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-100 text-accent-strong">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-semibold text-slate-900">
+                {tokenPendente.tipo === 'invite' ? 'Seu acesso está pronto' : 'Redefinir sua senha'}
+              </p>
+              <p className="text-xs text-slate-500">
+                Toque no botão abaixo para validar o link e criar sua senha.
+              </p>
+              <button
+                type="button"
+                onClick={confirmarLink}
+                disabled={verificando}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 px-4 text-xs font-semibold text-white shadow-md transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
+              >
+                {verificando ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>Continuar</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
           ) : !sessionValida ? (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-700">
                 <AlertCircle className="h-6 w-6" />
               </div>
-              <p className="text-sm font-semibold text-slate-900">Link inválido ou expirado</p>
+              {/* O Supabase usa o mesmo erro (otp_expired) para link já usado e vencido. */}
+              <p className="text-sm font-semibold text-slate-900">Este link já foi usado ou venceu</p>
               <p className="text-xs text-slate-500">
-                Peça ao síndico para reenviar o convite, ou solicite uma nova redefinição de senha na tela de login.
+                Cada link vale uma vez só, e gerar um link novo cancela o anterior. Peça ao síndico para gerar um novo (Usuários &amp; Convites → Redefinir Senha), ou use &quot;Esqueceu a senha?&quot; na tela de login.
               </p>
               <a href="/login" className="mt-2 text-xs font-medium text-accent-strong hover:underline">
                 Voltar para o login

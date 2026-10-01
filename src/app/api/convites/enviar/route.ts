@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ADMIN_ROLES, SINGLETON_ROLES } from '@/lib/roles';
+import { montarLinkAcesso } from '@/lib/linkAcesso';
 
 interface SendResult {
   id: string;
@@ -96,7 +97,9 @@ export async function POST(request: NextRequest) {
     }
 
     const newUserId = linkData.user.id;
-    const actionLink = linkData.properties.action_link;
+    // Link para a nossa página (token só é gasto no toque em "Continuar"), não o
+    // action_link do Supabase, que robôs de pré-visualização consomem.
+    const actionLink = montarLinkAcesso(origin, linkData.properties);
 
     const { error: profileError } = await admin.from('profiles').insert({
       id: newUserId,
