@@ -44,7 +44,6 @@ function MultaDetalheContent() {
   } = useApp();
 
   const [textoRecurso, setTextoRecurso] = useState('');
-  const [anexoNome, setAnexoNome] = useState('');
   const [respostaSindico, setRespostaSindico] = useState('');
   const [showRecursoForm, setShowRecursoForm] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -98,7 +97,7 @@ function MultaDetalheContent() {
   const handleSendAppeal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!textoRecurso.trim()) return;
-    const res = await submitFineAppeal(fine.id, textoRecurso, anexoNome || 'Comprovante_Anexo.pdf');
+    const res = await submitFineAppeal(fine.id, textoRecurso);
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     if (res.success) setShowRecursoForm(false);
   };
@@ -337,18 +336,6 @@ function MultaDetalheContent() {
                 placeholder="Apresente seus argumentos e motivos para o cancelamento ou relevação da sanção..."
                 className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
-
-              <div>
-                <label htmlFor="recurso-anexo" className="block text-xs font-semibold text-slate-700">Anexo Comprobatório (Opcional)</label>
-                <input
-                  id="recurso-anexo"
-                  type="text"
-                  placeholder="Ex: Comprovante_Prestador.pdf ou Foto_Local.jpg"
-                  value={anexoNome}
-                  onChange={(e) => setAnexoNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                />
-              </div>
 
               <div className="flex justify-end pt-2">
                 <button

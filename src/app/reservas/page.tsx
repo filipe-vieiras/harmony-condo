@@ -40,6 +40,14 @@ export default function ReservasPage() {
   );
 }
 
+// Data de hoje no fuso local (toISOString usaria UTC e viraria o dia à noite)
+function hojeLocal(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 function ReservasContent() {
   const { 
     currentUser, 
@@ -56,7 +64,7 @@ function ReservasContent() {
 
   const [showModal, setShowModal] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState(spaces[0]?.id || '');
-  const [dataReserva, setDataReserva] = useState('2026-09-28');
+  const [dataReserva, setDataReserva] = useState('');
   const [horarioInicio, setHorarioInicio] = useState('12:00');
   const [horarioFim, setHorarioFim] = useState('18:00');
   const [convidados, setConvidados] = useState(15);
@@ -193,6 +201,18 @@ function ReservasContent() {
     setReservaFormError(null);
     if (!termoAceito) {
       setReservaFormError('É obrigatório aceitar o regulamento e normas de uso do espaço.');
+      return;
+    }
+    if (!dataReserva) {
+      setReservaFormError('Escolha a data da reserva.');
+      return;
+    }
+    if (dataReserva < hojeLocal()) {
+      setReservaFormError('Escolha uma data a partir de hoje.');
+      return;
+    }
+    if (horarioFim <= horarioInicio) {
+      setReservaFormError('O horário de término precisa ser depois do início.');
       return;
     }
     if (isStaff && !reservaMoradorNome.trim()) {
@@ -628,6 +648,7 @@ function ReservasContent() {
                     id="reserva-data"
                     type="date"
                     required
+                    min={hojeLocal()}
                     value={dataReserva}
                     onChange={(e) => setDataReserva(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
