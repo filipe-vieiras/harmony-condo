@@ -68,7 +68,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
   };
 
   const userRole = currentUser?.role ?? 'MORADOR';
-  const userInitials = (currentUser?.name ?? 'U').slice(0, 2).toUpperCase();
+  const userInitials = (currentUser?.name ?? '').slice(0, 2).toUpperCase();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white shadow-xs no-print">
@@ -79,13 +79,13 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
           <button
             type="button"
             onClick={onToggleMobileMenu}
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"
             aria-label="Abrir menu de navegação"
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
 
-          <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-95">
+          <Link href="/" className="flex min-h-11 items-center gap-3 transition-opacity hover:opacity-95">
             <Image
               src="/images/logo.png"
               alt="Harmony Residence"
@@ -114,19 +114,19 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
               }}
               aria-expanded={showNotifications}
               aria-haspopup="true"
-              className="relative rounded-full p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+              className="relative flex size-11 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
               aria-label="Abrir notificações"
             >
               <Bell className="h-5 w-5" />
               {unreadNotificationCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[12px] font-bold text-white shadow-xs">
+                <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[12px] font-bold text-white shadow-xs">
                   {unreadNotificationCount}
                 </span>
               )}
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5">
+              <div className="fixed inset-x-4 top-[4.5rem] max-h-[calc(100dvh-5.5rem)] overflow-y-auto sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-96 sm:max-h-none sm:overflow-visible rounded-2xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5">
                 <div className="flex items-center justify-between border-b border-slate-100 p-4">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold text-slate-900">Notificações Internas</h3>

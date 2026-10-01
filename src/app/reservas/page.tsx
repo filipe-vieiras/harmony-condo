@@ -31,6 +31,7 @@ import {
   EyeOff,
   Eye
 } from 'lucide-react';
+import { formatarData, formatarIntervalo, formatarMoeda, pluralizar } from '@/lib/formatadores';
 
 export default function ReservasPage() {
   return (
@@ -190,9 +191,9 @@ function ReservasContent() {
   };
 
   const statusMap: Record<ReservationStatus, { label: string; bg: string; text: string }> = {
-    PENDENTE: { label: 'Aguardando Aprovação do Síndico', bg: 'bg-pendente-100', text: 'text-pendente-800' },
-    APROVADA: { label: 'Confirmada & Aprovada', bg: 'bg-emerald-100', text: 'text-emerald-800' },
-    RECUSADA: { label: 'Recusada pela Administração', bg: 'bg-red-100', text: 'text-red-800' },
+    PENDENTE: { label: 'Aguardando aprovação', bg: 'bg-pendente-100', text: 'text-pendente-800' },
+    APROVADA: { label: 'Aprovada', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+    RECUSADA: { label: 'Recusada', bg: 'bg-red-100', text: 'text-red-800' },
     CANCELADA: { label: 'Cancelada', bg: 'bg-slate-100', text: 'text-slate-700' },
   };
 
@@ -265,11 +266,11 @@ function ReservasContent() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-2">
           {isSindico && (
             <button
               onClick={handleOpenNewSpace}
-              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-primary shadow-xs transition hover:bg-slate-50"
+              className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-primary shadow-xs transition hover:bg-slate-50 sm:min-h-0"
             >
               <Plus className="h-4 w-4 text-accent" />
               <span>Cadastrar Espaço</span>
@@ -279,23 +280,28 @@ function ReservasContent() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+            className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:min-h-0"
           >
             <Printer className="h-4 w-4 text-slate-500" />
             <span>Imprimir Agenda</span>
           </button>
 
-          <button
-            onClick={() => {
-              setFeedbackMsg(null);
-              setReservaFormError(null);
-              setShowModal(true);
-            }}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
-          >
-            <Plus className="h-4 w-4 text-accent" />
-            <span>Solicitar Reserva</span>
-          </button>
+          {/* O morador pede a reserva pelo botão do cartão de cada espaço ("Agendar Este Espaço"),
+              que abre o mesmo formulário já com o espaço escolhido; repetir a chamada aqui só
+              confundia. A equipe mantém este botão, que abre o formulário para registrar em nome de um morador. */}
+          {isStaff && (
+            <button
+              onClick={() => {
+                setFeedbackMsg(null);
+                setReservaFormError(null);
+                setShowModal(true);
+              }}
+              className="order-first flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:order-last sm:min-h-0 sm:w-auto"
+            >
+              <Plus className="h-4 w-4 text-accent" />
+              <span>Solicitar Reserva</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -316,7 +322,7 @@ function ReservasContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -355,12 +361,12 @@ function ReservasContent() {
                     </div>
                   )}
                   {isSindico && (
-                    <div className="absolute top-2 right-2 flex items-center gap-1.5 no-print">
+                    <div className="absolute top-2 right-2 flex items-center gap-2 no-print sm:gap-1.5">
                       <button
                         onClick={() => handleOpenEditSpace(spc)}
                         title="Editar Espaço"
                         aria-label={`Editar espaço ${spc.nome}`}
-                        className="rounded-lg bg-white/90 p-1.5 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-primary"
+                        className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-primary sm:size-auto sm:p-1.5"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -368,7 +374,7 @@ function ReservasContent() {
                         onClick={() => handleToggleSpaceAtivo(spc)}
                         title={isAtivo ? 'Desativar Espaço' : 'Ativar Espaço'}
                         aria-label={`${isAtivo ? 'Desativar' : 'Ativar'} espaço ${spc.nome}`}
-                        className="rounded-lg bg-white/90 p-1.5 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-pendente-600"
+                        className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-pendente-600 sm:size-auto sm:p-1.5"
                       >
                         {isAtivo ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5 text-emerald-600" />}
                       </button>
@@ -376,7 +382,7 @@ function ReservasContent() {
                         onClick={() => handleDeleteSpace(spc.id, spc.nome)}
                         title="Excluir Espaço"
                         aria-label={`Excluir espaço ${spc.nome}`}
-                        className="rounded-lg bg-white/90 p-1.5 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-red-600"
+                        className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-md backdrop-blur-md hover:bg-white hover:text-red-600 sm:size-auto sm:p-1.5"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -398,7 +404,7 @@ function ReservasContent() {
                     <div className="flex items-center justify-between">
                       <span>Taxa de higienização:</span>
                       <strong className="text-primary">
-                        {spc.taxaLimpeza > 0 ? `R$ ${spc.taxaLimpeza.toFixed(2)}` : 'Isento'}
+                        {spc.taxaLimpeza > 0 ? formatarMoeda(spc.taxaLimpeza) : 'Isento'}
                       </strong>
                     </div>
                   </div>
@@ -421,7 +427,7 @@ function ReservasContent() {
                     setReservaFormError(null);
                     setShowModal(true);
                   }}
-                  className={`w-full rounded-xl py-2.5 text-xs font-semibold transition ${
+                  className={`min-h-11 w-full rounded-xl py-2.5 text-xs font-semibold transition sm:min-h-0 ${
                     isAtivo
                       ? 'bg-primary text-white shadow-xs hover:bg-primary-hover'
                       : 'bg-slate-100 text-slate-500 cursor-not-allowed'
@@ -443,7 +449,7 @@ function ReservasContent() {
             Cronograma e Histórico de Solicitações
           </h2>
           <span className="text-xs text-slate-500">
-            Total de {reservations.length} solicitação(ões)
+            Total: {pluralizar(reservations.length, 'solicitação', 'solicitações')}
           </span>
         </div>
 
@@ -452,13 +458,13 @@ function ReservasContent() {
             <table className="stack-mobile w-full text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-50/75 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
                 <tr>
-                  <th className="px-5 py-3.5">Espaço Comum</th>
-                  <th className="px-5 py-3.5">Data & Turno</th>
-                  <th className="px-5 py-3.5">Unidade / Morador</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5">Avaliação / Parecer</th>
+                  <th className="px-4 py-3.5">Espaço Comum</th>
+                  <th className="px-4 py-3.5">Data & Turno</th>
+                  <th className="px-4 py-3.5">Unidade / Morador</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Avaliação / Parecer</th>
                   {isAdmin(currentUser?.role) && (
-                    <th className="px-5 py-3.5 text-right no-print">Aprovação do Síndico</th>
+                    <th className="px-4 py-3.5 text-right no-print">Decisão</th>
                   )}
                 </tr>
               </thead>
@@ -475,28 +481,28 @@ function ReservasContent() {
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/60 transition">
-                        <td data-label="Espaço Comum" className="px-5 py-3.5 font-bold text-slate-900 whitespace-nowrap">
+                        <td data-label="Espaço Comum" className="px-4 py-3.5 font-bold text-slate-900">
                           {r.espacoNome}
                         </td>
-                        <td data-label="Data & Turno" className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="font-semibold text-slate-900">{r.data}</div>
+                        <td data-label="Data & Turno" className="px-4 py-3.5 md:whitespace-nowrap">
+                          <div className="font-semibold text-slate-900">{formatarData(r.data)}</div>
                           <div className="text-[12px] text-slate-500">
-                            {r.horarioInicio} às {r.horarioFim}
+                            {formatarIntervalo(r.horarioInicio, r.horarioFim)}
                           </div>
                         </td>
-                        <td data-label="Unidade / Morador" className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="font-bold text-primary">
+                        <td data-label="Unidade / Morador" className="px-4 py-3.5">
+                          <div className="font-bold text-primary md:whitespace-nowrap">
                             Apto {r.unidade} - Bloco {r.bloco}
                           </div>
                           <div className="text-[12px] text-slate-500">{r.moradorNome}</div>
                         </td>
-                        <td data-label="Status" className="px-5 py-3.5 whitespace-nowrap">
+                        <td data-label="Status" className="px-4 py-3.5 md:whitespace-nowrap">
                           <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
                         </td>
-                        <td data-label="Avaliação / Parecer" className="px-5 py-3.5 text-[12px] text-slate-600">
+                        <td data-label="Avaliação / Parecer" className={`px-4 py-3.5 text-[12px] text-slate-600 ${r.status === 'PENDENTE' ? 'oculta-mobile' : ''}`}>
                           {r.status === 'APROVADA' && (
                             <span className="text-emerald-700 font-semibold">
-                              Aprovado por {r.avaliadoPor || 'Administração'} em {r.dataAvaliacao || r.dataSolicitacao}
+                              Aprovado por {r.avaliadoPor || 'Administração'} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
                             </span>
                           )}
                           {r.status === 'RECUSADA' && (
@@ -504,19 +510,16 @@ function ReservasContent() {
                               Motivo: {r.motivoRecusa}
                             </span>
                           )}
-                          {r.status === 'PENDENTE' && (
-                            <span className="text-pendente-700 font-medium">
-                              Solicitado em {r.dataSolicitacao}
-                            </span>
-                          )}
+                          {/* Pendente ainda não tem parecer; "Solicitado em" não é parecer. */}
+                          {r.status === 'PENDENTE' && <span className="text-slate-400">—</span>}
                         </td>
                         {isAdmin(currentUser?.role) && (
-                          <td data-label="Aprovação do Síndico" className="px-5 py-3.5 text-right no-print whitespace-nowrap">
+                          <td data-label="Aprovação do Síndico" className={`px-4 py-3.5 text-right no-print md:whitespace-nowrap ${r.status === 'PENDENTE' ? 'max-md:flex-col' : ''}`}>
                             {r.status === 'PENDENTE' ? (
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:justify-end md:gap-1.5">
                                 <button
                                   onClick={() => judgeReservation(r.id, true)}
-                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white transition hover:bg-emerald-700"
+                                  className="flex min-h-11 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold md:min-h-0 md:w-auto text-white transition hover:bg-emerald-700"
                                   title="Aprovar reserva"
                                 >
                                   <Check className="h-3 w-3" />
@@ -526,13 +529,13 @@ function ReservasContent() {
                                   onClick={async () => {
                                     const motivo = await askReason({
                                       title: 'Recusar reserva',
-                                      message: `${r.espacoNome} em ${r.data}, Apto ${r.unidade}-${r.bloco}.`,
+                                      message: `${r.espacoNome} em ${formatarData(r.data)}, Apto ${r.unidade}-${r.bloco}.`,
                                       label: 'Justificativa da recusa',
                                       confirmLabel: 'Recusar reserva',
                                     });
                                     if (motivo) judgeReservation(r.id, false, motivo);
                                   }}
-                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold text-red-700 transition hover:bg-red-50"
+                                  className="flex min-h-11 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold md:min-h-0 md:w-auto text-red-700 transition hover:bg-red-50"
                                   title="Recusar reserva"
                                 >
                                   <X className="h-3 w-3" />
@@ -572,7 +575,7 @@ function ReservasContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -585,7 +588,7 @@ function ReservasContent() {
                   id="reserva-espaco"
                   value={selectedSpaceId}
                   onChange={(e) => setSelectedSpaceId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                 >
                   {spaces.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -610,7 +613,7 @@ function ReservasContent() {
                         placeholder="Nome completo"
                         value={reservaMoradorNome}
                         onChange={(e) => setReservaMoradorNome(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                       />
                     </div>
                     <div>
@@ -619,7 +622,7 @@ function ReservasContent() {
                         id="reserva-bloco"
                         value={reservaBloco}
                         onChange={(e) => setReservaBloco(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                       >
                         <option value="A">Bloco A</option>
                         <option value="B">Bloco B</option>
@@ -634,14 +637,14 @@ function ReservasContent() {
                         placeholder="Ex: 602"
                         value={reservaUnidade}
                         onChange={(e) => setReservaUnidade(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label htmlFor="reserva-data" className="block text-xs font-semibold text-slate-700">Data Desejada</label>
                   <input
@@ -651,7 +654,7 @@ function ReservasContent() {
                     min={hojeLocal()}
                     value={dataReserva}
                     onChange={(e) => setDataReserva(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                   />
                 </div>
                 <div>
@@ -662,7 +665,7 @@ function ReservasContent() {
                     required
                     value={horarioInicio}
                     onChange={(e) => setHorarioInicio(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                   />
                 </div>
                 <div>
@@ -673,7 +676,7 @@ function ReservasContent() {
                     required
                     value={horarioFim}
                     onChange={(e) => setHorarioFim(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                   />
                 </div>
               </div>
@@ -688,7 +691,7 @@ function ReservasContent() {
                   required
                   value={convidados}
                   onChange={(e) => setConvidados(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -709,7 +712,7 @@ function ReservasContent() {
                   type="checkbox"
                   checked={termoAceito}
                   onChange={(e) => setTermoAceito(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-300 text-primary focus:ring-accent"
+                  className="mt-0.5 size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent"
                 />
                 <span className="text-[12px] text-slate-600 leading-tight">
                   Declaro ter lido as regras de uso do espaço, responsabilizando-me pela integridade do mobiliário, higienização e respeito à lei do silêncio às 22h00.
@@ -727,13 +730,13 @@ function ReservasContent() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11 sm:min-h-0"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover min-h-11 sm:min-h-0"
                 >
                   Enviar para Aprovação do Síndico
                 </button>
@@ -766,7 +769,7 @@ function ReservasContent() {
               <button
                 onClick={() => setShowSpaceModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -782,7 +785,7 @@ function ReservasContent() {
                   placeholder="Ex: Espaço Gourmet & Lounge, Churrasqueira B"
                   value={spaceNome}
                   onChange={(e) => setSpaceNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -795,7 +798,7 @@ function ReservasContent() {
                   placeholder="Ex: Ambiente climatizado com churrasqueira a carvão, mesas de apoio, freezer e chopeira."
                   value={spaceDescricao}
                   onChange={(e) => setSpaceDescricao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -809,7 +812,7 @@ function ReservasContent() {
                     required
                     value={spaceCapacidadeMax}
                     onChange={(e) => setSpaceCapacidadeMax(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                   />
                 </div>
                 <div>
@@ -821,7 +824,7 @@ function ReservasContent() {
                     placeholder="09:00 às 22:00"
                     value={spaceHorario}
                     onChange={(e) => setSpaceHorario(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                   />
                 </div>
                 <div>
@@ -834,7 +837,7 @@ function ReservasContent() {
                     required
                     value={spaceTaxaLimpeza}
                     onChange={(e) => setSpaceTaxaLimpeza(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                   />
                 </div>
               </div>
@@ -847,7 +850,7 @@ function ReservasContent() {
                   placeholder="https://exemplo.com/foto-do-espaco.jpg"
                   value={spaceImagemUrl}
                   onChange={(e) => setSpaceImagemUrl(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                 />
                 <span className="text-[12px] text-slate-500">
                   Insira o link direto de uma imagem hospedada externamente (Google Drive, Unsplash, etc.)
@@ -862,16 +865,16 @@ function ReservasContent() {
                   placeholder="Ex: Proibido som alto após as 22h00&#10;Entregar as chaves limpas no dia seguinte"
                   value={spaceRegras}
                   onChange={(e) => setSpaceRegras(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-mono"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-mono min-h-11 sm:min-h-0"
                 />
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer pt-1">
+              <label className="flex min-h-11 items-center gap-2 cursor-pointer pt-1">
                 <input
                   type="checkbox"
                   checked={spaceAtivo}
                   onChange={(e) => setSpaceAtivo(e.target.checked)}
-                  className="rounded border-slate-300 text-primary focus:ring-accent"
+                  className="size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent"
                 />
                 <span className="text-xs font-semibold text-slate-700">
                   Espaço disponível para reservas (desmarque se estiver em manutenção)
@@ -882,13 +885,13 @@ function ReservasContent() {
                 <button
                   type="button"
                   onClick={() => setShowSpaceModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11 sm:min-h-0"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover min-h-11 sm:min-h-0"
                 >
                   {editingSpaceId ? 'Salvar Alterações' : 'Cadastrar Espaço'}
                 </button>

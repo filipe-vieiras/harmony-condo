@@ -24,6 +24,7 @@ import {
   Printer,
   X
 } from 'lucide-react';
+import { formatarData, formatarMoeda, pluralizar } from '@/lib/formatadores';
 
 function moradorResponsavel(unit: Unit): string {
   const residente = unit.moradores.find((m) => m.tipo === 'TITULAR' || m.tipo === 'INQUILINO');
@@ -175,25 +176,25 @@ function MultasContent() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
-          >
-            <Printer className="h-4 w-4 text-slate-500" />
-            <span>Imprimir Livro de Multas</span>
-          </button>
-
+        <div className="flex flex-wrap items-center gap-3 sm:gap-2">
           {isAdmin(currentUser.role) && (
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-red-700"
+              className="order-first flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-red-700 sm:order-last sm:min-h-0 sm:w-auto"
             >
               <Plus className="h-4 w-4 text-white" />
               <span>Emitir Notificação / Multa</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:min-h-0"
+          >
+            <Printer className="h-4 w-4 text-slate-500" />
+            <span>Imprimir Livro de Multas</span>
+          </button>
         </div>
       </div>
 
@@ -214,7 +215,7 @@ function MultasContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -223,13 +224,13 @@ function MultasContent() {
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-center gap-3 no-print">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por protocolo, artigo, morador ou apartamento..."
-            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+            placeholder="Protocolo, artigo, morador ou apto"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
           />
         </div>
 
@@ -238,7 +239,7 @@ function MultasContent() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-red-500 focus:outline-none"
+            className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-red-500 focus:outline-none sm:min-h-0 sm:flex-none"
           >
             <option value="TODOS">Todos os Status</option>
             <option value="PENDENTE_CIENCIA">Pendente de Ciência</option>
@@ -291,7 +292,7 @@ function MultasContent() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
                     <Badge className={fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'}>
-                      {fine.tipo === 'MULTA' ? `Multa: R$ ${fine.valor.toFixed(2)}` : 'Advertência Formal'}
+                      {fine.tipo === 'MULTA' ? `Multa: ${formatarMoeda(fine.valor)}` : 'Advertência Formal'}
                     </Badge>
                   </div>
                 </div>
@@ -307,21 +308,21 @@ function MultasContent() {
 
                 <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
                   <div className="flex items-center gap-4 flex-wrap">
-                    <span>Data da Infração: <strong>{fine.dataInfracao}</strong></span>
-                    <span>Prazo p/ Recurso: <strong className="text-red-700">{fine.prazoRecursoData}</strong></span>
+                    <span>Data da Infração: <strong>{formatarData(fine.dataInfracao)}</strong></span>
+                    <span>Prazo p/ Recurso: <strong className="text-red-700">{formatarData(fine.prazoRecursoData)}</strong></span>
                     {fine.evidencias.length > 0 && (
                       <span className="text-slate-600">
-                        📷 {fine.evidencias.length} foto(s) de evidência
+                        📷 {pluralizar(fine.evidencias.length, 'foto de evidência', 'fotos de evidência')}
                       </span>
                     )}
                   </div>
 
                   <Link
                     href={`/multas/${fine.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-hover no-print"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-hover no-print sm:min-h-0"
                   >
                     <Eye className="h-3.5 w-3.5" />
-                    <span>Abrir Prontuário & Recurso →</span>
+                    <span>{fine.status === 'PENDENTE_CIENCIA' ? 'Ver multa e dar ciência' : 'Ver multa'} →</span>
                   </Link>
                 </div>
               </div>
@@ -351,21 +352,21 @@ function MultasContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleCreateFine} className="mt-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="multa-tipo" className="block text-xs font-semibold text-slate-700">Tipo de Sanção</label>
                   <select
                     id="multa-tipo"
                     value={tipo}
                     onChange={(e) => setTipo(e.target.value as 'ADVERTENCIA' | 'MULTA')}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                   >
                     <option value="MULTA">Multa Financeira</option>
                     <option value="ADVERTENCIA">Advertência Escrita</option>
@@ -382,12 +383,12 @@ function MultasContent() {
                     placeholder="Ex: 350.00"
                     value={tipo === 'ADVERTENCIA' ? '0.00' : valor}
                     onChange={(e) => setValor(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-100"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-100 min-h-11 sm:min-h-0"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="multa-unidade" className="block text-xs font-semibold text-slate-700">Unidade Infratora</label>
                   {units.length === 0 ? (
@@ -400,7 +401,7 @@ function MultasContent() {
                       required
                       value={unitId}
                       onChange={(e) => setUnitId(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                     >
                       <option value="" disabled>Selecione a unidade</option>
                       {[...units]
@@ -419,7 +420,7 @@ function MultasContent() {
                     required
                     value={prazoRecursoData}
                     onChange={(e) => setPrazoRecursoData(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                   />
                 </div>
               </div>
@@ -433,7 +434,7 @@ function MultasContent() {
                   disabled
                   placeholder="Selecione a unidade acima"
                   value={selectedUnit ? moradorResponsavel(selectedUnit) : ''}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-600"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs text-slate-600 min-h-11 sm:min-h-0"
                 />
                 <p className="mt-1 text-[12px] text-slate-500">
                   Preenchido automaticamente com o morador principal da unidade — a notificação é sempre atribuída a ele, mesmo quando a infração foi de um visitante.
@@ -449,7 +450,7 @@ function MultasContent() {
                   placeholder="Ex: Artigo 42 - Barulho após horário de silêncio"
                   value={artigoRegimento}
                   onChange={(e) => setArtigoRegimento(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -461,7 +462,7 @@ function MultasContent() {
                   required
                   value={dataInfracao}
                   onChange={(e) => setDataInfracao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -474,7 +475,7 @@ function MultasContent() {
                   placeholder="Descreva o ocorrido com clareza, mencionando relatos ou testemunhas..."
                   value={descricaoInfracao}
                   onChange={(e) => setDescricaoInfracao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -488,7 +489,7 @@ function MultasContent() {
                   placeholder="https://exemplo.com/foto-evidencia.jpg"
                   value={fotoUrl}
                   onChange={(e) => setFotoUrl(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                 />
                 <label htmlFor="multa-foto-legenda" className="sr-only">Legenda da foto</label>
                 <input
@@ -497,7 +498,7 @@ function MultasContent() {
                   placeholder="Legenda da foto (Ex: Foto da câmera da garagem G1 às 23h40)"
                   value={fotoDescricao}
                   onChange={(e) => setFotoDescricao(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -505,13 +506,13 @@ function MultasContent() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11 sm:min-h-0"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700"
+                  className="rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 min-h-11 sm:min-h-0"
                 >
                   Formalizar Notificação
                 </button>

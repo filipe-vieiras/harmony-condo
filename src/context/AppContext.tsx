@@ -38,6 +38,7 @@ import {
   fetchProfiles,
   fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
+import { formatarData } from '@/lib/formatadores';
 
 /**
  * Resultado das operações de unidade. `vinculoPendente` aparece quando o e-mail do
@@ -700,7 +701,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     await insertNotification(supabase, {
       titulo: `Notificação Disciplinar ${protocolNumber}`,
-      mensagem: `Registrada notificação para a Unidade ${fineData.unidade} Bloco ${fineData.bloco}. Confirme ciência no portal.`,
+      mensagem: `Notificação registrada para a Unidade ${fineData.unidade} Bloco ${fineData.bloco}. Aguarda a ciência do morador.`,
       tipo: 'MULTA',
       unidadeAlvo: fineData.unidade,
       unidadeIdAlvo: fineData.unitId,
@@ -1046,8 +1047,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await insertNotification(supabase, {
         titulo: aprovado ? 'Reserva Aprovada!' : 'Reserva Não Aprovada',
         mensagem: aprovado
-          ? `Sua reserva do ${targetRes.espacoNome} para ${targetRes.data} foi confirmada!`
-          : `Sua solicitação para ${targetRes.data} foi recusada: ${motivoRecusa ?? 'Incompatibilidade com o regimento.'}`,
+          ? `Sua reserva do ${targetRes.espacoNome} para ${formatarData(targetRes.data)} foi confirmada!`
+          : `Sua solicitação para ${formatarData(targetRes.data)} foi recusada: ${motivoRecusa ?? 'Incompatibilidade com o regimento.'}`,
         tipo: 'RESERVA',
         unidadeAlvo: targetRes.unidade,
         // A reserva guarda bloco/número em texto; a notificação precisa da FK

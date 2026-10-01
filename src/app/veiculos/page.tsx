@@ -139,18 +139,20 @@ function VeiculosContent() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* No celular "Imprimir" vira só o ícone (o rótulo fica para o leitor de tela) e a ação principal ocupa a linha. */}
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+            title="Imprimir relação"
+            className="order-2 flex size-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:order-1 sm:size-auto sm:px-3.5 sm:py-2"
           >
             <Printer className="h-4 w-4 text-slate-500" />
-            <span>Imprimir Relação</span>
+            <span className="sr-only sm:not-sr-only">Imprimir Relação</span>
           </button>
 
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
+            className="order-1 flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:order-2 sm:min-h-0 sm:flex-none"
           >
             <Plus className="h-4 w-4 text-accent" />
             <span>Cadastrar Veículo</span>
@@ -175,7 +177,7 @@ function VeiculosContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -193,13 +195,13 @@ function VeiculosContent() {
 
       {/* Barra de Busca Instantânea de Placa */}
       <div className="relative w-full no-print">
-        <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Digite a placa (ex: BRA2E19), apartamento, vaga ou nome do morador..."
-          className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-medium shadow-2xs uppercase"
+          placeholder="Buscar placa, apto, vaga ou nome"
+          className="min-h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-medium shadow-2xs uppercase placeholder:normal-case"
         />
       </div>
 
@@ -248,11 +250,11 @@ function VeiculosContent() {
                     <td data-label="Vaga" className="px-5 py-3.5 font-mono text-slate-700 font-bold">
                       {v.vaga}
                     </td>
-                    <td data-label="Morador Responsável" className="px-5 py-3.5">
+                    <td data-label="Morador Responsável" className="empilhada px-5 py-3.5">
                       <div className="font-semibold text-slate-900">{v.proprietarioNome}</div>
                       <div className="text-[12px] text-slate-500 flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        <span>{v.telefoneContato}</span>
+                        <Phone className="h-3 w-3 shrink-0" />
+                        <span className="whitespace-nowrap">{v.telefoneContato}</span>
                       </div>
                     </td>
                     <td data-label="Ações" className="px-5 py-3.5 text-right no-print">
@@ -263,7 +265,7 @@ function VeiculosContent() {
                             const res = await deleteVehicle(v.id);
                             setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
                           }}
-                          className="rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
+                          className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition sm:size-auto sm:p-1.5"
                           title="Remover veículo"
                           aria-label={`Remover veículo ${v.placa}`}
                         >
@@ -297,7 +299,7 @@ function VeiculosContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
               >
                 <X className="h-5 w-5" />
               </button>

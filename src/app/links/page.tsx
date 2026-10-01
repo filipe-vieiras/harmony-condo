@@ -192,7 +192,7 @@ function LinksContent() {
               )}
               <span>{feedbackMsg.text}</span>
             </div>
-            <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
+            <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-600">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -222,7 +222,7 @@ function LinksContent() {
                         onClick={() => handleDelete(c.id, c.titulo)}
                         title="Excluir Contato"
                         aria-label={`Excluir contato ${c.titulo}`}
-                        className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-red-50 hover:text-red-600 no-print"
+                        className="opacity-60 hover:opacity-100 transition flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 sm:size-auto sm:p-1 hover:bg-red-50 hover:text-red-600 no-print"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -271,7 +271,7 @@ function LinksContent() {
                       onClick={handleOpenZeladorModal}
                       title="Editar Dados do Zelador"
                       aria-label="Editar dados do zelador"
-                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-accent-50 hover:text-accent-strong no-print"
+                      className="opacity-60 hover:opacity-100 transition flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 sm:size-auto sm:p-1 hover:bg-accent-50 hover:text-accent-strong no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -280,10 +280,10 @@ function LinksContent() {
               </div>
 
               <h3 className="mt-3 text-sm font-bold text-slate-900">
-                {zelador?.nome || 'Zelador ainda não cadastrado'}
+                {zelador?.nome || (isSindico ? 'Zelador ainda não cadastrado' : 'Zelador')}
               </h3>
               <p className="mt-1 text-xs text-slate-500">
-                {zelador?.horarioAtendimento || 'Cadastre o horário de atendimento.'}
+                {zelador?.horarioAtendimento || (isSindico ? 'Cadastre o horário de atendimento.' : 'A administração ainda não informou o horário de atendimento.')}
               </p>
 
               <div className="mt-4 border-t border-slate-100 pt-3">
@@ -314,7 +314,7 @@ function LinksContent() {
                       onClick={handleOpenPortalModal}
                       title="Editar Portal da Administradora"
                       aria-label="Editar Portal da Administradora"
-                      className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-accent-50 hover:text-accent-strong no-print"
+                      className="opacity-60 hover:opacity-100 transition flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 sm:size-auto sm:p-1 hover:bg-accent-50 hover:text-accent-strong no-print"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -324,7 +324,7 @@ function LinksContent() {
 
               <h3 className="mt-3 text-sm font-bold text-slate-900">Portal da Administradora</h3>
               <p className="mt-1 text-xs text-slate-500">
-                {portalAdministradora?.descricao || 'Cadastre a descrição do portal.'}
+                {portalAdministradora?.descricao || (isSindico ? 'Cadastre a descrição do portal.' : 'A administração ainda não informou a descrição do portal.')}
               </p>
 
               <div className="mt-4 border-t border-slate-100 pt-3">
@@ -339,7 +339,9 @@ function LinksContent() {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 ) : (
-                  <span className="text-xs text-slate-500">Link ainda não cadastrado.</span>
+                  <span className="text-xs text-slate-500">
+                    {isSindico ? 'Link ainda não cadastrado.' : 'A administração ainda não informou o link do portal.'}
+                  </span>
                 )}
               </div>
             </div>
@@ -356,7 +358,7 @@ function LinksContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {officialDocuments.length === 0 ? (
               <div className="col-span-2 rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
-                Nenhum documento regulatório cadastrado.
+                {isSindico ? "Nenhum documento regulatório cadastrado." : "A administração ainda não publicou documentos."}
               </div>
             ) : (
               officialDocuments.map((doc) => (
@@ -378,7 +380,7 @@ function LinksContent() {
                             onClick={() => handleDelete(doc.id, doc.titulo)}
                             title="Excluir Documento"
                             aria-label={`Excluir documento ${doc.titulo}`}
-                            className="opacity-60 hover:opacity-100 transition rounded-lg p-1 text-slate-500 hover:bg-red-50 hover:text-red-600 no-print"
+                            className="opacity-60 hover:opacity-100 transition flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 sm:size-auto sm:p-1 hover:bg-red-50 hover:text-red-600 no-print"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -431,7 +433,7 @@ function LinksContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -564,7 +566,7 @@ function LinksContent() {
               <button
                 onClick={() => setShowZeladorModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -657,7 +659,7 @@ function LinksContent() {
               <button
                 onClick={() => setShowPortalModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
               >
                 <X className="h-5 w-5" />
               </button>

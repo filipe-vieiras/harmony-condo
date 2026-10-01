@@ -328,11 +328,21 @@ function MoradoresContent() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-2">
+          {isAdmin(currentUser.role) && (
+            <button
+              onClick={handleOpenCreate}
+              className="order-first flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:order-last sm:min-h-0 sm:w-auto"
+            >
+              <Plus className="h-4 w-4 text-accent" />
+              <span>Nova Unidade</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+            className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:min-h-0"
           >
             <Printer className="h-4 w-4 text-slate-500" />
             <span>Imprimir Relação</span>
@@ -344,7 +354,7 @@ function MoradoresContent() {
               onClick={handleExportar}
               disabled={exportando || units.length === 0}
               title="Baixa um arquivo Excel com uma aba de moradores e outra de veículos"
-              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
             >
               {exportando ? (
                 <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
@@ -352,16 +362,6 @@ function MoradoresContent() {
                 <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
               )}
               <span>Exportar Excel</span>
-            </button>
-          )}
-
-          {isAdmin(currentUser.role) && (
-            <button
-              onClick={handleOpenCreate}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
-            >
-              <Plus className="h-4 w-4 text-accent" />
-              <span>Nova Unidade</span>
             </button>
           )}
         </div>
@@ -384,7 +384,7 @@ function MoradoresContent() {
             )}
             <span>{feedbackMsg.text}</span>
           </div>
-          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="text-slate-500 hover:text-slate-600">
+          <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -393,13 +393,13 @@ function MoradoresContent() {
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-center gap-3 no-print">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por número do apartamento ou nome do morador..."
-            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            placeholder="Buscar apartamento ou morador"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs sm:min-h-0 text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           />
         </div>
 
@@ -408,7 +408,7 @@ function MoradoresContent() {
           <select
             value={filterBloco}
             onChange={(e) => setFilterBloco(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-accent focus:outline-none"
+            className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:border-accent focus:outline-none sm:min-h-0 sm:flex-none"
           >
             <option value="TODOS">Todos os Blocos</option>
             <option value="A">Bloco A</option>
@@ -453,12 +453,12 @@ function MoradoresContent() {
                 </Badge>
 
                 {isAdmin(currentUser.role) && (
-                  <div className="flex items-center gap-1 no-print">
+                  <div className="flex items-center gap-2 no-print sm:gap-1">
                     <button
                       onClick={() => handleOpenEdit(u)}
                       title="Editar Unidade"
                       aria-label={`Editar Unidade ${u.numero}`}
-                      className="rounded-lg p-1 text-slate-500 hover:bg-accent-50 hover:text-accent transition"
+                      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-accent-50 hover:text-accent transition sm:size-auto sm:p-1"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -466,7 +466,7 @@ function MoradoresContent() {
                       onClick={() => handleDeleteUnit(u)}
                       title="Excluir Unidade"
                       aria-label={`Excluir Unidade ${u.numero}`}
-                      className="rounded-lg p-1 text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
+                      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition sm:size-auto sm:p-1"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -480,7 +480,7 @@ function MoradoresContent() {
               <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
                 <p className="italic">Aguardando o cadastro do morador.</p>
                 {autocadastros.some((a) => a.unitId === u.id && a.status === 'AGUARDANDO') && (
-                  <Link href="/autocadastro" className="mt-1.5 inline-block font-semibold text-accent-strong hover:underline no-print">
+                  <Link href="/autocadastro" className="mt-1.5 inline-flex min-h-11 items-center font-semibold text-accent-strong hover:underline no-print sm:min-h-0">
                     Há cadastro enviado para validar →
                   </Link>
                 )}
@@ -503,7 +503,7 @@ function MoradoresContent() {
               
               <div className="flex items-center gap-2 text-slate-600">
                 <Phone className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                <span>
+                <span className="whitespace-nowrap">
                   {u.moradores && u.moradores.length > 0 ? u.moradores[0].telefone : u.proprietarioTelefone}
                 </span>
               </div>
@@ -527,7 +527,7 @@ function MoradoresContent() {
                     <button
                       onClick={() => handleSendInvite(u)}
                       disabled={sendingInviteId === u.id}
-                      className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-primary-hover disabled:opacity-50 no-print"
+                      className="flex items-center gap-1.5 whitespace-nowrap min-h-11 rounded-full bg-primary px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-primary-hover disabled:opacity-50 no-print sm:min-h-0"
                     >
                       <Link2 className="h-3 w-3 text-accent" />
                       <span>{sendingInviteId === u.id ? 'Gerando...' : 'Gerar Link de Acesso'}</span>
@@ -551,7 +551,7 @@ function MoradoresContent() {
                     {u.statusConvite === 'ENVIADO' && isAdmin(currentUser.role) && (
                       <button
                         onClick={() => handleCopyLink(u)}
-                        className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-700 transition hover:bg-slate-200 no-print"
+                        className="flex items-center gap-1.5 whitespace-nowrap min-h-11 rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-700 transition hover:bg-slate-200 no-print sm:min-h-0"
                       >
                         {copiedUnitId === u.id ? (
                           <>
@@ -570,7 +570,7 @@ function MoradoresContent() {
                       <button
                         onClick={() => handleSendInvite(u)}
                         disabled={sendingInviteId === u.id}
-                        className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-primary-hover disabled:opacity-50 no-print"
+                        className="flex items-center gap-1.5 whitespace-nowrap min-h-11 rounded-full bg-primary px-2.5 py-1 text-[12px] font-bold text-white transition hover:bg-primary-hover disabled:opacity-50 no-print sm:min-h-0"
                       >
                         <Link2 className="h-3 w-3 text-accent" />
                         <span>{sendingInviteId === u.id ? 'Gerando...' : 'Gerar Novo Link'}</span>
@@ -599,7 +599,7 @@ function MoradoresContent() {
                             onClick={() => handleRemoveResidentFromCard(u, idx + 1)}
                             title={`Remover ${m.nome}`}
                             aria-label={`Remover ${m.nome}`}
-                            className="text-slate-300 hover:text-red-600 transition no-print"
+                            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition no-print sm:size-auto sm:p-1"
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
@@ -654,7 +654,7 @@ function MoradoresContent() {
               <button
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -679,7 +679,7 @@ function MoradoresContent() {
                       placeholder="Ex: 602"
                       value={novoNumero}
                       onChange={(e) => setNovoNumero(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                     />
                   </div>
                   <div>
@@ -688,7 +688,7 @@ function MoradoresContent() {
                       id="unidade-bloco"
                       value={novoBloco}
                       onChange={(e) => setNovoBloco(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-800"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-800 min-h-11 sm:min-h-0"
                     >
                       <option value="A">Bloco A</option>
                       <option value="B">Bloco B</option>
@@ -700,7 +700,7 @@ function MoradoresContent() {
                       id="unidade-tipo-ocupacao"
                       value={novoTipo}
                       onChange={(e) => setNovoTipo(e.target.value as 'PROPRIETARIO' | 'INQUILINO')}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-800"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-800 min-h-11 sm:min-h-0"
                     >
                       <option value="PROPRIETARIO">Proprietário Residente</option>
                       <option value="INQUILINO">Locatário (Inquilino)</option>
@@ -717,7 +717,7 @@ function MoradoresContent() {
                       placeholder="Ex: G1-12, G1-14"
                       value={novasVagas}
                       onChange={(e) => setNovasVagas(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                     />
                   </div>
                   <div>
@@ -728,7 +728,7 @@ function MoradoresContent() {
                       placeholder="Ex: 1 cão (Shih-tzu)"
                       value={novosAnimais}
                       onChange={(e) => setNovosAnimais(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                     />
                   </div>
                 </div>
@@ -736,12 +736,12 @@ function MoradoresContent() {
 
               {/* Seção 2: Morador Principal */}
               <div className="space-y-3 rounded-xl bg-slate-50/70 p-4 border border-slate-100">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Crown className="h-3.5 w-3.5 text-pendente-500" />
+                    <Crown className="h-3.5 w-3.5 shrink-0 text-pendente-500" />
                     <span>2. Morador Principal (Titular / Responsável)</span>
                   </h4>
-                  <span className="rounded-full bg-pendente-100 px-2 py-0.5 text-[12px] font-bold text-pendente-800">
+                  <span className="whitespace-nowrap rounded-full bg-pendente-100 px-2 py-0.5 text-[12px] font-bold text-pendente-800">
                     Acesso ao Portal
                   </span>
                 </div>
@@ -756,7 +756,7 @@ function MoradoresContent() {
                       placeholder="Nome do responsável"
                       value={titularNome}
                       onChange={(e) => setTitularNome(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                     />
                   </div>
                   <div>
@@ -767,7 +767,7 @@ function MoradoresContent() {
                       placeholder="000.000.000-00"
                       value={titularRgCpf}
                       onChange={(e) => setTitularRgCpf(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                     />
                   </div>
                 </div>
@@ -777,12 +777,17 @@ function MoradoresContent() {
                     <label htmlFor="titular-telefone" className="block text-xs font-semibold text-slate-700">Telefone / WhatsApp</label>
                     <input
                       id="titular-telefone"
-                      type="text"
+                      type="tel"
+                      inputMode="tel"
+                      // Quem preenche é o síndico, para outra pessoa: o preenchimento automático
+                      // do navegador poria o telefone/e-mail DELE aqui (e e-mail de conta
+                      // existente liga a unidade a essa conta).
+                      autoComplete="off"
                       required
                       placeholder="(11) 90000-0000"
                       value={titularTelefone}
                       onChange={(e) => setTitularTelefone(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                     />
                   </div>
                   <div>
@@ -790,11 +795,13 @@ function MoradoresContent() {
                     <input
                       id="titular-email"
                       type="email"
+                      inputMode="email"
+                      autoComplete="off"
                       required
                       placeholder="morador@exemplo.com"
                       value={titularEmail}
                       onChange={(e) => setTitularEmail(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                     />
                   </div>
                 </div>
@@ -814,18 +821,20 @@ function MoradoresContent() {
                           placeholder="Nome do Proprietário"
                           value={proprietarioNome}
                           onChange={(e) => setProprietarioNome(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                         />
                       </div>
                       <div>
                         <label htmlFor="proprietario-telefone" className="sr-only">Telefone do Proprietário</label>
                         <input
                           id="proprietario-telefone"
-                          type="text"
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="off"
                           placeholder="Telefone do Proprietário"
                           value={proprietarioTelefone}
                           onChange={(e) => setProprietarioTelefone(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                         />
                       </div>
                       <div>
@@ -833,10 +842,12 @@ function MoradoresContent() {
                         <input
                           id="proprietario-email"
                           type="email"
+                          inputMode="email"
+                          autoComplete="off"
                           placeholder="E-mail do Proprietário"
                           value={proprietarioEmail}
                           onChange={(e) => setProprietarioEmail(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                         />
                       </div>
                     </div>
@@ -846,7 +857,7 @@ function MoradoresContent() {
 
               {/* Seção 3: Demais Moradores da Propriedade */}
               <div className="space-y-3 rounded-xl bg-slate-50/70 p-4 border border-slate-100">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5 text-primary" />
@@ -859,7 +870,7 @@ function MoradoresContent() {
                   <button
                     type="button"
                     onClick={handleAddMorador}
-                    className="flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-primary shadow-xs hover:bg-slate-100 transition"
+                    className="flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-3 py-1.5 text-xs font-semibold text-primary shadow-xs hover:bg-slate-100 transition min-h-11 sm:min-h-0"
                   >
                     <Plus className="h-3.5 w-3.5 text-accent" />
                     <span>Adicionar Morador</span>
@@ -884,7 +895,7 @@ function MoradoresContent() {
                           <button
                             type="button"
                             onClick={() => handleRemoveMorador(index)}
-                            className="text-slate-500 hover:text-red-600 transition"
+                            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition sm:size-auto sm:p-1"
                             title="Remover"
                             aria-label={`Remover Morador Adicional #${index + 1}`}
                           >
@@ -902,7 +913,7 @@ function MoradoresContent() {
                               placeholder="Nome completo do residente"
                               value={m.nome}
                               onChange={(e) => handleUpdateMorador(index, 'nome', e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                             />
                           </div>
                           <div>
@@ -911,7 +922,7 @@ function MoradoresContent() {
                               id={`morador-tipo-${index}`}
                               value={m.tipo}
                               onChange={(e) => handleUpdateMorador(index, 'tipo', e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-700"
+                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-700 min-h-11 sm:min-h-0"
                             >
                               <option value="DEPENDENTE">Dependente / Família</option>
                               <option value="INQUILINO">Co-inquilino</option>
@@ -921,11 +932,13 @@ function MoradoresContent() {
                             <label htmlFor={`morador-telefone-${index}`} className="sr-only">Telefone / Contato</label>
                             <input
                               id={`morador-telefone-${index}`}
-                              type="text"
+                              type="tel"
+                              inputMode="tel"
+                              autoComplete="off"
                               placeholder="Telefone / Contato"
                               value={m.telefone}
                               onChange={(e) => handleUpdateMorador(index, 'telefone', e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                              className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
                             />
                           </div>
                         </div>
@@ -940,14 +953,14 @@ function MoradoresContent() {
                   type="button"
                   disabled={isSaving}
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-h-11 sm:min-h-0"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="rounded-xl bg-primary px-5 py-2 text-xs font-semibold text-white hover:bg-primary-hover shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="rounded-xl bg-primary px-5 py-2 text-xs font-semibold text-white hover:bg-primary-hover shadow-xs disabled:opacity-60 disabled:cursor-not-allowed min-h-11 sm:min-h-0"
                 >
                   {isSaving
                     ? 'Salvando...'

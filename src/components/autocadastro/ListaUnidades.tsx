@@ -44,14 +44,14 @@ export function ListaUnidades() {
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
         <input
           type="text"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por apartamento ou nome..."
           aria-label="Buscar por apartamento ou nome"
-          className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs sm:min-h-0 text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
       </div>
 
@@ -69,7 +69,8 @@ export function ListaUnidades() {
                     <span className="text-xs font-bold leading-none">{l.numero}</span>
                     <span className="mt-0.5 text-[10px] leading-none text-cyan-200">Bl. {l.bloco}</span>
                   </div>
-                  <span className={`truncate text-sm ${l.responsavel ? 'font-semibold text-slate-900' : 'italic text-slate-400'}`}>
+                  {/* Sem truncar: o nome (ou "Ninguém cadastrado ainda") quebra de linha em vez de cortar. Cinza mais escuro para passar de 4,5:1 de contraste. */}
+                  <span className={`break-words text-sm ${l.responsavel ? 'font-semibold text-slate-900' : 'italic text-slate-600'}`}>
                     {l.responsavel ?? 'Ninguém cadastrado ainda'}
                   </span>
                 </div>
