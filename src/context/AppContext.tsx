@@ -39,6 +39,7 @@ import {
   fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
 import { formatarData } from '@/lib/formatadores';
+import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 
 /**
  * Resultado das operações de unidade. `vinculoPendente` aparece quando o e-mail do
@@ -669,10 +670,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addNotice = async (noticeData: Omit<Notice, 'id' | 'data'>) => {
     const created = await insertNotice(supabase, noticeData, currentUser?.name ?? 'Sistema');
     if (!created) return;
-    setNotices((prev) => [created, ...prev]);
+    // Mesma ordem do servidor: fixados primeiro, depois os mais recentes (sort é estável,
+    // então o aviso novo fica no topo do próprio grupo).
+    setNotices((prev) => [created, ...prev].sort((a, b) => Number(b.fixado) - Number(a.fixado)));
     await insertNotification(supabase, {
-      titulo: 'Novo Comunicado no Mural',
-      mensagem: `${noticeData.titulo} (${noticeData.categoria})`,
+      titulo: `Novo comunicado: ${noticeData.titulo.length > 60 ? `${noticeData.titulo.slice(0, 57).trimEnd()}...` : noticeData.titulo}`,
+      mensagem: `${noticeData.titulo} (${NOTICE_CATEGORY_LABELS[noticeData.categoria]})`,
       tipo: 'AVISO',
       linkDestino: '/mural',
     });
@@ -719,6 +722,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     if (!updated) return { success: false, message: 'Erro ao registrar ciência. Tente novamente.' };
     setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
+    // Só o número do protocolo: o histórico é lido pelo Conselho, não precisa de mais.
+    await recordAudit('Registrou ciência da notificação', 'MULTAS', { fineId, protocolo: updated.numeroProtocolo });
     return { success: true, message: 'Ciência registrada com sucesso.' };
   };
 
@@ -740,7 +745,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       perfilAlvo: 'SINDICO',
       linkDestino: `/multas/${fineId}`,
     });
-    return { success: true, message: 'Recurso protocolado com sucesso.' };
+    // Sem o texto do recurso: ele fica só na multa.
+    await recordAudit('Interpôs recurso da notificação', 'MULTAS', { fineId, protocolo: updated.numeroProtocolo });
+    return { success: true, message: 'Recebemos seu recurso. O síndico vai responder pelo portal.' };
   };
 
   const judgeFineAppeal = async (fineId: string, deferido: boolean, resposta: string): Promise<{ success: boolean; message: string }> => {
@@ -757,7 +764,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await recordAudit(
       deferido ? `Deferiu recurso da notificação` : `Indeferiu recurso da notificação`,
       'MULTAS',
-      { fineId, deferido, resposta }
+      { fineId, protocolo: updated.numeroProtocolo, deferido, resposta }
     );
     return { success: true, message: deferido ? 'Recurso deferido — multa anulada.' : 'Recurso indeferido — multa mantida.' };
   };
@@ -1010,7 +1017,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setReservations((prev) => [created, ...prev]);
     await insertNotification(supabase, {
       titulo: 'Nova Solicitação de Reserva',
-      mensagem: `${created.moradorNome} (Unidade ${created.unidade}) solicitou ${targetSpace.nome} para ${data}. Requer aprovação.`,
+      mensagem: `${created.moradorNome} (Unidade ${created.unidade}) solicitou ${targetSpace.nome} para ${formatarData(data)}. Requer aprovação.`,
       tipo: 'RESERVA',
       perfilAlvo: 'SINDICO',
       linkDestino: '/reservas',

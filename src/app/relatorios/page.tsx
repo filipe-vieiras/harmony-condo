@@ -4,8 +4,9 @@ import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { Badge } from '@/components/ui/Badge';
+import { descreverAuditoria, ROTULOS_MODULO } from '@/lib/auditoria';
 import { useApp } from '@/context/AppContext';
-import { isAdmin } from '@/lib/roles';
+import { isAdmin, ROLE_LABELS } from '@/lib/roles';
 import {
   FileSpreadsheet,
   Printer, 
@@ -17,7 +18,7 @@ import {
   Car,
   CheckCircle2
 } from 'lucide-react';
-import { formatarData, formatarMoeda } from '@/lib/formatadores';
+import { formatarData, formatarMoeda, pluralizar } from '@/lib/formatadores';
 
 export default function RelatoriosPage() {
   return (
@@ -62,11 +63,13 @@ function RelatoriosContent() {
   const totalInquilinos = units.filter((u) => u.tipoOcupacao === 'INQUILINO').length;
 
   // Filtragem dos logs de auditoria
-  const logsFiltrados = auditLogs.filter((log) => {
+  const registrosAuditoria = auditLogs.map((log) => ({ log, texto: descreverAuditoria(log.acao, log.detalhes) }));
+  const logsFiltrados = registrosAuditoria.filter(({ log, texto }) => {
     const matchModulo = filtroModulo === 'TODOS' || log.modulo === filtroModulo;
     const termo = buscaAuditoria.toLowerCase();
     const matchBusca = !termo || 
       log.acao.toLowerCase().includes(termo) || 
+      texto.frase.toLowerCase().includes(termo) ||
       log.usuarioNome.toLowerCase().includes(termo) ||
       (log.detalhes && JSON.stringify(log.detalhes).toLowerCase().includes(termo));
     return matchModulo && matchBusca;
@@ -76,7 +79,7 @@ function RelatoriosContent() {
   const exportarAuditoriaCSV = () => {
     if (auditLogs.length === 0) return;
     const cabecalho = ['Data/Hora', 'Usuário', 'Perfil', 'Módulo', 'Ação', 'Detalhes'].join(';');
-    const linhas = logsFiltrados.map((log) => {
+    const linhas = logsFiltrados.map(({ log }) => {
       const dataStr = new Date(log.createdAt).toLocaleString('pt-BR');
       const detalhesStr = log.detalhes ? JSON.stringify(log.detalhes).replace(/;/g, ',') : '';
       return [
@@ -190,15 +193,17 @@ function RelatoriosContent() {
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multas Emitidas</span>
               <p className="mt-2 text-2xl font-bold text-red-600">{formatarMoeda(totalMultasValor)}</p>
-              <p className="mt-0.5 text-xs text-slate-500">{fines.length} ocorrência(s) formalizada(s)</p>
+              <p className="mt-0.5 text-xs text-slate-500">{pluralizar(fines.length, 'ocorrência formalizada', 'ocorrências formalizadas')}</p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ciência Digital</span>
               <p className="mt-2 text-2xl font-bold text-primary">
-                {fines.length > 0 ? `${Math.round((totalMultasComCiencia / fines.length) * 100)}%` : '100%'}
+                {fines.length > 0 ? `${Math.round((totalMultasComCiencia / fines.length) * 100)}%` : '—'}
               </p>
-              <p className="mt-0.5 text-xs text-slate-500">{totalMultasComCiencia} de {fines.length} com confirmação</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {fines.length > 0 ? `${totalMultasComCiencia} de ${fines.length} com confirmação` : 'Nenhuma multa emitida'}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
@@ -212,7 +217,7 @@ function RelatoriosContent() {
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reservas Aprovadas</span>
               <p className="mt-2 text-2xl font-bold text-accent">{totalReservasAprovadas}</p>
-              <p className="mt-0.5 text-xs text-slate-500">Eventos sociais realizados</p>
+              <p className="mt-0.5 text-xs text-slate-500">Aprovadas pela administração</p>
             </div>
           </div>
 
@@ -229,7 +234,7 @@ function RelatoriosContent() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="stack-mobile w-full text-left text-xs">
+              <table className="stack-ate-lg w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-bold text-slate-500 uppercase">
                   <tr>
                     <th className="px-4 py-3">Protocolo</th>
@@ -244,7 +249,7 @@ function RelatoriosContent() {
                 <tbody className="divide-y divide-slate-100">
                   {fines.map((f) => (
                     <tr key={f.id} className="hover:bg-slate-50/50">
-                      <td data-label="Protocolo" className="px-4 py-3 font-mono font-bold text-slate-900">{f.numeroProtocolo}</td>
+                      <td data-label="Protocolo" className="whitespace-nowrap px-4 py-3 font-mono font-bold text-slate-900">{f.numeroProtocolo}</td>
                       <td data-label="Unidade" className="px-4 py-3 font-semibold text-primary">Apto {f.unidade}-{f.bloco}</td>
                       <td data-label="Infração / Artigo" className="px-4 py-3 max-w-xs truncate text-slate-600" title={f.artigoRegimento}>
                         {f.artigoRegimento}
@@ -269,7 +274,7 @@ function RelatoriosContent() {
                             {f.recurso.status === 'DEFERIDO' ? 'Deferido' : f.recurso.status === 'INDEFERIDO' ? 'Indeferido' : 'Em Análise'}
                           </span>
                         ) : (
-                          <span className="text-slate-500">Não apresentado</span>
+                          <span className="whitespace-nowrap text-slate-500">Não apresentado</span>
                         )}
                       </td>
                     </tr>
@@ -369,42 +374,39 @@ function RelatoriosContent() {
               <div className="flex items-center gap-2">
                 <ShieldAlert className="h-4 w-4 text-accent" />
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Trilha de Auditoria do Sistema ({logsFiltrados.length} evento{logsFiltrados.length === 1 ? '' : 's'})
+                  Trilha de Auditoria do Sistema ({pluralizar(logsFiltrados.length, 'evento', 'eventos')})
                 </h2>
               </div>
               <span className="text-[12px] text-slate-500">Ordenado por data decrescente</span>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="stack-mobile w-full text-left text-xs">
+              <table className="stack-ate-lg w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-bold text-slate-500 uppercase">
                   <tr>
                     <th className="px-4 py-3">Data / Hora</th>
                     <th className="px-4 py-3">Responsável</th>
                     <th className="px-4 py-3">Módulo</th>
-                    <th className="px-4 py-3">Ação Realizada</th>
-                    <th className="px-4 py-3">Detalhes Adicionais</th>
+                    <th className="px-4 py-3">O que aconteceu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {logsFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-500 text-xs">
+                      <td colSpan={4} className="py-8 text-center text-slate-500 text-xs">
                         Nenhum registro de auditoria encontrado para o filtro selecionado.
                       </td>
                     </tr>
                   ) : (
-                    logsFiltrados.map((log) => (
+                    logsFiltrados.map(({ log, texto }) => (
                       <tr key={log.id} className="hover:bg-slate-50/50">
-                        <td data-label="Data / Hora" className="px-4 py-3 whitespace-nowrap font-mono text-[12px] text-slate-500">
+                        <td data-label="Data / Hora" className="px-4 py-3 whitespace-nowrap text-[12px] text-slate-500">
                           {new Date(log.createdAt).toLocaleString('pt-BR')}
                         </td>
-                        <td data-label="Responsável" className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-slate-800">{log.usuarioNome}</span>
-                            <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[12px] font-medium text-slate-600">
-                              {log.usuarioRole}
-                            </span>
+                        <td data-label="Responsável" className="px-4 py-3">
+                          <div>
+                            <div className="font-semibold text-slate-800">{log.usuarioNome}</div>
+                            <div className="text-[12px] text-slate-500">{ROLE_LABELS[log.usuarioRole] ?? log.usuarioRole}</div>
                           </div>
                         </td>
                         <td data-label="Módulo" className="px-4 py-3 whitespace-nowrap">
@@ -421,21 +423,23 @@ function RelatoriosContent() {
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                               : 'bg-slate-100 text-slate-700'
                           }>
-                            {log.modulo}
+                            {ROTULOS_MODULO[log.modulo] ?? log.modulo}
                           </Badge>
                         </td>
-                        <td data-label="Ação Realizada" className="px-4 py-3 text-slate-700 font-medium">
-                          {log.acao}
-                        </td>
-                        <td data-label="Detalhes Adicionais" className="px-4 py-3 text-slate-500 max-w-xs truncate" title={log.detalhes ? JSON.stringify(log.detalhes) : ''}>
-                          {log.detalhes ? (
-                            <span className="font-mono text-[12px]">
-                              {Object.entries(log.detalhes)
-                                .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
-                                .join(' | ')}
-                            </span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
+                        <td data-label="O que aconteceu" className="empilhada px-4 py-3 text-slate-700">
+                          <p className="font-medium break-words">{texto.frase}</p>
+                          {texto.detalhes.length > 0 && (
+                            <p className="mt-0.5 text-[12px] text-slate-500 break-words">{texto.detalhes.join(' · ')}</p>
+                          )}
+                          {texto.tecnicos.length > 0 && (
+                            <details className="mt-1 text-[12px] text-slate-500 no-print">
+                              <summary className="inline-flex min-h-11 cursor-pointer items-center lg:min-h-0">Detalhes técnicos</summary>
+                              <ul className="mt-1 space-y-0.5 font-mono break-all">
+                                {texto.tecnicos.map((t) => (
+                                  <li key={t.chave}>{t.chave}: {t.valor}</li>
+                                ))}
+                              </ul>
+                            </details>
                           )}
                         </td>
                       </tr>

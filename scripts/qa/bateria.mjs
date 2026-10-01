@@ -1,5 +1,6 @@
 // Bateria completa: fluxos por perfil + segurança. QA_ALVO=staging|producao.
 import { formatarData, formatarMoeda, formatarHorario, formatarIntervalo, pluralizar } from '../../src/lib/formatadores.ts';
+import { descreverAuditoria } from '../../src/lib/auditoria.ts';
 import { avaliarVinculo } from '../../src/lib/vinculoUnidade.ts';
 import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, ALVO } from './lib.mjs';
 
@@ -300,6 +301,44 @@ for (const t of ['profiles', 'units', 'spaces', 'notices', 'documents', 'notific
 }
 ok(abertos.length === 0, `visitante não lê nada ${abertos.join(' ')}`);
 for (const p of ['/', '/moradores', '/autocadastro']) { const r = await api(p); ok(r.status === 307 && r.location?.includes('/login'), `${p} sem login → login`); }
+
+console.log('\n## Trilha de auditoria legível (src/lib/auditoria.ts) e quem grava/lê');
+{
+  const igual = (obtido, esperado, nome) => ok(obtido === esperado, `${nome}: ${JSON.stringify(obtido)}`);
+  const rec = descreverAuditoria('Recusou reserva de Salão de Festas', { reservationId: 'd43d768d-0000', espaco: 'Salão de Festas', unidade: '102', aprovado: false, motivoRecusa: 'Data indisponível' });
+  igual(rec.frase, 'Reserva de Salão de Festas, unidade 102: recusada. Motivo: Data indisponível', 'reserva recusada vira frase');
+  igual(descreverAuditoria('Aprovou reserva de Churrasqueira', { espaco: 'Churrasqueira', unidade: '5', aprovado: true }).frase, 'Reserva de Churrasqueira, unidade 5: aprovada.', 'reserva aprovada vira frase');
+  ok(rec.tecnicos.some((t) => t.chave === 'reservationId') && rec.detalhes.length === 0, 'id da reserva vai para "detalhes técnicos"');
+  igual(descreverAuditoria('Registrou ciência da notificação', { fineId: 'c8a1cc2e-1', protocolo: 'NOT-2026/004' }).frase, 'Multa NOT-2026/004: ciência registrada.', 'ciência registrada');
+  igual(descreverAuditoria('Interpôs recurso da notificação', { fineId: 'x', protocolo: 'NOT-2026/004' }).frase, 'Multa NOT-2026/004: recurso interposto.', 'recurso interposto');
+  igual(descreverAuditoria('Indeferiu recurso da notificação', { fineId: 'x', protocolo: 'NOT-2026/004', deferido: false }).frase, 'Multa NOT-2026/004: recurso indeferido (multa mantida).', 'recurso indeferido');
+  igual(descreverAuditoria('Deferiu recurso da notificação', { fineId: 'x', deferido: true }).frase, 'Multa: recurso deferido (multa anulada).', 'registro antigo, sem protocolo');
+  igual(descreverAuditoria('Emitiu notificação/multa NOT-2026/004', { protocolo: 'NOT-2026/004', unidade: '102', bloco: 'A', valor: 0 }).frase, 'Advertência NOT-2026/004 emitida para a unidade 102, bloco A.', 'advertência não mostra valor');
+  ok(/^Multa NOT-2026\/005 emitida para a unidade 7, bloco B \(R\$\s350,00\)\.$/.test(descreverAuditoria('Emitiu notificação/multa NOT-2026/005', { protocolo: 'NOT-2026/005', unidade: '7', bloco: 'B', valor: 350 }).frase), 'multa mostra o valor em reais');
+  const fb = descreverAuditoria('Atualizou espaço comum: Salão', { id: 'abc-123', nome: 'Salão', taxaLimpeza: 50, unitId: 'u-1', ids: ['a', 'b'] });
+  igual(fb.frase, 'Atualizou espaço comum: Salão', 'ação desconhecida mantém o texto da ação');
+  igual(fb.detalhes.join(' | '), 'Nome: Salão | Taxa de limpeza: 50', 'fallback lista chave: valor sem ids');
+  ok(!fb.detalhes.join(' ').includes('abc-123') && fb.tecnicos.map((t) => t.chave).sort().join() === 'id,ids,unitId', 'ids e listas ficam só nos detalhes técnicos');
+  igual(descreverAuditoria('Qualquer coisa', undefined).frase, 'Qualquer coisa', 'sem detalhes não quebra');
+  igual(descreverAuditoria('Qualquer coisa', { aprovado: false }).detalhes[0], 'Aprovado: Não', 'booleano em português');
+}
+{
+  // O app grava ciência e recurso como o próprio morador (policy audit_logs_insert_proprio).
+  const { data: pM1 } = await admin.from('profiles').select('id,name,role').eq('email', email('morador1')).single();
+  const { data: pM2b } = await admin.from('profiles').select('id,name,role').eq('email', email('morador2')).single();
+  const { data: pS2 } = await admin.from('profiles').select('id,name,role').eq('email', email('sindico')).single();
+  const regs = [['Registrou ciência da notificação', { fineId: 'qa', protocolo: 'QA-001' }], ['Interpôs recurso da notificação', { fineId: 'qa', protocolo: 'QA-001' }]];
+  for (const [acao, detalhes] of regs) {
+    ok(!(await cM1.from('audit_logs').insert({ usuario_id: pM1.id, usuario_nome: pM1.name, usuario_role: pM1.role, acao, modulo: 'MULTAS', detalhes })).error, `morador grava o próprio registro: ${acao}`);
+    ok(!!(await cM1.from('audit_logs').insert({ usuario_id: pM2b.id, usuario_nome: pM2b.name, usuario_role: pM2b.role, acao, modulo: 'MULTAS', detalhes })).error, `morador NÃO grava em nome de outro morador: ${acao}`);
+    ok(!!(await cM1.from('audit_logs').insert({ usuario_id: pM1.id, usuario_nome: pS2.name, usuario_role: pS2.role, acao, modulo: 'MULTAS', detalhes })).error, `morador NÃO grava com nome/perfil do Síndico: ${acao}`);
+  }
+  const quemLe = async (c) => (await c.from('audit_logs').select('id').eq('acao', 'Registrou ciência da notificação')).data?.length ?? 0;
+  ok((await quemLe(cSind)) >= 1, 'Síndico lê o registro de ciência');
+  ok((await quemLe(cCons)) >= 1, 'Conselho lê o registro de ciência');
+  ok((await quemLe(cM1)) === 0, 'Morador NÃO lê o histórico (nem o próprio registro)');
+  ok((await quemLe(cPort)) === 0, 'Portaria NÃO lê o histórico');
+}
 
 console.log('\n## Formatadores de exibição (src/lib/formatadores.ts)');
 {

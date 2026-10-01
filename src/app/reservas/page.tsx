@@ -505,7 +505,7 @@ function ReservasContent() {
                         <td data-label="Avaliação / Parecer" className={`px-4 py-3.5 text-[12px] text-slate-600 ${r.status === 'PENDENTE' ? 'oculta-mobile' : ''}`}>
                           {r.status === 'APROVADA' && (
                             <span className="text-emerald-700 font-semibold">
-                              Aprovado por {r.avaliadoPor || 'Administração'} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
+                              Aprovado por {(r.avaliadoPor || 'Administração').replace(/\s*\([A-Z]+\)$/, '')} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
                             </span>
                           )}
                           {r.status === 'RECUSADA' && (
@@ -517,7 +517,7 @@ function ReservasContent() {
                           {r.status === 'PENDENTE' && <span className="text-slate-400">—</span>}
                         </td>
                         {isAdmin(currentUser?.role) && (
-                          <td data-label="Aprovação do Síndico" className={`px-4 py-3.5 text-right no-print md:whitespace-nowrap ${r.status === 'PENDENTE' ? 'max-md:flex-col' : ''}`}>
+                          <td data-label="Aprovação do Síndico" className={`px-4 py-3.5 text-right no-print md:whitespace-nowrap ${r.status === 'PENDENTE' ? 'max-md:flex-col' : 'oculta-mobile'}`}>
                             {r.status === 'PENDENTE' ? (
                               <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:justify-end md:gap-1.5">
                                 <button
@@ -545,9 +545,7 @@ function ReservasContent() {
                                   <span>Recusar</span>
                                 </button>
                               </div>
-                            ) : (
-                              <span className="text-[12px] text-slate-500">Processado</span>
-                            )}
+                            ) : null}
                           </td>
                         )}
                       </tr>

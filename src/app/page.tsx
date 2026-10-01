@@ -19,7 +19,6 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertTriangle,
   FileText,
   Search,
   Check,
@@ -190,6 +189,20 @@ function DashboardContent() {
           </p>
         </div>
       </div>
+
+      {/* Faixa fina (não um cartão): avisa da multa que aguarda ciência. Com uma só, leva
+          direto a ela; com várias, à lista. */}
+      {ehMorador && pendingScienceFines.length > 0 && (
+        <Link
+          href={pendingScienceFines.length === 1 ? `/multas/${pendingScienceFines[0].id}` : '/multas'}
+          className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-pendente-200 bg-pendente-50 px-4 py-2 text-xs font-semibold text-pendente-900 transition hover:bg-pendente-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:text-sm"
+        >
+          <span>
+            Você tem {pluralizar(pendingScienceFines.length, 'multa aguardando', 'multas aguardando')} ciência
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </Link>
+      )}
 
       {ehMorador && <div className="lg:hidden">{acessosRapidos}</div>}
 
@@ -428,34 +441,6 @@ function DashboardContent() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* ÁREA DE AÇÃO RÁPIDA: Alerta de Multa Pendente de Ciência para o Morador */}
-      {currentUser.role === 'MORADOR' && pendingScienceFines.length > 0 && (
-        <div className="rounded-2xl border border-red-200 bg-red-50/80 p-5 shadow-xs">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-red-100 p-2 text-red-600 mt-0.5">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-red-900">
-                Atenção: Notificação Disciplinar Pendente de Ciência Formal
-              </h3>
-              <p className="text-xs text-red-700 mt-1">
-                Foi registrada uma notificação para a sua unidade com prazo legal para confirmação de leitura ou interposição de defesa/recurso online.
-              </p>
-              <div className="mt-3">
-                <Link
-                  href={`/multas/${pendingScienceFines[0].id}`}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-red-700"
-                >
-                  <span>Abrir Notificação {pendingScienceFines[0].numeroProtocolo}</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </div>
           </div>
         </div>
       )}

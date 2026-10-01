@@ -333,7 +333,7 @@ function VeiculosContent() {
                   placeholder="Ex: BRA2E19"
                   value={placa}
                   onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 font-mono uppercase font-bold focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 font-mono uppercase font-bold focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -347,7 +347,7 @@ function VeiculosContent() {
                     placeholder="Ex: Toyota"
                     value={marca}
                     onChange={(e) => setMarca(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   />
                 </div>
                 <div>
@@ -359,7 +359,7 @@ function VeiculosContent() {
                     placeholder="Ex: Corolla"
                     value={modelo}
                     onChange={(e) => setModelo(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   />
                 </div>
               </div>
@@ -373,7 +373,7 @@ function VeiculosContent() {
                     placeholder="Ex: Preto"
                     value={cor}
                     onChange={(e) => setCor(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   />
                 </div>
                 <div>
@@ -384,7 +384,7 @@ function VeiculosContent() {
                     placeholder="Ex: G2-45"
                     value={vaga}
                     onChange={(e) => setVaga(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   />
                 </div>
               </div>
@@ -400,7 +400,7 @@ function VeiculosContent() {
                     placeholder="304"
                     value={unidade}
                     onChange={(e) => setUnidade(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 disabled:bg-slate-100 disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -410,7 +410,7 @@ function VeiculosContent() {
                     value={bloco}
                     disabled={isMorador}
                     onChange={(e) => setBloco(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 disabled:bg-slate-100 disabled:text-slate-500"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 disabled:bg-slate-100 disabled:text-slate-500"
                   >
                     <option value="A">Bloco A</option>
                     <option value="B">Bloco B</option>
@@ -431,7 +431,7 @@ function VeiculosContent() {
                   required
                   value={proprietarioNome}
                   onChange={(e) => setProprietarioNome(e.target.value)}
-                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -442,7 +442,7 @@ function VeiculosContent() {
                   type="text"
                   value={telefoneContato}
                   onChange={(e) => setTelefoneContato(e.target.value)}
-                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
+                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
