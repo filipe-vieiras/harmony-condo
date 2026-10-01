@@ -76,6 +76,12 @@ diferencial, **a validar com um síndico**.
 - O que o dono não gostou no Início novo do morador?
 
 ## Pendências conhecidas
+Texto da ciência da multa (barra no celular) é **provisório e precisa ser aprovado**: "Ao confirmar,
+você declara que recebeu esta notificação. O prazo para recurso vai até DD/MM/AAAA." (sem número de
+dias, porque o app só guarda a data limite) · **upload de foto de evidência da multa** (hoje o campo
+pede URL): estimado em 3 a 5 dias de trabalho mais uma conversa de LGPD antes (bucket privado,
+policies, migração, rota com validação, retenção e quem vê) · **excluir sem confirmação**: comunicado
+do Mural e "Cancelar convite" na fila de Usuários apagam direto, avaliar um diálogo ·
 Reenviar da fila em Usuários & Convites um convite com erro ainda pode esbarrar em "already
 registered" (a tela de unidades já resolve o caso) · autocadastro de uma segunda unidade com o
 mesmo e-mail: formulário público não pode ligar a conta existente; futuro "Adicionar outra

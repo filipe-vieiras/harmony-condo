@@ -79,7 +79,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
           <button
             type="button"
             onClick={onToggleMobileMenu}
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"
             aria-label="Abrir menu de navegação"
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}

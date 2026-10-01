@@ -136,6 +136,22 @@ select:not([multiple]):not([size]):disabled {
     color: #475569;
     text-align: left;
   }
+  /* Célula que já traz o próprio rótulo/estrutura: sem o rótulo da coluna ao lado
+     (ex.: unidade + selo de situação na tela de autocadastro). */
+  table.stack-mobile td.sem-rotulo::before {
+    content: none;
+  }
+  table.stack-mobile td.sem-rotulo {
+    padding: 0;
+    text-align: left;
+  }
+  /* Célula com muito conteúdo (e-mail, telefone, botões): rótulo em cima, conteúdo embaixo. */
+  table.stack-mobile td.empilhada {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    text-align: left;
+  }
   /* Célula sem conteúdo útil no celular (ex.: parecer de reserva pendente). */
   table.stack-mobile td.oculta-mobile {
     display: none;

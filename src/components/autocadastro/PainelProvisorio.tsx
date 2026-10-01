@@ -121,7 +121,7 @@ export function PainelProvisorio() {
           <div role="dialog" aria-modal="true" aria-labelledby="corrigir-titulo" className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 id="corrigir-titulo" className="text-base font-bold text-slate-900">Corrigir meu cadastro</h3>
-              <button onClick={() => setEditando(false)} aria-label="Fechar" className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+              <button onClick={() => setEditando(false)} aria-label="Fechar" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"><X className="h-5 w-5" /></button>
             </div>
             <AutocadastroForm
               modo="correcao"

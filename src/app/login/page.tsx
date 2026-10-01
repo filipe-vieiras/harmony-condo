@@ -186,7 +186,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="font-medium text-accent-strong hover:underline"
+                className="inline-flex min-h-11 items-center font-medium text-accent-strong hover:underline sm:min-h-0"
               >
                 Esqueceu a senha?
               </button>
@@ -196,7 +196,7 @@ function LoginForm() {
               type="submit"
               id="btn-login"
               disabled={isLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 text-xs font-semibold text-white shadow-md transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 sm:min-h-0 text-xs font-semibold text-white shadow-md transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-60"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -213,7 +213,7 @@ function LoginForm() {
             {cadastroAberto ? (
               <>
                 Primeiro acesso?{' '}
-                <a href="/cadastro" className="font-semibold text-accent-strong hover:underline">Cadastre a sua unidade</a>
+                <a href="/cadastro" className="inline-flex min-h-11 items-center font-semibold text-accent-strong hover:underline sm:min-h-0">Cadastre a sua unidade</a>
               </>
             ) : (
               'Não tem acesso? Entre em contato com o síndico do condomínio.'

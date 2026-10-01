@@ -155,7 +155,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
             <Users className="h-3.5 w-3.5 text-accent" /> Outros moradores
           </h3>
           {dependentes.length < MAX_DEPENDENTES && (
-            <button type="button" onClick={() => setDependentes((p) => [...p, { nome: '', telefone: '' }])} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-accent-strong hover:bg-accent-50">
+            <button type="button" onClick={() => setDependentes((p) => [...p, { nome: '', telefone: '' }])} className="flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-xs sm:min-h-0 font-semibold text-accent-strong hover:bg-accent-50">
               <Plus className="h-3.5 w-3.5" /> Adicionar
             </button>
           )}
@@ -173,7 +173,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
                 <label htmlFor={`ac-dep-tel-${i}`} className="sr-only">Telefone do morador {i + 1}</label>
                 <input id={`ac-dep-tel-${i}`} type="tel" placeholder="Telefone (opcional)" value={d.telefone} onChange={(e) => setDependentes((p) => p.map((x, j) => (j === i ? { ...x, telefone: e.target.value } : x)))} className={inputCls} />
               </div>
-              <button type="button" onClick={() => setDependentes((p) => p.filter((_, j) => j !== i))} aria-label={`Remover morador ${i + 1}`} className="mt-1 self-start rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-600">
+              <button type="button" onClick={() => setDependentes((p) => p.filter((_, j) => j !== i))} aria-label={`Remover morador ${i + 1}`} className="mt-1 flex size-11 shrink-0 items-center justify-center self-start rounded-lg text-slate-500 sm:size-auto sm:p-2.5 hover:bg-red-50 hover:text-red-600">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -187,7 +187,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
             <Car className="h-3.5 w-3.5 text-accent" /> Veículos
           </h3>
           {veiculos.length < MAX_VEICULOS && (
-            <button type="button" onClick={() => setVeiculos((p) => [...p, { placa: '', marca: '', modelo: '', cor: '' }])} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-accent-strong hover:bg-accent-50">
+            <button type="button" onClick={() => setVeiculos((p) => [...p, { placa: '', marca: '', modelo: '', cor: '' }])} className="flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-xs sm:min-h-0 font-semibold text-accent-strong hover:bg-accent-50">
               <Plus className="h-3.5 w-3.5" /> Adicionar
             </button>
           )}
@@ -199,7 +199,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
             <div key={i} className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700">Veículo {i + 1}</span>
-                <button type="button" onClick={() => setVeiculos((p) => p.filter((_, j) => j !== i))} aria-label={`Remover veículo ${i + 1}`} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600">
+                <button type="button" onClick={() => setVeiculos((p) => p.filter((_, j) => j !== i))} aria-label={`Remover veículo ${i + 1}`} className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 sm:size-auto sm:p-1.5">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -227,7 +227,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
 
       {modo === 'novo' && (
         <label className="flex items-start gap-2.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-xs text-slate-700">
-          <input type="checkbox" checked={consentimento} onChange={(e) => setConsentimento(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-primary" />
+          <input type="checkbox" checked={consentimento} onChange={(e) => setConsentimento(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-primary" />
           <span>
             Concordo que meu <strong>nome</strong> e minha <strong>unidade</strong> fiquem visíveis para os demais moradores na lista de unidades do condomínio.
             Telefone, e-mail, CPF e veículos ficam restritos à administração.

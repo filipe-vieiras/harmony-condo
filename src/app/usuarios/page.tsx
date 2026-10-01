@@ -174,7 +174,7 @@ function UsuariosContent() {
 
         <button
           onClick={handleOpenModal}
-          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
+          className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:min-h-0"
         >
           <Plus className="h-4 w-4 text-accent" />
           <span>Novo Usuário da Equipe</span>
@@ -240,12 +240,12 @@ function UsuariosContent() {
                       {u.unidade ? `Apto ${u.unidade}-${u.bloco}` : '—'}
                     </td>
                     <td data-label="Ações" className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-2 sm:gap-1">
                         <button
                           onClick={() => handleResetPassword(u.id)}
                           title="Gerar link de redefinição de senha"
                           aria-label={`Gerar link de redefinição de senha de ${u.name}`}
-                          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+                          className="flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition sm:min-h-0"
                         >
                           {copiedId === `reset-${u.id}` ? (
                             <>
@@ -264,7 +264,7 @@ function UsuariosContent() {
                             onClick={() => handleDeleteUser(u.id, u.name)}
                             title="Excluir acesso"
                             aria-label={`Excluir acesso de ${u.name}`}
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
+                            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition sm:size-auto sm:p-1.5"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -289,7 +289,7 @@ function UsuariosContent() {
             <button
               onClick={handleSendSelected}
               disabled={selectedIds.length === 0 || sending}
-              className="flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed sm:min-h-0"
             >
               <Link2 className="h-3.5 w-3.5 text-accent" />
               <span>{sending ? 'Gerando...' : `Gerar Links Selecionados (${selectedIds.length})`}</span>
@@ -308,7 +308,7 @@ function UsuariosContent() {
                       aria-label="Selecionar todos os convites"
                       checked={selectedIds.length === pendentes.length}
                       onChange={toggleSelectAll}
-                      className="rounded border-slate-300 text-primary focus:ring-accent"
+                      className="size-5 rounded border-slate-300 text-primary focus:ring-accent"
                     />
                   )}
                 </th>
@@ -333,13 +333,15 @@ function UsuariosContent() {
                     <tr key={i.id} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3">
                         {(i.status === 'PENDENTE' || i.status === 'ERRO') && (
-                          <input
-                            type="checkbox"
-                            aria-label={`Selecionar convite de ${i.nome}`}
-                            checked={selectedIds.includes(i.id)}
-                            onChange={() => toggleSelected(i.id)}
-                            className="rounded border-slate-300 text-primary focus:ring-accent"
-                          />
+                          <label className="flex size-11 cursor-pointer items-center justify-center sm:size-auto">
+                            <input
+                              type="checkbox"
+                              aria-label={`Selecionar convite de ${i.nome}`}
+                              checked={selectedIds.includes(i.id)}
+                              onChange={() => toggleSelected(i.id)}
+                              className="size-5 rounded border-slate-300 text-primary focus:ring-accent"
+                            />
+                          </label>
                         )}
                       </td>
                       <td data-label="Nome" className="px-4 py-3 font-semibold text-slate-900 whitespace-nowrap">
@@ -364,7 +366,7 @@ function UsuariosContent() {
                               onClick={() => handleCopyLink(i.id, i.linkAcesso)}
                               title="Copiar link de acesso"
                               aria-label={`Copiar link de acesso de ${i.nome}`}
-                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-100 transition"
+                              className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-100 transition sm:min-h-0"
                             >
                               {copiedId === i.id ? (
                                 <>
@@ -384,7 +386,7 @@ function UsuariosContent() {
                               onClick={() => cancelPendingInvite(i.id)}
                               title={i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite'}
                               aria-label={`${i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite de'} ${i.nome}`}
-                              className="rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
+                              className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition sm:size-auto sm:p-1.5"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -415,7 +417,7 @@ function UsuariosContent() {
                 <UserCog className="h-5 w-5 text-accent" />
                 <h3 id="usuario-modal-title" className="text-base font-bold text-slate-900">Novo Usuário da Equipe</h3>
               </div>
-              <button onClick={() => setShowModal(false)} aria-label="Fechar" className="rounded-lg p-1 text-slate-500 hover:bg-slate-100">
+              <button onClick={() => setShowModal(false)} aria-label="Fechar" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1">
                 <X className="h-5 w-5" />
               </button>
             </div>

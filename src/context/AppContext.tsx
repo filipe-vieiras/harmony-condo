@@ -701,7 +701,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     await insertNotification(supabase, {
       titulo: `Notificação Disciplinar ${protocolNumber}`,
-      mensagem: `Registrada notificação para a Unidade ${fineData.unidade} Bloco ${fineData.bloco}. Confirme ciência no portal.`,
+      mensagem: `Notificação registrada para a Unidade ${fineData.unidade} Bloco ${fineData.bloco}. Aguarda a ciência do morador.`,
       tipo: 'MULTA',
       unidadeAlvo: fineData.unidade,
       unidadeIdAlvo: fineData.unitId,

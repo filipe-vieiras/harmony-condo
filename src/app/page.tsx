@@ -337,7 +337,7 @@ function DashboardContent() {
               <Megaphone className="h-5 w-5 text-accent" />
               <h2 className="text-base font-bold text-slate-900">Mural de Avisos & Comunicados</h2>
             </div>
-            <Link href="/mural" className="text-xs font-semibold text-primary hover:underline">
+            <Link href="/mural" className="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline sm:min-h-0">
               Ver mural completo →
             </Link>
           </div>

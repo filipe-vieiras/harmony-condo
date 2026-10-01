@@ -14,6 +14,7 @@ import {
   Car,
   Check,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   Copy,
   FileUp,
@@ -233,7 +234,7 @@ function AutocadastroContent() {
         <button
           type="button"
           onClick={() => window.print()}
-          className="flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+          className="flex min-h-11 items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:min-h-0"
         >
           <Printer className="h-4 w-4 text-slate-500" />
           <span>Imprimir relatório</span>
@@ -263,7 +264,7 @@ function AutocadastroContent() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 no-print">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 no-print">
         {/* Formulário: abrir/fechar e link */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex items-start justify-between gap-3">
@@ -283,7 +284,7 @@ function AutocadastroContent() {
               aria-checked={autocadastroAberto}
               aria-label="Formulário de autocadastro aberto"
               onClick={handleToggle}
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${autocadastroAberto ? 'bg-emerald-500' : 'bg-slate-300'}`}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-[''] ${autocadastroAberto ? 'bg-emerald-500' : 'bg-slate-300'}`}
             >
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${autocadastroAberto ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
@@ -294,12 +295,12 @@ function AutocadastroContent() {
               value={link}
               aria-label="Link do formulário de autocadastro"
               onFocus={(e) => e.target.select()}
-              className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 sm:min-h-0"
             />
             <button
               type="button"
               onClick={handleCopiar}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover"
+              className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover sm:min-h-0"
             >
               {copiado ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copiado ? 'Copiado!' : 'Copiar'}
@@ -312,12 +313,17 @@ function AutocadastroContent() {
           )}
         </div>
 
-        {/* Importação da planilha */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-            <FileUp className="h-4 w-4 text-accent" /> Importar unidades da planilha
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
+        {/* Importação da planilha: tarefa de uma vez só, fica recolhida para a fila de validação
+            (a tarefa de todo dia) aparecer logo. Abre sozinha enquanto não há nenhuma unidade. */}
+        <details open={units.length === 0} className="group rounded-2xl border border-slate-200 bg-white shadow-xs">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-5 py-3 text-sm font-bold text-slate-900 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">
+              <FileUp className="h-4 w-4 text-accent" /> Importar unidades da planilha
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="px-5 pb-5">
+          <p className="text-xs text-slate-500">
             Só bloco e número. Copie as duas colunas do Excel e cole abaixo, ou envie um CSV. Unidades já cadastradas são ignoradas.
           </p>
           <label htmlFor="planilha" className="sr-only">Unidades da planilha</label>
@@ -330,7 +336,7 @@ function AutocadastroContent() {
             className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-accent-strong hover:underline">
+            <label className="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-semibold text-accent-strong hover:underline sm:min-h-0">
               <Upload className="h-3.5 w-3.5" /> Enviar arquivo CSV
               <input type="file" accept=".csv,.txt,text/csv" onChange={handleArquivo} className="sr-only" />
             </label>
@@ -344,13 +350,14 @@ function AutocadastroContent() {
                 type="button"
                 onClick={handleImportar}
                 disabled={!previa || previa.linhas.length === 0 || importando}
-                className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+                className="min-h-11 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-50 sm:min-h-0"
               >
                 {importando ? 'Importando...' : 'Importar'}
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </details>
       </div>
 
       {/* Resumo */}
@@ -373,7 +380,7 @@ function AutocadastroContent() {
                 type="button"
                 onClick={() => setFiltro(f.valor)}
                 aria-pressed={filtro === f.valor}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                className={`min-h-11 rounded-full px-3.5 py-1 text-xs font-semibold transition sm:min-h-0 sm:px-3 ${
                   filtro === f.valor ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -381,12 +388,12 @@ function AutocadastroContent() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <button
               type="button"
               disabled={selecionados.length === 0 || processando}
               onClick={() => decidir(selecionados, 'RECUSAR')}
-              className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
+              className="min-h-11 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40 sm:min-h-0"
             >
               Recusar ({selecionados.length})
             </button>
@@ -394,7 +401,7 @@ function AutocadastroContent() {
               type="button"
               disabled={selecionados.length === 0 || processando}
               onClick={() => decidir(selecionados, 'VALIDAR')}
-              className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+              className="min-h-11 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40 sm:min-h-0"
             >
               {processando ? 'Processando...' : `Validar selecionados (${selecionados.length})`}
             </button>
@@ -410,7 +417,7 @@ function AutocadastroContent() {
           <p className="p-10 text-center text-xs text-slate-500">Nenhuma unidade nesta situação.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="stack-mobile w-full text-left text-xs">
               <thead className="bg-slate-50 text-[12px] uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="w-8 px-4 py-2.5 no-print">
@@ -420,7 +427,7 @@ function AutocadastroContent() {
                       checked={pendentesVisiveis.length > 0 && pendentesVisiveis.every((id) => selecionados.includes(id))}
                       disabled={pendentesVisiveis.length === 0}
                       onChange={(e) => setSelecionados(e.target.checked ? pendentesVisiveis : [])}
-                      className="h-4 w-4 accent-primary"
+                      className="size-5 accent-primary"
                     />
                   </th>
                   <th className="px-4 py-2.5">Unidade</th>
@@ -434,21 +441,41 @@ function AutocadastroContent() {
                   const linhasCadastro = l.pendentes.length > 0 ? l.pendentes : [null];
                   return linhasCadastro.map((p, idx) => (
                     <tr key={`${l.unit.id}-${p?.id ?? 'sem'}`} className="align-top">
-                      <td className="px-4 py-3 no-print">
+                      {/* Coluna própria só no computador; no celular o campo de marcar vai junto da unidade. */}
+                      <td className="oculta-mobile px-4 py-3 no-print">
                         {p && (
                           <input
                             type="checkbox"
                             aria-label={`Selecionar cadastro de ${p.nome}`}
                             checked={selecionados.includes(p.id)}
                             onChange={() => alternarSelecao(p.id)}
-                            className="h-4 w-4 accent-primary"
+                            className="size-5 accent-primary"
                           />
                         )}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 font-bold text-slate-900">
-                        {idx === 0 ? `Apto ${l.unit.numero} — Bl. ${l.unit.bloco}` : ''}
+                      {/* No celular: [marcar] unidade + selo da situação na mesma linha (a coluna Situação some). */}
+                      <td className="sem-rotulo px-4 py-3 font-bold text-slate-900 md:whitespace-nowrap">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 md:block">
+                          <div className="flex items-center gap-1">
+                            {p && (
+                              <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center md:hidden no-print">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Selecionar cadastro de ${p.nome}`}
+                                  checked={selecionados.includes(p.id)}
+                                  onChange={() => alternarSelecao(p.id)}
+                                  className="size-5 accent-primary"
+                                />
+                              </label>
+                            )}
+                            <span className={`whitespace-nowrap ${idx === 0 ? '' : 'md:hidden'}`}>{`Apto ${l.unit.numero} — Bl. ${l.unit.bloco}`}</span>
+                          </div>
+                          <span className="shrink-0 md:hidden">
+                            <Badge className={SITUACAO[l.situacao].cls}>{SITUACAO[l.situacao].label}</Badge>
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td data-label="Responsável" className={`${p ? 'empilhada ' : ''}px-4 py-3`}>
                         {p ? (
                           <>
                             <span className="font-semibold text-slate-900">{p.nome}</span>
@@ -465,10 +492,10 @@ function AutocadastroContent() {
                           <span className="italic text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="oculta-mobile px-4 py-3">
                         <Badge className={SITUACAO[l.situacao].cls}>{SITUACAO[l.situacao].label}</Badge>
                       </td>
-                      <td className="px-4 py-3 no-print">
+                      <td data-label="Cadastro enviado" className={`${p ? 'empilhada ' : ''}px-4 py-3 no-print`}>
                         {p ? (
                           <div className="space-y-1.5">
                             <p className="text-slate-600">{p.email} · {p.telefone}{p.rgCpf ? ` · ${p.rgCpf}` : ''}</p>
@@ -484,12 +511,12 @@ function AutocadastroContent() {
                                 ))}
                               </p>
                             )}
-                            <div className="flex gap-2 pt-1">
+                            <div className="flex gap-2 pt-1 max-sm:pt-2">
                               <button
                                 type="button"
                                 disabled={processando}
                                 onClick={() => decidir([p.id], 'VALIDAR')}
-                                className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[12px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                className="min-h-11 max-sm:flex-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[12px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50 sm:min-h-0"
                               >
                                 Validar
                               </button>
@@ -497,14 +524,14 @@ function AutocadastroContent() {
                                 type="button"
                                 disabled={processando}
                                 onClick={() => decidir([p.id], 'RECUSAR')}
-                                className="rounded-lg border border-red-200 px-2.5 py-1 text-[12px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                className="min-h-11 max-sm:flex-1 rounded-lg border border-red-200 px-2.5 py-1 text-[12px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-50 sm:min-h-0"
                               >
                                 Recusar
                               </button>
                             </div>
                           </div>
                         ) : l.situacao === 'VALIDADO' ? (
-                          <Link href="/moradores" className="text-[12px] font-semibold text-accent-strong hover:underline">Editar em Moradores</Link>
+                          <Link href="/moradores" className="inline-flex min-h-11 items-center text-[12px] font-semibold text-accent-strong hover:underline sm:min-h-0">Editar em Moradores</Link>
                         ) : (
                           <span className="text-[12px] text-slate-400">Nenhum envio</span>
                         )}
