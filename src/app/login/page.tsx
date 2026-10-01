@@ -133,7 +133,7 @@ function LoginForm() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu.email@condominio.com"
                   required
-                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
             </div>
@@ -154,7 +154,7 @@ function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-11 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-11 py-2.5 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
                 <button
                   type="button"
@@ -169,7 +169,7 @@ function LoginForm() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
+              <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
                 <p className="text-xs text-red-700">{error}</p>
               </div>

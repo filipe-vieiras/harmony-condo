@@ -8,6 +8,7 @@ import { NoticeCategory } from '@/types';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 import { isAdmin } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
+import { useModalFocus } from '@/lib/useModalFocus';
 import {
   Megaphone, 
   Search, 
@@ -45,6 +46,7 @@ function MuralContent() {
   const [anexoNome, setAnexoNome] = useState('');
 
   useEscapeToClose(showModal, () => setShowModal(false));
+  useModalFocus(showModal);
 
   const filteredNotices = notices.filter((n) => {
     const matchesSearch =
@@ -103,7 +105,7 @@ function MuralContent() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
+            className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:min-h-0"
           >
             <Printer className="h-4 w-4 text-slate-500" />
             <span>Imprimir Mural</span>
@@ -112,7 +114,7 @@ function MuralContent() {
           {isAdmin(currentUser.role) && (
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
+              className="flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:min-h-0"
             >
               <Plus className="h-4 w-4 text-accent" />
               <span>Novo Comunicado</span>
@@ -124,13 +126,13 @@ function MuralContent() {
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-center gap-3 no-print">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Pesquisar comunicados por palavra-chave..."
-            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            placeholder="Buscar avisos"
+            className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 min-h-11 sm:min-h-0 text-xs text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
           />
         </div>
 
@@ -139,7 +141,7 @@ function MuralContent() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
+              className={`min-h-11 rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition sm:min-h-0 ${
                 selectedCategory === cat
                   ? 'bg-primary text-white'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
@@ -161,8 +163,12 @@ function MuralContent() {
           filteredNotices.map((n) => (
             <div
               key={n.id}
-              className={`rounded-2xl border bg-white p-6 shadow-xs transition hover:shadow-md ${
-                n.fixado ? 'border-accent-300 ring-1 ring-accent-100' : 'border-slate-200'
+              className={`rounded-2xl border ${n.categoria === 'URGENTE' ? '' : 'bg-white'} p-6 shadow-xs transition hover:shadow-md ${
+                n.categoria === 'URGENTE'
+                  ? 'border-red-200 bg-red-50'
+                  : n.fixado
+                  ? 'border-accent-300 ring-1 ring-accent-100'
+                  : 'border-slate-200'
               }`}
             >
               <div className="flex items-start justify-between gap-4">
@@ -222,13 +228,23 @@ function MuralContent() {
                   <span>Publicado por: <strong className="text-slate-800">{n.autor}</strong></span>
                 </div>
 
+                {/* Só vira link quando há endereço http(s) do arquivo; sem ele é texto simples. */}
                 {n.anexoNome && (
-                  <div className="flex items-center gap-1.5 text-xs text-accent-strong font-semibold">
-                    <FileText className="h-4 w-4" />
-                    <span className="hover:underline cursor-pointer">
-                      Documento: {n.anexoNome}
-                    </span>
-                  </div>
+                  n.anexoUrl && /^https?:\/\//i.test(n.anexoUrl) ? (
+                    <a
+                      href={n.anexoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-h-11 items-center gap-1.5 text-xs font-semibold text-accent-strong hover:underline sm:min-h-0"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Documento: {n.anexoNome}</span>
+                    </a>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <span>Documento anexo: {n.anexoNome}</span>
+                    </div>
+                  )
                 )}
               </div>
             </div>
@@ -270,7 +286,7 @@ function MuralContent() {
                   placeholder="Ex: Convocação de Reunião Extraordinária..."
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -281,7 +297,7 @@ function MuralContent() {
                     id="mural-categoria"
                     value={categoria}
                     onChange={(e) => setCategoria(e.target.value as NoticeCategory)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   >
                     <option value="COMUNICADO">Comunicado Geral</option>
                     <option value="URGENTE">Urgente</option>
@@ -297,7 +313,7 @@ function MuralContent() {
                       type="checkbox"
                       checked={fixado}
                       onChange={(e) => setFixado(e.target.checked)}
-                      className="rounded border-slate-300 text-primary focus:ring-accent"
+                      className="rounded border-slate-300 text-primary focus:ring-accent-strong"
                     />
                     <span className="ml-2 font-medium">Fixar como destaque</span>
                   </label>
@@ -313,7 +329,7 @@ function MuralContent() {
                   placeholder="Escreva a mensagem clara para todos os moradores..."
                   value={conteudo}
                   onChange={(e) => setConteudo(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -325,7 +341,7 @@ function MuralContent() {
                   placeholder="Ex: Ata_Assembleia.pdf ou Edital_Reforma.pdf"
                   value={anexoNome}
                   onChange={(e) => setAnexoNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 

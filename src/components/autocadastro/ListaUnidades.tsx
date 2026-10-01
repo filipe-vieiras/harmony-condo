@@ -51,7 +51,7 @@ export function ListaUnidades() {
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por apartamento ou nome..."
           aria-label="Buscar por apartamento ou nome"
-          className="min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs sm:min-h-0 text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs sm:min-h-0 text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
         />
       </div>
 

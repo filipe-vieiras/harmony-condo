@@ -1,0 +1,116 @@
+// Texto legível para a trilha de auditoria (tela de Relatórios). Só apresentação:
+// nada daqui é gravado. Sem dependências de runtime para a bateria de QA poder importar.
+
+export type DetalhesAuditoria = Record<string, unknown> | null | undefined;
+
+export interface AuditoriaLegivel {
+  /** Frase em português que resume o que aconteceu. */
+  frase: string;
+  /** Pares "chave: valor" legíveis, só quando a ação não é conhecida (sem ids). */
+  detalhes: string[];
+  /** Ids e dados técnicos, para o "Detalhes técnicos" recolhido. */
+  tecnicos: { chave: string; valor: string }[];
+}
+
+export const ROTULOS_MODULO: Record<string, string> = {
+  UNIDADES: 'Unidades',
+  RESERVAS: 'Reservas',
+  MULTAS: 'Multas',
+  ESPACOS: 'Espaços',
+  DOCUMENTOS: 'Documentos',
+  SISTEMA: 'Sistema',
+};
+
+const ROTULOS_CHAVE: Record<string, string> = {
+  espaco: 'Espaço',
+  unidade: 'Unidade',
+  bloco: 'Bloco',
+  protocolo: 'Protocolo',
+  valor: 'Valor',
+  aprovado: 'Aprovado',
+  deferido: 'Deferido',
+  motivoRecusa: 'Motivo da recusa',
+  resposta: 'Justificativa',
+  nome: 'Nome',
+  email: 'E-mail',
+  role: 'Perfil',
+  proprietario: 'Proprietário',
+  taxaLimpeza: 'Taxa de limpeza',
+};
+
+// "id", "reservationId", "fineId", "unitId", "contaId", "usuario_id"…
+const ehChaveTecnica = (chave: string) => /^id$/i.test(chave) || /(Id|_id|Ids|_ids)$/.test(chave);
+
+const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function texto(valor: unknown): string {
+  if (typeof valor === 'boolean') return valor ? 'Sim' : 'Não';
+  if (typeof valor === 'string') return valor;
+  if (typeof valor === 'number') return String(valor);
+  return JSON.stringify(valor);
+}
+
+const str = (v: unknown): string => (typeof v === 'string' || typeof v === 'number' ? String(v).trim() : '');
+
+function rotuloUnidade(d: Record<string, unknown>): string {
+  const unidade = str(d.unidade);
+  const bloco = str(d.bloco);
+  if (!unidade) return '';
+  return bloco ? `unidade ${unidade}, bloco ${bloco}` : `unidade ${unidade}`;
+}
+
+/** "Multa NOT-2026/004" (ou "Notificação" quando não há protocolo gravado). */
+function multa(d: Record<string, unknown>): string {
+  const p = str(d.protocolo);
+  return p ? `Multa ${p}` : 'Multa';
+}
+
+/**
+ * Transforma um registro de auditoria em frase legível. Ações conhecidas ganham
+ * uma frase própria; as demais mostram o texto da ação e uma lista "chave: valor"
+ * sem ids. Ids e objetos aninhados vão sempre para `tecnicos`.
+ */
+export function descreverAuditoria(acao: string, detalhesBrutos: DetalhesAuditoria): AuditoriaLegivel {
+  const d: Record<string, unknown> = detalhesBrutos && typeof detalhesBrutos === 'object' ? detalhesBrutos : {};
+  const entradas = Object.entries(d).filter(([, v]) => v !== null && v !== undefined && v !== '');
+
+  const tecnicos = entradas
+    .filter(([k, v]) => ehChaveTecnica(k) || (typeof v === 'object'))
+    .map(([chave, v]) => ({ chave, valor: texto(v) }));
+
+  let frase: string | null = null;
+
+  if (/^(Aprovou|Recusou) reserva de /.test(acao)) {
+    const espaco = str(d.espaco) || acao.replace(/^(Aprovou|Recusou) reserva de /, '');
+    const aprovada = acao.startsWith('Aprovou');
+    const un = rotuloUnidade(d);
+    frase = `Reserva de ${espaco}${un ? `, ${un}` : ''}: ${aprovada ? 'aprovada' : 'recusada'}.`;
+    const motivo = str(d.motivoRecusa);
+    if (!aprovada && motivo) frase += ` Motivo: ${motivo}`;
+  } else if (/^Emitiu notificação\/multa /.test(acao)) {
+    const protocolo = str(d.protocolo) || acao.replace('Emitiu notificação/multa ', '');
+    const valor = typeof d.valor === 'number' ? d.valor : d.valor == null || d.valor === '' ? NaN : Number(d.valor);
+    const advertencia = Number.isFinite(valor) && valor === 0;
+    const un = rotuloUnidade(d);
+    frase = `${advertencia ? 'Advertência' : 'Multa'} ${protocolo} emitida${un ? ` para a ${un}` : ''}`;
+    if (Number.isFinite(valor) && valor > 0) frase += ` (${brl.format(valor).replace(/ /g, ' ')})`;
+    frase += '.';
+  } else if (/^Registrou ciência/.test(acao)) {
+    frase = `${multa(d)}: ciência registrada.`;
+  } else if (/^Interpôs recurso/.test(acao)) {
+    frase = `${multa(d)}: recurso interposto.`;
+  } else if (/^(Deferiu|Indeferiu) recurso/.test(acao)) {
+    const deferido = acao.startsWith('Deferiu');
+    frase = `${multa(d)}: recurso ${deferido ? 'deferido (multa anulada)' : 'indeferido (multa mantida)'}.`;
+    const resposta = str(d.resposta);
+    if (resposta) frase += ` Justificativa: ${resposta}`;
+  }
+
+  if (frase) return { frase, detalhes: [], tecnicos };
+
+  // Ação não mapeada: o texto da ação já é uma frase; o resto vira "chave: valor" sem ids.
+  const detalhes = entradas
+    .filter(([k, v]) => !ehChaveTecnica(k) && typeof v !== 'object')
+    .map(([k, v]) => `${ROTULOS_CHAVE[k] ?? k}: ${texto(v)}`);
+  return { frase: acao, detalhes, tecnicos };
+}

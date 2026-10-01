@@ -9,6 +9,7 @@ import { useApp } from '@/context/AppContext';
 import { DocumentLink } from '@/types';
 import { isAdmin } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
+import { useModalFocus } from '@/lib/useModalFocus';
 import {
   Link2,
   FileText,
@@ -60,8 +61,11 @@ function LinksContent() {
   const isSindico = isAdmin(currentUser?.role);
 
   useEscapeToClose(showModal, () => setShowModal(false));
+  useModalFocus(showModal);
   useEscapeToClose(showZeladorModal, () => setShowZeladorModal(false));
+  useModalFocus(showZeladorModal);
   useEscapeToClose(showPortalModal, () => setShowPortalModal(false));
+  useModalFocus(showPortalModal);
 
   const handleOpenZeladorModal = () => {
     setZNome(zelador?.nome ?? '');
@@ -449,7 +453,7 @@ function LinksContent() {
                   placeholder="Ex: Ata da Assembleia Geral Ordinária 2026, Polícia Militar"
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -460,7 +464,7 @@ function LinksContent() {
                     id="doc-categoria"
                     value={categoria}
                     onChange={(e) => setCategoria(e.target.value as DocumentLink['categoria'])}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-semibold text-slate-800"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 font-semibold text-slate-800"
                   >
                     <option value="ATA">Ata de Assembleia</option>
                     <option value="REGIMENTO">Regimento Interno</option>
@@ -479,7 +483,7 @@ function LinksContent() {
                       placeholder="Ex: 190 ou (11) 99999-9999"
                       value={telefone}
                       onChange={(e) => setTelefone(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                     />
                   </div>
                 ) : (
@@ -491,7 +495,7 @@ function LinksContent() {
                       placeholder="Ex: PDF (1.5 MB)"
                       value={tamanhoArquivo}
                       onChange={(e) => setTamanhoArquivo(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                     />
                   </div>
                 )}
@@ -506,7 +510,7 @@ function LinksContent() {
                   placeholder="Ex: Decisões aprovadas na assembleia de eleição do síndico e previsão orçamentária."
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -521,7 +525,7 @@ function LinksContent() {
                   placeholder="https://drive.google.com/file/d/... ou https://..."
                   value={linkExterno}
                   onChange={(e) => setLinkExterno(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
                 <span className="text-[12px] text-slate-500">
                   Insira a URL pública ou compartilhada do arquivo para os moradores acessarem.
@@ -582,7 +586,7 @@ function LinksContent() {
                   placeholder="Ex: Sr. Antonio"
                   value={zNome}
                   onChange={(e) => setZNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
               <div>
@@ -594,7 +598,7 @@ function LinksContent() {
                   placeholder="Ex: (11) 98777-6655 / Ramal 91"
                   value={zTelefone}
                   onChange={(e) => setZTelefone(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
               <div>
@@ -606,7 +610,7 @@ function LinksContent() {
                   placeholder="Ex: Das 08h às 17h, de segunda a sábado"
                   value={zHorario}
                   onChange={(e) => setZHorario(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
               <div>
@@ -617,7 +621,7 @@ function LinksContent() {
                   placeholder="Ex: Ausente aos domingos e feriados."
                   value={zObs}
                   onChange={(e) => setZObs(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 
@@ -675,7 +679,7 @@ function LinksContent() {
                   placeholder="Ex: Emissão de 2ª via de boletos e demonstrativos de despesas."
                   value={pDescricao}
                   onChange={(e) => setPDescricao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
               <div>
@@ -687,7 +691,7 @@ function LinksContent() {
                   placeholder="https://portal.suaadministradora.com.br"
                   value={pLink}
                   onChange={(e) => setPLink(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
 

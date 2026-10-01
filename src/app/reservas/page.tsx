@@ -10,6 +10,7 @@ import { ReservationStatus, CommonSpace } from '@/types';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
+import { useModalFocus } from '@/lib/useModalFocus';
 import {
   CalendarDays,
   Plus, 
@@ -93,7 +94,9 @@ function ReservasContent() {
   const isStaff = currentUser?.role !== 'MORADOR';
 
   useEscapeToClose(showModal, () => setShowModal(false));
+  useModalFocus(showModal);
   useEscapeToClose(showSpaceModal, () => setShowSpaceModal(false));
+  useModalFocus(showSpaceModal);
 
   // `spaces` carrega de forma assíncrona do Supabase — se o componente monta
   // antes disso, selectedSpaceId fica preso em '' (useState inicial rodou
@@ -502,7 +505,7 @@ function ReservasContent() {
                         <td data-label="Avaliação / Parecer" className={`px-4 py-3.5 text-[12px] text-slate-600 ${r.status === 'PENDENTE' ? 'oculta-mobile' : ''}`}>
                           {r.status === 'APROVADA' && (
                             <span className="text-emerald-700 font-semibold">
-                              Aprovado por {r.avaliadoPor || 'Administração'} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
+                              Aprovado por {(r.avaliadoPor || 'Administração').replace(/\s*\([A-Z]+\)$/, '')} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
                             </span>
                           )}
                           {r.status === 'RECUSADA' && (
@@ -514,7 +517,7 @@ function ReservasContent() {
                           {r.status === 'PENDENTE' && <span className="text-slate-400">—</span>}
                         </td>
                         {isAdmin(currentUser?.role) && (
-                          <td data-label="Aprovação do Síndico" className={`px-4 py-3.5 text-right no-print md:whitespace-nowrap ${r.status === 'PENDENTE' ? 'max-md:flex-col' : ''}`}>
+                          <td data-label="Aprovação do Síndico" className={`px-4 py-3.5 text-right no-print md:whitespace-nowrap ${r.status === 'PENDENTE' ? 'max-md:flex-col' : 'oculta-mobile'}`}>
                             {r.status === 'PENDENTE' ? (
                               <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:justify-end md:gap-1.5">
                                 <button
@@ -542,9 +545,7 @@ function ReservasContent() {
                                   <span>Recusar</span>
                                 </button>
                               </div>
-                            ) : (
-                              <span className="text-[12px] text-slate-500">Processado</span>
-                            )}
+                            ) : null}
                           </td>
                         )}
                       </tr>
@@ -588,7 +589,7 @@ function ReservasContent() {
                   id="reserva-espaco"
                   value={selectedSpaceId}
                   onChange={(e) => setSelectedSpaceId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                 >
                   {spaces.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -613,7 +614,7 @@ function ReservasContent() {
                         placeholder="Nome completo"
                         value={reservaMoradorNome}
                         onChange={(e) => setReservaMoradorNome(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                       />
                     </div>
                     <div>
@@ -622,7 +623,7 @@ function ReservasContent() {
                         id="reserva-bloco"
                         value={reservaBloco}
                         onChange={(e) => setReservaBloco(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                       >
                         <option value="A">Bloco A</option>
                         <option value="B">Bloco B</option>
@@ -637,7 +638,7 @@ function ReservasContent() {
                         placeholder="Ex: 602"
                         value={reservaUnidade}
                         onChange={(e) => setReservaUnidade(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                       />
                     </div>
                   </div>
@@ -654,7 +655,7 @@ function ReservasContent() {
                     min={hojeLocal()}
                     value={dataReserva}
                     onChange={(e) => setDataReserva(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                   />
                 </div>
                 <div>
@@ -665,7 +666,7 @@ function ReservasContent() {
                     required
                     value={horarioInicio}
                     onChange={(e) => setHorarioInicio(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                   />
                 </div>
                 <div>
@@ -676,7 +677,7 @@ function ReservasContent() {
                     required
                     value={horarioFim}
                     onChange={(e) => setHorarioFim(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                   />
                 </div>
               </div>
@@ -691,7 +692,7 @@ function ReservasContent() {
                   required
                   value={convidados}
                   onChange={(e) => setConvidados(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -712,7 +713,7 @@ function ReservasContent() {
                   type="checkbox"
                   checked={termoAceito}
                   onChange={(e) => setTermoAceito(e.target.checked)}
-                  className="mt-0.5 size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent"
+                  className="mt-0.5 size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent-strong"
                 />
                 <span className="text-[12px] text-slate-600 leading-tight">
                   Declaro ter lido as regras de uso do espaço, responsabilizando-me pela integridade do mobiliário, higienização e respeito à lei do silêncio às 22h00.
@@ -785,7 +786,7 @@ function ReservasContent() {
                   placeholder="Ex: Espaço Gourmet & Lounge, Churrasqueira B"
                   value={spaceNome}
                   onChange={(e) => setSpaceNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -798,7 +799,7 @@ function ReservasContent() {
                   placeholder="Ex: Ambiente climatizado com churrasqueira a carvão, mesas de apoio, freezer e chopeira."
                   value={spaceDescricao}
                   onChange={(e) => setSpaceDescricao(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -812,7 +813,7 @@ function ReservasContent() {
                     required
                     value={spaceCapacidadeMax}
                     onChange={(e) => setSpaceCapacidadeMax(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                   />
                 </div>
                 <div>
@@ -824,7 +825,7 @@ function ReservasContent() {
                     placeholder="09:00 às 22:00"
                     value={spaceHorario}
                     onChange={(e) => setSpaceHorario(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                   />
                 </div>
                 <div>
@@ -837,7 +838,7 @@ function ReservasContent() {
                     required
                     value={spaceTaxaLimpeza}
                     onChange={(e) => setSpaceTaxaLimpeza(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                   />
                 </div>
               </div>
@@ -850,7 +851,7 @@ function ReservasContent() {
                   placeholder="https://exemplo.com/foto-do-espaco.jpg"
                   value={spaceImagemUrl}
                   onChange={(e) => setSpaceImagemUrl(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 min-h-11 sm:min-h-0"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                 />
                 <span className="text-[12px] text-slate-500">
                   Insira o link direto de uma imagem hospedada externamente (Google Drive, Unsplash, etc.)
@@ -865,7 +866,7 @@ function ReservasContent() {
                   placeholder="Ex: Proibido som alto após as 22h00&#10;Entregar as chaves limpas no dia seguinte"
                   value={spaceRegras}
                   onChange={(e) => setSpaceRegras(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-mono min-h-11 sm:min-h-0"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 font-mono min-h-11 sm:min-h-0"
                 />
               </div>
 
@@ -874,7 +875,7 @@ function ReservasContent() {
                   type="checkbox"
                   checked={spaceAtivo}
                   onChange={(e) => setSpaceAtivo(e.target.checked)}
-                  className="size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent"
+                  className="size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent-strong"
                 />
                 <span className="text-xs font-semibold text-slate-700">
                   Espaço disponível para reservas (desmarque se estiver em manutenção)

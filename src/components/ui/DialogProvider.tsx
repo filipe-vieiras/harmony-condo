@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useModalFocus } from '@/lib/useModalFocus';
 
 interface ConfirmOptions {
   title: string;
@@ -82,6 +83,9 @@ function DialogView({
   const confirmRef = useRef<HTMLButtonElement>(null);
   const cancel = () => onClose(isReason ? null : false);
 
+  // Antes do foco inicial abaixo: ele guarda quem abriu o diálogo e prende o Tab.
+  useModalFocus(true);
+
   useEffect(() => {
     (isReason ? textRef.current : confirmRef.current)?.focus();
   }, [isReason]);
@@ -143,7 +147,7 @@ function DialogView({
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={active.options.placeholder ?? 'Explique o motivo para o morador'}
-              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
             />
           </div>
         )}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { Badge } from '@/components/ui/Badge';
@@ -8,6 +8,7 @@ import { useApp } from '@/context/AppContext';
 import { Role } from '@/types';
 import { isAdmin, ROLE_LABELS, SINGLETON_ROLES } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
+import { useModalFocus } from '@/lib/useModalFocus';
 import {
   UserCog,
   Plus,
@@ -21,6 +22,7 @@ import {
   AlertTriangle,
   Clock,
   KeyRound,
+  MessageCircle,
 } from 'lucide-react';
 
 export default function UsuariosPage() {
@@ -54,8 +56,21 @@ function UsuariosContent() {
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sending, setSending] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Link recém-gerado (redefinição ou convite): fica na tela até a pessoa fechar. Só
+  // copiar para a área de transferência não basta, porque no iOS a cópia costuma
+  // falhar depois de uma chamada assíncrona e o link anterior já foi cancelado.
+  const [linkPanel, setLinkPanel] = useState<{ nome: string; link: string } | null>(null);
+  const [copiaFalhou, setCopiaFalhou] = useState(false);
+  const [copiouPainel, setCopiouPainel] = useState(false);
+  const linkPanelRef = useRef<HTMLDivElement>(null);
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (linkPanel) linkPanelRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [linkPanel]);
 
   useEscapeToClose(showModal, () => setShowModal(false));
+  useModalFocus(showModal);
 
   if (!currentUser) return null;
 
@@ -116,17 +131,40 @@ function UsuariosContent() {
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
 
-  const handleCopyLink = async (id: string, link?: string) => {
+  const mostrarLink = (nome: string, link: string) => {
+    setCopiaFalhou(false);
+    setCopiouPainel(false);
+    setLinkPanel({ nome, link });
+  };
+
+  const copiarDoPainel = async () => {
+    if (!linkPanel) return;
+    try {
+      await navigator.clipboard.writeText(linkPanel.link);
+      setCopiaFalhou(false);
+      setCopiouPainel(true);
+      setTimeout(() => setCopiouPainel(false), 2000);
+    } catch {
+      // Sem susto: o link continua no campo, é só selecionar e copiar.
+      setCopiouPainel(false);
+      setCopiaFalhou(true);
+      linkInputRef.current?.focus();
+      linkInputRef.current?.select();
+    }
+  };
+
+  const handleCopyLink = async (id: string, link?: string, nome?: string) => {
     if (!link) {
       setFeedbackMsg({ type: 'error', text: 'Link de acesso não encontrado. Gere novamente.' });
       return;
     }
+    mostrarLink(nome ?? 'o convite', link);
     try {
       await navigator.clipboard.writeText(link);
       setCopiedId(id);
       setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 2000);
     } catch {
-      setFeedbackMsg({ type: 'error', text: 'Não foi possível copiar o link automaticamente.' });
+      setCopiaFalhou(true); // o painel mostra o link e pede para selecionar e copiar
     }
   };
 
@@ -136,12 +174,13 @@ function UsuariosContent() {
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
 
-  const handleResetPassword = async (userId: string) => {
+  const handleResetPassword = async (userId: string, nome: string) => {
     const res = await generatePasswordResetLink(userId);
     if (!res.success || !res.link) {
       setFeedbackMsg({ type: 'error', text: res.message });
       return;
     }
+    mostrarLink(nome, res.link);
     try {
       await navigator.clipboard.writeText(res.link);
       setCopiedId(`reset-${userId}`);
@@ -183,6 +222,7 @@ function UsuariosContent() {
 
       {feedbackMsg && (
         <div
+          role={feedbackMsg.type === 'error' ? 'alert' : 'status'}
           className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between ${
             feedbackMsg.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
@@ -200,6 +240,61 @@ function UsuariosContent() {
           <button onClick={() => setFeedbackMsg(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-600">
             <X className="h-4 w-4" />
           </button>
+        </div>
+      )}
+
+      {linkPanel && (
+        <div
+          ref={linkPanelRef}
+          role="region"
+          aria-label={`Link de acesso para ${linkPanel.nome}`}
+          className="scroll-mt-20 rounded-2xl border border-accent-200 bg-accent-50/60 p-4 sm:p-5"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="text-sm font-bold text-slate-900">Link de acesso para {linkPanel.nome}</h2>
+            <button
+              type="button"
+              onClick={() => setLinkPanel(null)}
+              aria-label="Fechar o link de acesso"
+              className="-mr-2 -mt-2 flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-white/70 hover:text-slate-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <label htmlFor="link-acesso-campo" className="sr-only">Link de acesso</label>
+          <input
+            id="link-acesso-campo"
+            ref={linkInputRef}
+            readOnly
+            value={linkPanel.link}
+            onFocus={(e) => e.currentTarget.select()}
+            className="mt-2 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 select-all focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 sm:text-xs"
+          />
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={copiarDoPainel}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
+            >
+              {copiouPainel ? <Check className="h-4 w-4 text-accent" /> : <Copy className="h-4 w-4 text-accent" />}
+              <span>{copiouPainel ? 'Copiado!' : 'Copiar'}</span>
+            </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`Olá! Este é o seu link de acesso ao portal do condomínio: ${linkPanel.link}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:bg-slate-50"
+            >
+              <MessageCircle className="h-4 w-4 text-emerald-600" />
+              <span>Enviar por WhatsApp</span>
+            </a>
+          </div>
+          {copiaFalhou && (
+            <p role="status" className="mt-2 text-xs font-semibold text-slate-700">
+              Selecione o link e copie.
+            </p>
+          )}
+          <p className="mt-2 text-xs text-slate-600">Cada link vale uma vez só; gerar outro cancela este.</p>
         </div>
       )}
 
@@ -242,7 +337,7 @@ function UsuariosContent() {
                     <td data-label="Ações" className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2 sm:gap-1">
                         <button
-                          onClick={() => handleResetPassword(u.id)}
+                          onClick={() => handleResetPassword(u.id, u.name)}
                           title="Gerar link de redefinição de senha"
                           aria-label={`Gerar link de redefinição de senha de ${u.name}`}
                           className="flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition sm:min-h-0"
@@ -308,7 +403,7 @@ function UsuariosContent() {
                       aria-label="Selecionar todos os convites"
                       checked={selectedIds.length === pendentes.length}
                       onChange={toggleSelectAll}
-                      className="size-5 rounded border-slate-300 text-primary focus:ring-accent"
+                      className="size-5 rounded border-slate-300 text-primary focus:ring-accent-strong"
                     />
                   )}
                 </th>
@@ -339,7 +434,7 @@ function UsuariosContent() {
                               aria-label={`Selecionar convite de ${i.nome}`}
                               checked={selectedIds.includes(i.id)}
                               onChange={() => toggleSelected(i.id)}
-                              className="size-5 rounded border-slate-300 text-primary focus:ring-accent"
+                              className="size-5 rounded border-slate-300 text-primary focus:ring-accent-strong"
                             />
                           </label>
                         )}
@@ -363,7 +458,7 @@ function UsuariosContent() {
                         <div className="flex items-center justify-end gap-1.5">
                           {i.status === 'ENVIADO' && (
                             <button
-                              onClick={() => handleCopyLink(i.id, i.linkAcesso)}
+                              onClick={() => handleCopyLink(i.id, i.linkAcesso, i.nome)}
                               title="Copiar link de acesso"
                               aria-label={`Copiar link de acesso de ${i.nome}`}
                               className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-100 transition sm:min-h-0"
@@ -431,7 +526,7 @@ function UsuariosContent() {
                   required
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
               <div>
@@ -442,7 +537,7 @@ function UsuariosContent() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
               <div>
@@ -451,7 +546,7 @@ function UsuariosContent() {
                   id="usuario-perfil"
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 >
                   {STAFF_ROLES.map((r) => (
                     <option key={r} value={r} disabled={isRoleTaken(r)}>
@@ -460,7 +555,7 @@ function UsuariosContent() {
                   ))}
                 </select>
                 <span className="text-[12px] text-slate-500">
-                  Síndico e Administradora só podem ter um titular ativo por vez.
+                  Síndico e Subsíndico têm um único titular por vez. A Administradora pode ter várias contas.
                 </span>
               </div>
 
@@ -477,7 +572,7 @@ function UsuariosContent() {
                   disabled={isRoleTaken(role)}
                   className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Adicionar à Fila de Convites
+                  Criar convite
                 </button>
               </div>
             </form>
