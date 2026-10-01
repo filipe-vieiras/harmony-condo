@@ -24,6 +24,7 @@ import {
   Printer,
   X
 } from 'lucide-react';
+import { formatarData, formatarMoeda, pluralizar } from '@/lib/formatadores';
 
 function moradorResponsavel(unit: Unit): string {
   const residente = unit.moradores.find((m) => m.tipo === 'TITULAR' || m.tipo === 'INQUILINO');
@@ -291,7 +292,7 @@ function MultasContent() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
                     <Badge className={fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'}>
-                      {fine.tipo === 'MULTA' ? `Multa: R$ ${fine.valor.toFixed(2)}` : 'Advertência Formal'}
+                      {fine.tipo === 'MULTA' ? `Multa: ${formatarMoeda(fine.valor)}` : 'Advertência Formal'}
                     </Badge>
                   </div>
                 </div>
@@ -307,11 +308,11 @@ function MultasContent() {
 
                 <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
                   <div className="flex items-center gap-4 flex-wrap">
-                    <span>Data da Infração: <strong>{fine.dataInfracao}</strong></span>
-                    <span>Prazo p/ Recurso: <strong className="text-red-700">{fine.prazoRecursoData}</strong></span>
+                    <span>Data da Infração: <strong>{formatarData(fine.dataInfracao)}</strong></span>
+                    <span>Prazo p/ Recurso: <strong className="text-red-700">{formatarData(fine.prazoRecursoData)}</strong></span>
                     {fine.evidencias.length > 0 && (
                       <span className="text-slate-600">
-                        📷 {fine.evidencias.length} foto(s) de evidência
+                        📷 {pluralizar(fine.evidencias.length, 'foto de evidência', 'fotos de evidência')}
                       </span>
                     )}
                   </div>
@@ -321,7 +322,7 @@ function MultasContent() {
                     className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-hover no-print"
                   >
                     <Eye className="h-3.5 w-3.5" />
-                    <span>Abrir Prontuário & Recurso →</span>
+                    <span>{fine.status === 'PENDENTE_CIENCIA' ? 'Ver multa e dar ciência' : 'Ver multa'} →</span>
                   </Link>
                 </div>
               </div>

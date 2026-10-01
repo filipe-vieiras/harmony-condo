@@ -21,6 +21,7 @@ import {
   X,
   AlertCircle
 } from 'lucide-react';
+import { formatarData } from '@/lib/formatadores';
 
 export default function MuralPage() {
   return (
@@ -144,7 +145,7 @@ function MuralContent() {
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              {cat === 'TODAS' ? 'Todos' : cat}
+              {cat === 'TODAS' ? 'Todos' : NOTICE_CATEGORY_LABELS[cat as NoticeCategory]}
             </button>
           ))}
         </div>
@@ -191,7 +192,7 @@ function MuralContent() {
                 <div className="flex items-center gap-3 text-xs text-slate-500">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3.5 w-3.5" />
-                    <span>{n.data}</span>
+                    <span className="whitespace-nowrap">{formatarData(n.data)}</span>
                   </span>
 
                   {isAdmin(currentUser.role) && (

@@ -17,6 +17,7 @@ import {
   Car,
   CheckCircle2
 } from 'lucide-react';
+import { formatarData, formatarMoeda } from '@/lib/formatadores';
 
 export default function RelatoriosPage() {
   return (
@@ -188,7 +189,7 @@ function RelatoriosContent() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Multas Emitidas</span>
-              <p className="mt-2 text-2xl font-bold text-red-600">R$ {totalMultasValor.toFixed(2)}</p>
+              <p className="mt-2 text-2xl font-bold text-red-600">{formatarMoeda(totalMultasValor)}</p>
               <p className="mt-0.5 text-xs text-slate-500">{fines.length} ocorrência(s) formalizada(s)</p>
             </div>
 
@@ -248,9 +249,9 @@ function RelatoriosContent() {
                       <td data-label="Infração / Artigo" className="px-4 py-3 max-w-xs truncate text-slate-600" title={f.artigoRegimento}>
                         {f.artigoRegimento}
                       </td>
-                      <td data-label="Data" className="px-4 py-3 text-slate-500">{f.dataEmissao}</td>
+                      <td data-label="Data" className="px-4 py-3 text-slate-500">{formatarData(f.dataEmissao)}</td>
                       <td data-label="Valor" className="px-4 py-3 font-bold text-slate-900">
-                        {f.valor > 0 ? `R$ ${f.valor.toFixed(2)}` : 'Advertência'}
+                        {f.valor > 0 ? formatarMoeda(f.valor) : 'Advertência'}
                       </td>
                       <td data-label="Ciência" className="px-4 py-3">
                         {f.ciencia ? (

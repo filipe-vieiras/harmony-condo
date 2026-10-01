@@ -31,6 +31,7 @@ import {
   EyeOff,
   Eye
 } from 'lucide-react';
+import { formatarData, formatarIntervalo, formatarMoeda, pluralizar } from '@/lib/formatadores';
 
 export default function ReservasPage() {
   return (
@@ -398,7 +399,7 @@ function ReservasContent() {
                     <div className="flex items-center justify-between">
                       <span>Taxa de higienização:</span>
                       <strong className="text-primary">
-                        {spc.taxaLimpeza > 0 ? `R$ ${spc.taxaLimpeza.toFixed(2)}` : 'Isento'}
+                        {spc.taxaLimpeza > 0 ? formatarMoeda(spc.taxaLimpeza) : 'Isento'}
                       </strong>
                     </div>
                   </div>
@@ -443,7 +444,7 @@ function ReservasContent() {
             Cronograma e Histórico de Solicitações
           </h2>
           <span className="text-xs text-slate-500">
-            Total de {reservations.length} solicitação(ões)
+            Total: {pluralizar(reservations.length, 'solicitação', 'solicitações')}
           </span>
         </div>
 
@@ -475,28 +476,28 @@ function ReservasContent() {
 
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/60 transition">
-                        <td data-label="Espaço Comum" className="px-5 py-3.5 font-bold text-slate-900 whitespace-nowrap">
+                        <td data-label="Espaço Comum" className="px-5 py-3.5 font-bold text-slate-900 md:whitespace-nowrap">
                           {r.espacoNome}
                         </td>
-                        <td data-label="Data & Turno" className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="font-semibold text-slate-900">{r.data}</div>
+                        <td data-label="Data & Turno" className="px-5 py-3.5 md:whitespace-nowrap">
+                          <div className="font-semibold text-slate-900">{formatarData(r.data)}</div>
                           <div className="text-[12px] text-slate-500">
-                            {r.horarioInicio} às {r.horarioFim}
+                            {formatarIntervalo(r.horarioInicio, r.horarioFim)}
                           </div>
                         </td>
-                        <td data-label="Unidade / Morador" className="px-5 py-3.5 whitespace-nowrap">
+                        <td data-label="Unidade / Morador" className="px-5 py-3.5 md:whitespace-nowrap">
                           <div className="font-bold text-primary">
                             Apto {r.unidade} - Bloco {r.bloco}
                           </div>
                           <div className="text-[12px] text-slate-500">{r.moradorNome}</div>
                         </td>
-                        <td data-label="Status" className="px-5 py-3.5 whitespace-nowrap">
+                        <td data-label="Status" className="px-5 py-3.5 md:whitespace-nowrap">
                           <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
                         </td>
-                        <td data-label="Avaliação / Parecer" className="px-5 py-3.5 text-[12px] text-slate-600">
+                        <td data-label="Avaliação / Parecer" className={`px-5 py-3.5 text-[12px] text-slate-600 ${r.status === 'PENDENTE' ? 'oculta-mobile' : ''}`}>
                           {r.status === 'APROVADA' && (
                             <span className="text-emerald-700 font-semibold">
-                              Aprovado por {r.avaliadoPor || 'Administração'} em {r.dataAvaliacao || r.dataSolicitacao}
+                              Aprovado por {r.avaliadoPor || 'Administração'} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
                             </span>
                           )}
                           {r.status === 'RECUSADA' && (
@@ -504,19 +505,16 @@ function ReservasContent() {
                               Motivo: {r.motivoRecusa}
                             </span>
                           )}
-                          {r.status === 'PENDENTE' && (
-                            <span className="text-pendente-700 font-medium">
-                              Solicitado em {r.dataSolicitacao}
-                            </span>
-                          )}
+                          {/* Pendente ainda não tem parecer; "Solicitado em" não é parecer. */}
+                          {r.status === 'PENDENTE' && <span className="text-slate-400">—</span>}
                         </td>
                         {isAdmin(currentUser?.role) && (
-                          <td data-label="Aprovação do Síndico" className="px-5 py-3.5 text-right no-print whitespace-nowrap">
+                          <td data-label="Aprovação do Síndico" className={`px-5 py-3.5 text-right no-print md:whitespace-nowrap ${r.status === 'PENDENTE' ? 'max-md:flex-col' : ''}`}>
                             {r.status === 'PENDENTE' ? (
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:justify-end md:gap-1.5">
                                 <button
                                   onClick={() => judgeReservation(r.id, true)}
-                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white transition hover:bg-emerald-700"
+                                  className="flex min-h-11 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold md:min-h-0 md:w-auto text-white transition hover:bg-emerald-700"
                                   title="Aprovar reserva"
                                 >
                                   <Check className="h-3 w-3" />
@@ -526,13 +524,13 @@ function ReservasContent() {
                                   onClick={async () => {
                                     const motivo = await askReason({
                                       title: 'Recusar reserva',
-                                      message: `${r.espacoNome} em ${r.data}, Apto ${r.unidade}-${r.bloco}.`,
+                                      message: `${r.espacoNome} em ${formatarData(r.data)}, Apto ${r.unidade}-${r.bloco}.`,
                                       label: 'Justificativa da recusa',
                                       confirmLabel: 'Recusar reserva',
                                     });
                                     if (motivo) judgeReservation(r.id, false, motivo);
                                   }}
-                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold text-red-700 transition hover:bg-red-50"
+                                  className="flex min-h-11 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold md:min-h-0 md:w-auto text-red-700 transition hover:bg-red-50"
                                   title="Recusar reserva"
                                 >
                                   <X className="h-3 w-3" />

@@ -7,6 +7,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { isAdmin } from '@/lib/roles';
+import { formatarData, formatarMoeda } from '@/lib/formatadores';
 import {
   ShieldAlert,
   ArrowLeft, 
@@ -114,6 +115,11 @@ function MultaDetalheContent() {
 
   if (!currentUser) return null;
 
+  // Texto provisório, a aprovar pelo dono do produto: o app só guarda a data
+  // limite, e a regra de quando o prazo começa a contar é jurídica.
+  const textoCiencia = `Ao confirmar, você declara que recebeu esta notificação. O prazo para recurso vai até ${formatarData(fine.prazoRecursoData)}.`;
+  const precisaCiencia = !fine.ciencia && currentUser.role === 'MORADOR';
+
   return (
     <div className="space-y-6">
       
@@ -181,7 +187,7 @@ function MultaDetalheContent() {
                   fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'
                 }`}
               >
-                {fine.tipo === 'MULTA' ? `Multa: R$ ${fine.valor.toFixed(2)}` : 'Advertência Formal'}
+                {fine.tipo === 'MULTA' ? `Multa: ${formatarMoeda(fine.valor)}` : 'Advertência Formal'}
               </span>
             </div>
 
@@ -189,7 +195,7 @@ function MultaDetalheContent() {
               Auto de Constatação de Infração Condominial
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              Data de Emissão: {fine.dataEmissao} • Prazo Limite para Defesa: <strong>{fine.prazoRecursoData}</strong>
+              Data de Emissão: {formatarData(fine.dataEmissao)} • Prazo Limite para Defesa: <strong>{formatarData(fine.prazoRecursoData)}</strong>
             </p>
           </div>
 
@@ -268,24 +274,29 @@ function MultaDetalheContent() {
 
               {fine.ciencia ? (
                 <p className="mt-1 text-xs text-slate-600">
-                  Registrada em <strong>{fine.ciencia.data}</strong> por <strong>{fine.ciencia.usuarioNome}</strong> ({fine.ciencia.ip})
+                  Registrada em <strong>{formatarData(fine.ciencia.data)}</strong> por <strong>{fine.ciencia.usuarioNome}</strong> ({fine.ciencia.ip})
                 </p>
               ) : (
-                <p className="mt-1 text-xs text-slate-500">
-                  O morador deve confirmar ciência para fins de contagem do prazo recursal.
-                </p>
+                currentUser.role === 'MORADOR' ? (
+                  <p className="mt-1 hidden text-xs text-slate-600 md:block">{textoCiencia}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">
+                    O morador deve confirmar ciência para fins de contagem do prazo recursal.
+                  </p>
+                )
               )}
             </div>
 
             {/* Ação do Morador: Dar Ciência */}
+            {/* No celular a ação fica na barra fixa do fim da página (abaixo). */}
             {!fine.ciencia && currentUser.role === 'MORADOR' && (
               <button
                 type="button"
                 onClick={handleConfirmScience}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 no-print"
+                className="hidden items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold whitespace-nowrap shrink-0 text-white shadow-xs transition hover:bg-primary-hover no-print md:inline-flex"
               >
                 <Check className="h-4 w-4" />
-                <span>Confirmar Ciência Formal</span>
+                <span>Registrar ciência</span>
               </button>
             )}
           </div>
@@ -355,7 +366,7 @@ function MultaDetalheContent() {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-slate-900">
-                    Razões do Recurso do Morador ({fine.recurso.data})
+                    Razões do Recurso do Morador ({formatarData(fine.recurso.data)})
                   </span>
                   <span
                     className={`rounded-full px-2.5 py-0.5 font-bold ${
@@ -393,7 +404,7 @@ function MultaDetalheContent() {
                 >
                   <div className="flex items-center justify-between text-xs font-bold">
                     <span className={fine.recurso.status === 'DEFERIDO' ? 'text-emerald-900' : 'text-red-900'}>
-                      Decisão Administrativa do Síndico ({fine.recurso.dataResposta})
+                      Decisão Administrativa do Síndico ({formatarData(fine.recurso.dataResposta)})
                     </span>
                     <span className={fine.recurso.status === 'DEFERIDO' ? 'text-emerald-800' : 'text-red-800'}>
                       Julgado por: {fine.recurso.analisadoPor}
@@ -454,6 +465,21 @@ function MultaDetalheContent() {
 
       </div>
 
+
+      {/* Celular: a ação do morador fica sempre à vista, sem precisar rolar até o fim. */}
+      {precisaCiencia && (
+        <div className="sticky bottom-0 z-30 -mx-4 border-t border-border bg-surface px-4 py-3 shadow-md no-print md:hidden">
+          <p className="mb-2 text-xs leading-snug text-slate-600">{textoCiencia}</p>
+          <button
+            type="button"
+            onClick={handleConfirmScience}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white transition hover:bg-primary-hover"
+          >
+            <Check className="h-4 w-4" />
+            <span>Registrar ciência</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

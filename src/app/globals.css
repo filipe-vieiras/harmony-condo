@@ -136,6 +136,10 @@ select:not([multiple]):not([size]):disabled {
     color: #475569;
     text-align: left;
   }
+  /* Célula sem conteúdo útil no celular (ex.: parecer de reserva pendente). */
+  table.stack-mobile td.oculta-mobile {
+    display: none;
+  }
   table.stack-mobile td[colspan] {
     display: block;
     text-align: center;

@@ -1,4 +1,5 @@
 // Bateria completa: fluxos por perfil + segurança. QA_ALVO=staging|producao.
+import { formatarData, formatarMoeda, formatarHorario, formatarIntervalo, pluralizar } from '../../src/lib/formatadores.ts';
 import { avaliarVinculo } from '../../src/lib/vinculoUnidade.ts';
 import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, ALVO } from './lib.mjs';
 
@@ -299,6 +300,35 @@ for (const t of ['profiles', 'units', 'spaces', 'notices', 'documents', 'notific
 }
 ok(abertos.length === 0, `visitante não lê nada ${abertos.join(' ')}`);
 for (const p of ['/', '/moradores', '/autocadastro']) { const r = await api(p); ok(r.status === 307 && r.location?.includes('/login'), `${p} sem login → login`); }
+
+console.log('\n## Formatadores de exibição (src/lib/formatadores.ts)');
+{
+  const igual = (obtido, esperado, nome) => ok(obtido === esperado, `${nome}: ${JSON.stringify(obtido)}`);
+  igual(formatarData('2026-10-01'), '01/10/2026', 'data simples');
+  igual(formatarData('2026-12-31'), '31/12/2026', 'data fim de ano (sem virar o ano)');
+  igual(formatarData('2027-01-01'), '01/01/2027', 'data início de ano');
+  igual(formatarData('2026-03-01'), '01/03/2026', 'virada de mês (sem recuar pelo fuso)');
+  igual(formatarData('2028-02-29'), '29/02/2028', 'ano bissexto');
+  igual(formatarData(''), '', 'data vazia');
+  igual(formatarData(undefined), '', 'data indefinida');
+  igual(formatarData('texto livre'), 'texto livre', 'texto que não é data volta como veio');
+  igual(formatarData('2026-10-01T02:00:00.000Z'), new Date('2026-10-01T02:00:00.000Z').toLocaleDateString('pt-BR'), 'timestamp vira a data local');
+  igual(formatarMoeda(150), 'R$ 150,00', 'moeda inteira');
+  igual(formatarMoeda(150.5), 'R$ 150,50', 'moeda com 1 casa');
+  igual(formatarMoeda(0.1 + 0.2), 'R$ 0,30', 'centavos de ponto flutuante');
+  igual(formatarMoeda(1234.567), 'R$ 1.234,57', 'milhar e arredondamento');
+  igual(formatarMoeda(0), 'R$ 0,00', 'zero');
+  igual(formatarHorario('12:00:00'), '12h', 'hora cheia');
+  igual(formatarHorario('12:30:00'), '12h30', 'hora e minutos');
+  igual(formatarHorario('09:05'), '9h05', 'sem segundos e zero à esquerda');
+  igual(formatarHorario('00:00:00'), '0h', 'meia-noite');
+  igual(formatarHorario('Dia todo'), 'Dia todo', 'texto livre volta como veio');
+  igual(formatarIntervalo('12:00:00', '18:00:00'), '12h às 18h', 'intervalo');
+  igual(formatarIntervalo('08:30:00', '22:00:00'), '8h30 às 22h', 'intervalo com minutos');
+  igual(pluralizar(0, 'recurso', 'recursos'), '0 recursos', 'plural de zero');
+  igual(pluralizar(1, 'recurso', 'recursos'), '1 recurso', 'singular');
+  igual(pluralizar(2, 'recurso', 'recursos'), '2 recursos', 'plural');
+}
 
 await limparQA();
 resumo();

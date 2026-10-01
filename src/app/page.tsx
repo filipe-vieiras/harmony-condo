@@ -25,6 +25,7 @@ import {
   Check,
   X,
 } from 'lucide-react';
+import { formatarData, formatarIntervalo, pluralizar } from '@/lib/formatadores';
 
 export default function DashboardPage() {
   return (
@@ -203,8 +204,8 @@ function DashboardContent() {
             </p>
             <p className="mt-0.5 text-xs text-slate-500">
               {currentUser.role === 'MORADOR' 
-                ? (pendingScienceFines.length > 0 ? `${pendingScienceFines.length} pendente(s) de ciência` : 'Nenhuma pendente')
-                : `${activeAppeals.length} recurso(s) em análise`}
+                ? (pendingScienceFines.length > 0 ? pluralizar(pendingScienceFines.length, 'pendente de ciência', 'pendentes de ciência') : 'Nenhuma pendente')
+                : `${pluralizar(activeAppeals.length, 'recurso', 'recursos')} em análise`}
             </p>
           </div>
         ) : (
@@ -264,7 +265,7 @@ function DashboardContent() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    Data: <strong>{r.data}</strong> ({r.horarioInicio} às {r.horarioFim}) • Apto <strong>{r.unidade}-{r.bloco}</strong> ({r.moradorNome})
+                    Data: <strong>{formatarData(r.data)}</strong> ({formatarIntervalo(r.horarioInicio, r.horarioFim)}) • Apto <strong>{r.unidade}-{r.bloco}</strong> ({r.moradorNome})
                   </p>
                 </div>
 
@@ -280,7 +281,7 @@ function DashboardContent() {
                     onClick={async () => {
                       const motivo = await askReason({
                         title: 'Recusar reserva',
-                        message: `${r.espacoNome} em ${r.data}, Apto ${r.unidade}-${r.bloco}.`,
+                        message: `${r.espacoNome} em ${formatarData(r.data)}, Apto ${r.unidade}-${r.bloco}.`,
                         label: 'Justificativa da recusa',
                         confirmLabel: 'Recusar reserva',
                       });
@@ -369,7 +370,7 @@ function DashboardContent() {
                   >
                     {NOTICE_CATEGORY_LABELS[notice.categoria]}
                   </span>
-                  <span className="text-slate-500">{notice.data}</span>
+                  <span className="text-slate-500">{formatarData(notice.data)}</span>
                 </div>
 
                 <h3 className="mt-2 text-sm font-bold text-slate-900">{notice.titulo}</h3>
