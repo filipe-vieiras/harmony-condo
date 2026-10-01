@@ -60,6 +60,11 @@ Migrações rodam primeiro em staging. Bateria de QA em `scripts/qa/`.
   mais de uma unidade fica para a etapa 2** (o sistema assume uma unidade por morador; migração,
   regras de acesso e seletor de unidade), condicionada a quantos proprietários da planilha têm
   2 ou mais unidades. Especificação: `docs/specs/2026-10-01-vincular-unidade-a-conta-existente.md`.
+- **Revisão de design no celular (2026-10-01):** 12 achados implementados em 3 lotes (sino, reservas do
+  síndico, ciência da multa, formatos pt-BR; Autocadastro em cartões, alvos de toque de 44px, formulários,
+  estados vazios; Início do morador só reordenado, carregamento, menu e login). O visual rejeitado
+  (cartão de próxima ação + abas embaixo) **não** foi recriado. Pendente: logo com fundo transparente ou
+  versão horizontal, a fornecer pelo dono (o arquivo atual é um quadrado opaco com texto pequeno).
 - **Limpeza da base pelo painel (botão "digite DELETE"): adiado**, por risco em produção.
   Se voltar: só Síndico, exportação obrigatória antes, registro que não pode ser apagado.
 
@@ -76,9 +81,10 @@ diferencial, **a validar com um síndico**.
 - O que o dono não gostou no Início novo do morador?
 
 ## Pendências conhecidas
-Texto da ciência da multa (barra no celular) é **provisório e precisa ser aprovado**: "Ao confirmar,
-você declara que recebeu esta notificação. O prazo para recurso vai até DD/MM/AAAA." (sem número de
-dias, porque o app só guarda a data limite) · **upload de foto de evidência da multa** (hoje o campo
+Texto da ciência da multa (barra no celular) **aprovado pelo dono em 2026-10-01**: "Ao confirmar, você declara
+que recebeu esta notificação. O prazo para recurso vai até DD/MM/AAAA." Sem número de dias, porque o app só guarda
+a data limite; não mudar sem revisão jurídica ·
+· **upload de foto de evidência da multa** (hoje o campo
 pede URL): estimado em 3 a 5 dias de trabalho mais uma conversa de LGPD antes (bucket privado,
 policies, migração, rota com validação, retenção e quem vê) · **excluir sem confirmação**: comunicado
 do Mural e "Cancelar convite" na fila de Usuários apagam direto, avaliar um diálogo ·
