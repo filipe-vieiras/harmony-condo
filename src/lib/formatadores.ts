@@ -44,3 +44,25 @@ export function formatarIntervalo(inicio: string, fim: string): string {
 export function pluralizar(qtd: number, singular: string, plural: string): string {
   return `${qtd} ${qtd === 1 ? singular : plural}`;
 }
+
+export type SituacaoPrazo = 'ENCERRADO' | 'HOJE' | 'ABERTO';
+
+/**
+ * Situação do prazo de recurso, só para exibição (não bloqueia nada). A data é calendário
+ * (sem hora) e vale até o fim do dia; "hoje" é o dia em America/Sao_Paulo, não o do aparelho.
+ */
+export function situacaoDoPrazo(prazo: string | null | undefined, agora: Date = new Date()): SituacaoPrazo {
+  const dia = prazo?.slice(0, 10);
+  if (!dia || !/^\d{4}-\d{2}-\d{2}$/.test(dia)) return 'ABERTO';
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora);
+  if (dia < hoje) return 'ENCERRADO';
+  return dia === hoje ? 'HOJE' : 'ABERTO';
+}
+
+/** "Prazo encerrado em DD/MM/AAAA", "Prazo até hoje" ou "Prazo até DD/MM/AAAA". */
+export function textoDoPrazo(prazo: string, agora: Date = new Date()): string {
+  const s = situacaoDoPrazo(prazo, agora);
+  if (s === 'ENCERRADO') return `Prazo encerrado em ${formatarData(prazo)}`;
+  if (s === 'HOJE') return 'Prazo até hoje';
+  return `Prazo até ${formatarData(prazo)}`;
+}

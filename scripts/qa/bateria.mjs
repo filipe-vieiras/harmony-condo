@@ -1,5 +1,5 @@
 // Bateria completa: fluxos por perfil + segurança. QA_ALVO=staging|producao.
-import { formatarData, formatarMoeda, formatarHorario, formatarIntervalo, pluralizar } from '../../src/lib/formatadores.ts';
+import { formatarData, formatarMoeda, formatarHorario, formatarIntervalo, pluralizar, situacaoDoPrazo, textoDoPrazo } from '../../src/lib/formatadores.ts';
 import { descreverAuditoria } from '../../src/lib/auditoria.ts';
 import { avaliarVinculo } from '../../src/lib/vinculoUnidade.ts';
 import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, ALVO } from './lib.mjs';
@@ -367,6 +367,58 @@ console.log('\n## Formatadores de exibição (src/lib/formatadores.ts)');
   igual(pluralizar(0, 'recurso', 'recursos'), '0 recursos', 'plural de zero');
   igual(pluralizar(1, 'recurso', 'recursos'), '1 recurso', 'singular');
   igual(pluralizar(2, 'recurso', 'recursos'), '2 recursos', 'plural');
+}
+
+console.log('\n## Excluir unidade: conta de equipe não é apagada (spec do ciclo da multa, item 1)');
+{
+  const perfilExiste = async (id) => !!(await admin.from('profiles').select('id').eq('id', id).maybeSingle()).data;
+  const authExiste = async (id) => !!(await admin.auth.admin.getUserById(id)).data?.user;
+  const unidadeCom = async (num, contaId) => (await admin.from('units').insert({ bloco: 'Q', numero: num, proprietario_nome: 'QA titular', proprietario_telefone: '', proprietario_email: '', tipo_ocupacao: 'PROPRIETARIO', moradores: [], vagas_garagem: [], animais: '', usuario_id: contaId, status_convite: 'ATIVO' }).select().single()).data;
+  for (const [nome, chave, num] of [['Síndico', 'sindico', '301'], ['Subsíndico', 'subsindico', '302'], ['ADM', 'adm', '303'], ['Conselho', 'conselho', '304'], ['Portaria', 'portaria', '305']]) {
+    const conta = (await admin.from('profiles').select('id').eq('email', email(chave)).single()).data;
+    const u = await unidadeCom(num, conta.id);
+    // Excluir a unidade como outro perfil de equipe (o Síndico exclui a dele mesma: a conta continua).
+    const r = await api('/api/unidades/excluir', { method: 'POST', cookie: chave === 'sindico' ? ckSind : ckSub, body: { unitId: u.id } });
+    ok(r.status === 200 && r.data.usuarioRemovido === false, `unidade ligada à conta ${nome} é excluída sem apagar a conta (${r.status}, usuarioRemovido=${r.data?.usuarioRemovido})`);
+    ok((await perfilExiste(conta.id)) && (await authExiste(conta.id)), `conta ${nome} continua existindo (perfil e login)`);
+    ok(!(await admin.from('units').select('id').eq('id', u.id)).data.length, `unidade da conta ${nome} foi excluída`);
+  }
+  const idMor = (await admin.from('profiles').select('id').eq('email', email('morador1')).single()).data.id;
+  const uMor = await unidadeCom('306', idMor);
+  const rMor = await api('/api/unidades/excluir', { method: 'POST', cookie: ckSind, body: { unitId: uMor.id } });
+  ok(rMor.status === 200 && rMor.data.usuarioRemovido === true && !(await perfilExiste(idMor)) && !(await authExiste(idMor)), 'unidade de morador comum continua apagando a conta do morador');
+}
+
+console.log('\n## Prazo de recurso: só exibição (spec do ciclo da multa, item 3)');
+{
+  const igual = (obtido, esperado, nome) => ok(obtido === esperado, `${nome}: ${JSON.stringify(obtido)}`);
+  // 15h UTC = 12h em São Paulo (UTC-3). 02h UTC do dia 2 ainda é 23h do dia 1 em São Paulo.
+  const meioDia = new Date('2026-10-01T15:00:00Z');
+  igual(situacaoDoPrazo('2026-09-30', meioDia), 'ENCERRADO', 'prazo de ontem');
+  igual(situacaoDoPrazo('2026-10-01', meioDia), 'HOJE', 'prazo de hoje');
+  igual(situacaoDoPrazo('2026-10-02', meioDia), 'ABERTO', 'prazo de amanhã');
+  igual(situacaoDoPrazo('2026-10-01', new Date('2026-10-02T02:30:00Z')), 'HOJE', 'às 23h30 de SP o prazo do dia ainda vale (UTC já virou o dia)');
+  igual(situacaoDoPrazo('2026-10-01', new Date('2026-10-02T03:00:00Z')), 'ENCERRADO', 'à 0h de SP do dia seguinte o prazo encerra');
+  igual(situacaoDoPrazo('2026-10-01T00:00:00+00:00', meioDia), 'HOJE', 'valor com hora usa só a data');
+  igual(situacaoDoPrazo('', meioDia), 'ABERTO', 'prazo vazio não quebra');
+  igual(textoDoPrazo('2026-09-30', meioDia), 'Prazo encerrado em 30/09/2026', 'texto de prazo encerrado');
+  igual(textoDoPrazo('2026-10-01', meioDia), 'Prazo até hoje', 'texto de prazo de hoje');
+  igual(textoDoPrazo('2026-10-05', meioDia), 'Prazo até 05/10/2026', 'texto de prazo aberto');
+}
+
+console.log('\n## Excluir aviso e cancelar convite: só some se o banco apagou (spec confirmar exclusões)');
+{
+  // O app agora confere se a linha foi apagada (.select no delete). A RLS recusa em silêncio.
+  const { data: av } = await cSind.from('notices').insert({ titulo: 'QA aviso a excluir', conteudo: 'QA', categoria: 'COMUNICADO', autor: 'QA' }).select().single();
+  const negou = await cPort.from('notices').delete().eq('id', av.id).select('id');
+  ok(!negou.error && negou.data.length === 0, 'Portaria: o banco recusa excluir aviso sem erro (retorna 0 linhas)');
+  const negouM = await cM2.from('notices').delete().eq('id', av.id).select('id');
+  ok(!negouM.error && negouM.data.length === 0, 'Morador: o banco recusa excluir aviso (0 linhas)');
+  ok((await cSind.from('notices').delete().eq('id', av.id).select('id')).data.length === 1, 'Síndico exclui o aviso (1 linha)');
+  const { data: cv } = await cAdm.from('pending_invites').insert({ nome: 'QA convite a cancelar', email: email('cancelar'), role: 'PORTARIA', status: 'PENDENTE' }).select().single();
+  const negouC = await cM2.from('pending_invites').delete().eq('id', cv.id).select('id');
+  ok(!negouC.error && negouC.data.length === 0, 'Morador: o banco recusa cancelar convite (0 linhas)');
+  ok((await cAdm.from('pending_invites').delete().eq('id', cv.id).select('id')).data.length === 1, 'ADM cancela o convite (1 linha)');
 }
 
 await limparQA();

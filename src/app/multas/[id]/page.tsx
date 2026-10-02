@@ -9,7 +9,7 @@ import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { isAdmin } from '@/lib/roles';
 import type { FineStatus } from '@/types';
-import { formatarData, formatarMoeda } from '@/lib/formatadores';
+import { formatarData, formatarMoeda, situacaoDoPrazo, textoDoPrazo } from '@/lib/formatadores';
 import {
   ShieldAlert,
   ArrowLeft, 
@@ -161,6 +161,8 @@ function MultaDetalheContent() {
   // Mesma regra que já mostra o botão de recurso no corpo da página.
   const podeInterporRecurso = fine.status === 'CIENCIA_REGISTRADA' && ehMorador;
   const situacao = situacaoDaMulta(fine.status, ehMorador);
+  // Só importa avisar que o prazo passou enquanto ainda não há recurso nem decisão.
+  const prazoSemRecurso = fine.status === 'PENDENTE_CIENCIA' || fine.status === 'CIENCIA_REGISTRADA';
 
   return (
     <div className="space-y-6">
@@ -250,6 +252,9 @@ function MultaDetalheContent() {
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               Data de Emissão: {formatarData(fine.dataEmissao)} • Prazo Limite para Defesa: <strong>{formatarData(fine.prazoRecursoData)}</strong>
+              {prazoSemRecurso && situacaoDoPrazo(fine.prazoRecursoData) === 'ENCERRADO' && (
+                <> • <strong className="text-red-700">{textoDoPrazo(fine.prazoRecursoData)}</strong></>
+              )}
             </p>
           </div>
 
@@ -562,7 +567,7 @@ function MultaDetalheContent() {
       {podeInterporRecurso && !showRecursoForm && (
         <div className="sticky bottom-0 z-30 -mx-4 border-t border-border bg-surface px-4 py-3 shadow-md no-print md:hidden">
           <p className="mb-2 text-xs leading-snug text-slate-600">
-            Prazo até <strong>{formatarData(fine.prazoRecursoData)}</strong>
+            <strong>{textoDoPrazo(fine.prazoRecursoData)}</strong>
           </p>
           <button
             type="button"
@@ -599,7 +604,7 @@ function situacaoDaMulta(status: FineStatus, ehMorador: boolean): { texto: strin
         ? { texto: 'Recurso negado (multa mantida)', formal: 'Recurso indeferido (multa mantida)', cor: 'bg-red-100 text-red-800' }
         : { texto: 'Recurso indeferido (multa mantida)', cor: 'bg-red-100 text-red-800' };
     default:
-      return { texto: 'Concluída', cor: 'bg-slate-100 text-slate-700' };
+      return { texto: 'Encerrada', cor: 'bg-slate-100 text-slate-700' };
   }
 }
 

@@ -70,7 +70,7 @@ interface AppContextType {
   deleteVehicle: (id: string) => Promise<{ success: boolean; message: string }>;
   notices: Notice[];
   addNotice: (notice: Omit<Notice, 'id' | 'data'>) => Promise<void>;
-  deleteNotice: (id: string) => Promise<void>;
+  deleteNotice: (id: string) => Promise<{ success: boolean; message: string }>;
   fines: FineNotice[];
   addFine: (fine: Omit<FineNotice, 'id' | 'numeroProtocolo' | 'dataEmissao' | 'status' | 'evidencias' | 'ciencia' | 'recurso'>) => Promise<{ success: boolean; message: string }>;
   confirmFineScience: (fineId: string) => Promise<{ success: boolean; message: string }>;
@@ -91,7 +91,7 @@ interface AppContextType {
   systemUsers: User[];
   pendingInvites: PendingInvite[];
   createStaffInvite: (data: { nome: string; email: string; role: Role }) => Promise<{ success: boolean; message: string }>;
-  cancelPendingInvite: (id: string) => Promise<void>;
+  cancelPendingInvite: (id: string) => Promise<{ success: boolean; message: string }>;
   sendPendingInvites: (ids: string[]) => Promise<{ success: boolean; message: string }>;
   deleteSystemUser: (userId: string) => Promise<{ success: boolean; message: string }>;
   generatePasswordResetLink: (userId: string) => Promise<{ success: boolean; message: string; link?: string }>;
@@ -573,7 +573,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUnits((prev) => prev.filter((u) => u.id !== id));
     // pending_invites.unit_id tem ON DELETE CASCADE no banco; só precisa refletir no estado local.
     setPendingInvites((prev) => prev.filter((i) => i.unitId !== id));
-    if (target?.usuarioId) {
+    // Conta de equipe não é apagada pela API (só desligada da unidade): continua na lista.
+    if (target?.usuarioId && usuarioRemovido) {
       setSystemUsers((prev) => prev.filter((u) => u.id !== target.usuarioId));
     }
 
@@ -681,9 +682,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const deleteNotice = async (id: string) => {
-    await deleteNoticeDB(supabase, id);
+  const deleteNotice = async (id: string): Promise<{ success: boolean; message: string }> => {
+    const alvo = notices.find((n) => n.id === id);
+    // Só tira da tela se o banco apagou; senão o aviso "sumia" e voltava ao recarregar.
+    const apagou = await deleteNoticeDB(supabase, id);
+    if (!apagou) return { success: false, message: 'Não foi possível excluir. Tente de novo.' };
     setNotices((prev) => prev.filter((n) => n.id !== id));
+    // Só o título: o corpo do aviso não vai para o histórico.
+    await recordAudit('Excluiu o aviso do Mural', 'SISTEMA', { titulo: alvo?.titulo });
+    return { success: true, message: 'Aviso excluído.' };
   };
 
   // ── FINES ──
@@ -884,9 +891,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true, message: 'Convite adicionado à fila. Envie quando estiver pronto.' };
   };
 
-  const cancelPendingInvite = async (id: string) => {
-    await deletePendingInviteDB(supabase, id);
+  const cancelPendingInvite = async (id: string): Promise<{ success: boolean; message: string }> => {
+    const alvo = pendingInvites.find((i) => i.id === id);
+    const apagou = await deletePendingInviteDB(supabase, id);
+    if (!apagou) return { success: false, message: 'Não foi possível cancelar o convite. Tente de novo.' };
     setPendingInvites((prev) => prev.filter((i) => i.id !== id));
+    // Sem e-mail no registro: só o nome (LGPD).
+    await recordAudit('Cancelou o convite de acesso', 'SISTEMA', { nome: alvo?.nome });
+    return { success: true, message: 'Convite cancelado.' };
   };
 
   const sendPendingInvites = async (ids: string[]): Promise<{ success: boolean; message: string }> => {

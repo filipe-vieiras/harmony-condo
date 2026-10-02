@@ -213,9 +213,12 @@ export async function insertNotice(supabase: SupabaseClient, n: Omit<Notice, 'id
   return rowToNotice(data);
 }
 
-export async function deleteNoticeDB(supabase: SupabaseClient, id: string): Promise<void> {
-  const { error } = await supabase.from('notices').delete().eq('id', id);
+// Devolve `true` só se uma linha foi mesmo apagada: a regra de acesso (RLS) recusa em silêncio,
+// sem erro, então conferir só `error` deixaria passar uma exclusão que o banco não fez.
+export async function deleteNoticeDB(supabase: SupabaseClient, id: string): Promise<boolean> {
+  const { data, error } = await supabase.from('notices').delete().eq('id', id).select('id');
   if (error) console.error('deleteNoticeDB:', error);
+  return !error && (data?.length ?? 0) > 0;
 }
 
 // ──────────────────────────────────────────────
@@ -684,9 +687,11 @@ export async function updatePendingInviteDB(
   return rowToPendingInvite(data);
 }
 
-export async function deletePendingInviteDB(supabase: SupabaseClient, id: string): Promise<void> {
-  const { error } = await supabase.from('pending_invites').delete().eq('id', id);
+// Mesmo cuidado de deleteNoticeDB: `true` só se o banco apagou de fato.
+export async function deletePendingInviteDB(supabase: SupabaseClient, id: string): Promise<boolean> {
+  const { data, error } = await supabase.from('pending_invites').delete().eq('id', id).select('id');
   if (error) console.error('deletePendingInviteDB:', error);
+  return !error && (data?.length ?? 0) > 0;
 }
 
 // ──────────────────────────────────────────────

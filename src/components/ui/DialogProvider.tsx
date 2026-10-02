@@ -8,6 +8,8 @@ interface ConfirmOptions {
   title: string;
   message?: string;
   confirmLabel?: string;
+  /** Rótulo do botão neutro (padrão "Cancelar"). Use "Voltar" quando a ação confirmada já se chama "Cancelar ...". */
+  cancelLabel?: string;
   /** Pinta o botão de confirmação de vermelho (exclusões e ações irreversíveis). */
   destructive?: boolean;
 }
@@ -156,15 +158,15 @@ function DialogView({
           <button
             type="button"
             onClick={cancel}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
-            Cancelar
+            {options.cancelLabel ?? 'Cancelar'}
           </button>
           <button
             type="submit"
             ref={confirmRef}
             disabled={!canConfirm}
-            className={`rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${confirmClasses}`}
+            className={`min-h-11 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${confirmClasses}`}
           >
             {options.confirmLabel ?? (options.destructive ? 'Excluir' : 'Confirmar')}
           </button>

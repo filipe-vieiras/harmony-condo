@@ -32,6 +32,7 @@ const ROTULOS_CHAVE: Record<string, string> = {
   motivoRecusa: 'Motivo da recusa',
   resposta: 'Justificativa',
   nome: 'Nome',
+  titulo: 'Título',
   email: 'E-mail',
   role: 'Perfil',
   proprietario: 'Proprietário',

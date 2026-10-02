@@ -6,7 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
-import { FineStatus, Unit } from '@/types';
+import { FineNotice, FineStatus, Unit } from '@/types';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
@@ -25,7 +25,7 @@ import {
   Printer,
   X
 } from 'lucide-react';
-import { formatarData, formatarMoeda, pluralizar } from '@/lib/formatadores';
+import { formatarData, formatarMoeda, pluralizar, situacaoDoPrazo, textoDoPrazo } from '@/lib/formatadores';
 
 function moradorResponsavel(unit: Unit): string {
   const residente = unit.moradores.find((m) => m.tipo === 'TITULAR' || m.tipo === 'INQUILINO');
@@ -38,6 +38,11 @@ export default function MultasPage() {
       <MultasContent />
     </AppShell>
   );
+}
+
+// Prazo de recurso já passou e ninguém recorreu nem houve decisão (só consulta, não muda dados).
+function prazoEncerradoSemRecurso(f: FineNotice): boolean {
+  return (f.status === 'PENDENTE_CIENCIA' || f.status === 'CIENCIA_REGISTRADA') && situacaoDoPrazo(f.prazoRecursoData) === 'ENCERRADO';
 }
 
 function MultasContent() {
@@ -100,6 +105,9 @@ function MultasContent() {
     return true;
   });
 
+  const semCiencia = visibleFines.filter((f) => f.status === 'PENDENTE_CIENCIA').length;
+  const comPrazoEncerrado = visibleFines.filter(prazoEncerradoSemRecurso).length;
+
   const filteredFines = visibleFines.filter((f) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
@@ -107,7 +115,9 @@ function MultasContent() {
       f.moradorNome.toLowerCase().includes(term) ||
       f.unidade.includes(term) ||
       f.descricaoInfracao.toLowerCase().includes(term);
-    const matchesStatus = filterStatus === 'TODOS' || f.status === filterStatus;
+    const matchesStatus =
+      filterStatus === 'TODOS' ||
+      (filterStatus === 'PRAZO_ENCERRADO' ? prazoEncerradoSemRecurso(f) : f.status === filterStatus);
     return matchesSearch && matchesStatus;
   });
 
@@ -117,7 +127,7 @@ function MultasContent() {
     EM_RECURSO: { label: 'Em Recurso', bg: 'bg-purple-100 text-purple-900', text: 'text-purple-900' },
     RECURSO_DEFERIDO: { label: 'Recurso Deferido (Anulada)', bg: 'bg-emerald-100', text: 'text-emerald-800' },
     RECURSO_INDEFERIDO: { label: 'Recurso Indeferido (Mantida)', bg: 'bg-red-100', text: 'text-red-800' },
-    CONCLUIDA: { label: 'Concluída / Paga', bg: 'bg-slate-100', text: 'text-slate-800' },
+    CONCLUIDA: { label: 'Encerrada', bg: 'bg-slate-100', text: 'text-slate-800' },
   };
 
   const selectedUnit = units.find((u) => u.id === unitId);
@@ -249,9 +259,34 @@ function MultasContent() {
             <option value="EM_RECURSO">Em Recurso</option>
             <option value="RECURSO_DEFERIDO">Recurso Deferido</option>
             <option value="RECURSO_INDEFERIDO">Recurso Indeferido</option>
+            {isAdmin(currentUser.role) && <option value="PRAZO_ENCERRADO">Prazo encerrado (sem recurso)</option>}
           </select>
         </div>
       </div>
+
+      {/* Indicadores para a equipe: multas que pedem atenção. Tocar aplica o filtro. */}
+      {isAdmin(currentUser.role) && (semCiencia > 0 || comPrazoEncerrado > 0) && (
+        <div className="flex flex-wrap gap-2 no-print">
+          {semCiencia > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterStatus('PENDENTE_CIENCIA')}
+              className="min-h-11 rounded-xl border border-pendente-200 bg-pendente-50 px-3 py-1.5 text-xs font-semibold text-pendente-800 transition hover:bg-pendente-100 sm:min-h-0"
+            >
+              Sem ciência: {semCiencia}
+            </button>
+          )}
+          {comPrazoEncerrado > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterStatus('PRAZO_ENCERRADO')}
+              className="min-h-11 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-800 transition hover:bg-red-100 sm:min-h-0"
+            >
+              Prazo encerrado: {comPrazoEncerrado}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Lista de Multas */}
       <div className="space-y-4">
@@ -311,7 +346,14 @@ function MultasContent() {
                 <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
                   <div className="flex items-center gap-4 flex-wrap">
                     <span>Data da Infração: <strong>{formatarData(fine.dataInfracao)}</strong></span>
-                    <span>Prazo p/ Recurso: <strong className="text-red-700">{formatarData(fine.prazoRecursoData)}</strong></span>
+                    {prazoEncerradoSemRecurso(fine) ? (
+                      <span><strong className="text-red-700">{textoDoPrazo(fine.prazoRecursoData)}</strong>{fine.status === 'PENDENTE_CIENCIA' && isAdmin(currentUser.role) && ' sem ciência'}</span>
+                    ) : (
+                      <span>
+                        Prazo p/ Recurso: <strong className="text-red-700">{formatarData(fine.prazoRecursoData)}</strong>
+                        {situacaoDoPrazo(fine.prazoRecursoData) === 'HOJE' && (fine.status === 'PENDENTE_CIENCIA' || fine.status === 'CIENCIA_REGISTRADA') && <> ({textoDoPrazo(fine.prazoRecursoData).toLowerCase()})</>}
+                      </span>
+                    )}
                     {fine.evidencias.length > 0 && (
                       <span className="text-slate-600">
                         📷 {pluralizar(fine.evidencias.length, 'foto de evidência', 'fotos de evidência')}

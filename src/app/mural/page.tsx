@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
+import { useDialog } from '@/components/ui/DialogProvider';
 import { NoticeCategory } from '@/types';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 import { isAdmin } from '@/lib/roles';
@@ -37,6 +38,27 @@ function MuralContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
   const [showModal, setShowModal] = useState(false);
+  const { confirm } = useDialog();
+  const [erroExclusao, setErroExclusao] = useState<string | null>(null);
+  // Trava contra duplo toque: enquanto um aviso está sendo excluído, não abre outra exclusão dele.
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
+
+  const handleDeleteNotice = async (id: string, titulo: string) => {
+    if (excluindoId) return;
+    setErroExclusao(null);
+    const curto = titulo.length > 60 ? `${titulo.slice(0, 57).trimEnd()}…` : titulo;
+    const confirmou = await confirm({
+      title: `Excluir o aviso "${curto}"?`,
+      message: 'Ele deixa de aparecer para todos os moradores e não dá para recuperar.',
+      confirmLabel: 'Excluir aviso',
+      destructive: true,
+    });
+    if (!confirmou) return;
+    setExcluindoId(id);
+    const res = await deleteNotice(id);
+    setExcluindoId(null);
+    if (!res.success) setErroExclusao(res.message);
+  };
 
   // Form states
   const [titulo, setTitulo] = useState('');
@@ -123,6 +145,15 @@ function MuralContent() {
         </div>
       </div>
 
+      {erroExclusao && (
+        <div role="alert" className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-900 no-print">
+          <span>{erroExclusao}</span>
+          <button onClick={() => setErroExclusao(null)} aria-label="Fechar mensagem" className="-m-3.5 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-center gap-3 no-print">
         <div className="relative flex-1 w-full">
@@ -203,7 +234,8 @@ function MuralContent() {
 
                   {isAdmin(currentUser.role) && (
                     <button
-                      onClick={() => deleteNotice(n.id)}
+                      onClick={() => handleDeleteNotice(n.id, n.titulo)}
+                      disabled={excluindoId === n.id}
                       className="rounded-lg p-1 text-slate-500 hover:bg-red-50 hover:text-red-600 transition no-print"
                       title="Excluir comunicado"
                       aria-label="Excluir comunicado"
