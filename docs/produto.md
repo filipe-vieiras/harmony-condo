@@ -37,6 +37,8 @@ Migrações rodam primeiro em staging. Bateria de QA em `scripts/qa/`.
 
 ## Decisões tomadas (e por quê)
 - **Nome do produto (02/10/2026): "Harmony".** O dono decidiu que o produto se chama apenas Harmony (antes aparecia como "Harmony Residence"). Vale para interface, e-mails, relatórios impressos, documentos e conversas da equipe. Ajustar os textos existentes é trabalho a planejar; o nome do condomínio (Harmony Residence) continua sendo o do cliente, não o do produto.
+- **Marca (02/10/2026):** o logotipo e o lótus atuais são a marca do **condomínio** (Harmony Residence), não do produto. O produto Harmony ainda não tem marca própria. Decisão do dono: criar a identidade do produto (símbolo, logotipo, uso) ANTES de desenhar o style tile e o redesenho visual; a marca do condomínio passa a ser usada como co-marca (ex.: "Condomínio Harmony Residence" no topo), não como a marca do sistema.
+- **Nome e identidade visual adiados (02/10/2026):** o dono quer vender para outros condomínios no futuro, mas decidiu deixar o naming e o redesenho de layout para mais adiante. Até lá o produto segue chamado "Harmony" e nada de redesenho é implementado. Material pronto para retomar: docs/design/2026-10-02-analise-de-similares.md (direção A confirmada, aproveitar fotos reais das áreas comuns) e docs/design/marca/ (4 conceitos de símbolo para "Harmony"). Alerta: existe a "Harmony Condomínios" (administradora brasileira) e outros produtos com o nome; checar INPI e domínio antes de investir em marca. Caminhos de nome levantados: Pátio, Prumo, Zelo, Elo, Vizi, Convivo (todos a confirmar).
 - **Vários condomínios: adiado.** Quando houver o 2º cliente, instalação separada por
   condomínio ("caminho A", horas de trabalho, isolamento total). Reescrever para
   multi-tenant ("caminho B": 16 tabelas e ~45 regras de acesso) só com demanda concreta,
@@ -97,8 +99,8 @@ mesmo e-mail: formulário público não pode ligar a conta existente; futuro "Ad
 unidade" para morador logado · síndico julgando recurso de multa da própria unidade (risco de
 conflito de interesse, sem tratamento) ·
 Versão da exportação "sem dados sensíveis" (para mandar no grupo) · prazo de expiração dos
-links de acesso no Supabase (decisão de segurança × conforto) · senha 123456 da conta de
-administradora em produção deve ser trocada por uma forte.
+links de acesso no Supabase (decisão de segurança × conforto)
+(Senhas de produção conferidas pelo dono em 02/10/2026: só existem a conta ADM e a do Síndico, ambas dele e sem a senha de teste; issue #14 encerrada.)
 
 ## Agentes de apoio (`.claude/agents/`)
 - `product-manager`: decide o que construir e em que ordem, escreve especificações em `docs/specs/`.
