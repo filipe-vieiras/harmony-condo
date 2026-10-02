@@ -70,6 +70,10 @@ function MultaDetalheContent() {
   const feedbackRef = useRef<HTMLDivElement>(null);
   const justificativaRef = useRef<HTMLTextAreaElement>(null);
   const recursoTextoRef = useRef<HTMLTextAreaElement>(null);
+  // Trava síncrona: dois cliques no mesmo instante abririam dois diálogos antes de o estado mudar.
+  const emCursoRef = useRef(false);
+  const anularBtnRef = useRef<HTMLButtonElement>(null);
+  const apagarBtnRef = useRef<HTMLButtonElement>(null);
 
   // A faixa fica no topo da página; no celular o morador/síndico está lá embaixo, na
   // ação. Traz a faixa para o meio da tela para o resultado não passar despercebido.
@@ -166,10 +170,25 @@ function MultaDetalheContent() {
     if (res.success) setRespostaSindico('');
   };
 
+  // O foco volta ao botão que abriu o diálogo mesmo quando ele foi acionado sem foco (script, toque).
+  const devolverFoco = (ref: React.RefObject<HTMLButtonElement | null>) =>
+    setTimeout(() => { if (ref.current && document.contains(ref.current)) ref.current.focus(); }, 0);
+
   const handleAnular = async () => {
+    if (emCursoRef.current) return;
+    emCursoRef.current = true;
+    try {
+      await anularComMotivo();
+    } finally {
+      emCursoRef.current = false;
+      devolverFoco(anularBtnRef);
+    }
+  };
+
+  const anularComMotivo = async () => {
     const motivo = await askReason({
-      title: 'Anular esta multa?',
-      message: 'A multa continua visível para o morador, marcada como anulada, com o motivo que você escrever. A anulação fica registrada com seu nome e a data. Anular não cancela boleto já emitido: se a multa já foi enviada para cobrança, fale com a administradora.',
+      title: `Anular a multa ${fine.numeroProtocolo}?`,
+      message: 'Depois de anulada, a multa não pode ser reativada. Ela continua visível para o morador, marcada como anulada, com o motivo que você escrever. A anulação fica registrada com seu nome e a data. Anular não cancela boleto já emitido: se a multa já foi enviada para cobrança, fale com a administradora.',
       label: 'Motivo da anulação',
       placeholder: 'Ex.: a infração não foi confirmada pela administração',
       helperText: `O morador vai ler este texto. Mínimo de ${MOTIVO_ANULACAO_MIN} caracteres.`,
@@ -190,6 +209,17 @@ function MultaDetalheContent() {
   };
 
   const handleApagar = async () => {
+    if (emCursoRef.current) return;
+    emCursoRef.current = true;
+    try {
+      await apagarConfirmado();
+    } finally {
+      emCursoRef.current = false;
+      devolverFoco(apagarBtnRef);
+    }
+  };
+
+  const apagarConfirmado = async () => {
     await confirm({
       title: 'Apagar esta multa de vez?',
       message: `A multa ${fine.numeroProtocolo}, do apto ${fine.unidade}, bloco ${fine.bloco}, será apagada junto com recurso, evidências e ciência. O morador deixa de vê-la. Não há como desfazer. Se o objetivo é só cancelar a cobrança, volte e use Anular multa, que mantém o registro.`,
@@ -251,6 +281,7 @@ function MultaDetalheContent() {
           {podeAnular && (
             <button
               type="button"
+              ref={anularBtnRef}
               onClick={handleAnular}
               className="order-last flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:order-none sm:w-auto"
             >
@@ -431,7 +462,7 @@ function MultaDetalheContent() {
         )}
 
         {/* STATUS DA CIÊNCIA FORMAL (REGISTRO JURÍDICO) */}
-        {!anulada && (
+        {/* Numa multa anulada continua aparecendo, só para leitura (histórico e impressão). */}
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -444,6 +475,10 @@ function MultaDetalheContent() {
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     <span>Ciência Confirmada</span>
                   </span>
+                ) : anulada ? (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                    <span>Não registrada</span>
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-pendente-100 px-2.5 py-0.5 text-xs font-bold text-pendente-800">
                     <Clock className="h-3.5 w-3.5" />
@@ -455,6 +490,10 @@ function MultaDetalheContent() {
               {fine.ciencia ? (
                 <p className="mt-1 text-xs text-slate-600">
                   Registrada em <strong>{formatarData(fine.ciencia.data)}</strong> por <strong>{fine.ciencia.usuarioNome}</strong> ({fine.ciencia.ip})
+                </p>
+              ) : anulada ? (
+                <p className="mt-1 text-xs text-slate-600">
+                  A multa foi anulada antes de o morador registrar a ciência.
                 </p>
               ) : (
                 currentUser.role === 'MORADOR' ? (
@@ -469,7 +508,7 @@ function MultaDetalheContent() {
 
             {/* Ação do Morador: Dar Ciência */}
             {/* No celular a ação fica na barra fixa do fim da página (abaixo). */}
-            {!fine.ciencia && currentUser.role === 'MORADOR' && (
+            {!fine.ciencia && currentUser.role === 'MORADOR' && !anulada && (
               <button
                 type="button"
                 onClick={handleConfirmScience}
@@ -481,7 +520,6 @@ function MultaDetalheContent() {
             )}
           </div>
         </div>
-        )}
 
         {/* FLUXO DE RECURSO / DEFESA ADMINISTRATIVA (some numa multa anulada sem recurso) */}
         {(!anulada || fine.recurso) && (
@@ -682,6 +720,7 @@ function MultaDetalheContent() {
           </p>
           <button
             type="button"
+            ref={apagarBtnRef}
             onClick={handleApagar}
             className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 sm:w-auto"
           >

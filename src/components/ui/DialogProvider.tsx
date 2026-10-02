@@ -114,6 +114,9 @@ function DialogView({
   const [text, setText] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  // Trava síncrona: o estado `carregando` só muda no próximo render, e dois cliques no mesmo
+  // instante (duplo toque, script) passariam os dois pela checagem dele.
+  const enviandoRef = useRef(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -151,7 +154,7 @@ function DialogView({
   }, [isReason, onClose, carregando]);
 
   const confirmar = async () => {
-    if (carregando) return;
+    if (carregando || enviandoRef.current) return;
     if (isReason) {
       const curto = validaNoClique ? trimmed.length < minLength! : trimmed.length === 0;
       if (curto) {
@@ -162,6 +165,7 @@ function DialogView({
     }
     const submit = options.onSubmit as ((texto: string) => Promise<DialogSubmitResult>) | undefined;
     if (submit) {
+      enviandoRef.current = true;
       setCarregando(true);
       setErro(null);
       let res: DialogSubmitResult;
@@ -171,6 +175,7 @@ function DialogView({
         res = { ok: false, message: 'Não foi possível concluir. Tente de novo.' };
       }
       if (!res.ok) {
+        enviandoRef.current = false;
         setCarregando(false);
         setErro(res.message);
         return;
