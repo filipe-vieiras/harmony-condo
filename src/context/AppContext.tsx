@@ -26,7 +26,7 @@ import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
   fetchVehicles, insertVehicle, deleteVehicleDB,
   fetchNotices, insertNotice, deleteNoticeDB,
-  fetchFines, insertFine, updateFineDB,
+  fetchFines, insertFine, updateFineDB, anularFineDB, deleteFineDB,
   fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB,
   fetchReservations, insertReservation, updateReservationDB,
   fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
@@ -76,6 +76,10 @@ interface AppContextType {
   confirmFineScience: (fineId: string) => Promise<{ success: boolean; message: string }>;
   submitFineAppeal: (fineId: string, texto: string, anexoNome?: string) => Promise<{ success: boolean; message: string }>;
   judgeFineAppeal: (fineId: string, deferido: boolean, resposta: string) => Promise<{ success: boolean; message: string }>;
+  /** Síndico, Subsíndico e ADM, com motivo (a regra real é a do banco). */
+  annulFine: (fineId: string, motivo: string) => Promise<{ success: boolean; message: string }>;
+  /** Só ADM (a regra real é a do banco). */
+  deleteFine: (fineId: string) => Promise<{ success: boolean; message: string }>;
   spaces: CommonSpace[];
   addSpace: (space: Omit<CommonSpace, 'id'>) => Promise<void>;
   updateSpace: (id: string, space: Partial<Omit<CommonSpace, 'id'>>) => Promise<void>;
@@ -776,6 +780,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true, message: deferido ? 'Recurso deferido — multa anulada.' : 'Recurso indeferido — multa mantida.' };
   };
 
+  // Anular e apagar são gravados no histórico pelo próprio banco (gatilhos da 0029):
+  // aqui só se recarrega a trilha, sem um segundo registro vindo do navegador.
+  const annulFine = async (fineId: string, motivo: string): Promise<{ success: boolean; message: string }> => {
+    const { fine: updated, erro, recusada } = await anularFineDB(supabase, fineId, motivo);
+    if (!updated) {
+      return { success: false, message: recusada && erro ? erro : 'Não foi possível anular a multa. Seu texto foi mantido; tente de novo.' };
+    }
+    setFines((prev) => prev.map((f) => (f.id === fineId ? updated : f)));
+    setAuditLogs(await fetchAuditLogs(supabase));
+    return { success: true, message: 'Multa anulada. O motivo ficou registrado.' };
+  };
+
+  const deleteFine = async (fineId: string): Promise<{ success: boolean; message: string }> => {
+    const res = await deleteFineDB(supabase, fineId);
+    if (!res.ok) {
+      return { success: false, message: res.erro ?? 'Não foi possível apagar a multa. Nada foi alterado; tente de novo.' };
+    }
+    setFines((prev) => prev.filter((f) => f.id !== fineId));
+    // Sem await: a tela de detalhe precisa sair antes de perceber que a multa sumiu da lista.
+    void fetchAuditLogs(supabase).then(setAuditLogs);
+    return { success: true, message: 'Multa apagada.' };
+  };
+
   // ── SPACES ──
 
   const addSpace = async (spaceData: Omit<CommonSpace, 'id'>) => {
@@ -1222,6 +1249,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         confirmFineScience,
         submitFineAppeal,
         judgeFineAppeal,
+        annulFine,
+        deleteFine,
         spaces,
         addSpace,
         updateSpace,

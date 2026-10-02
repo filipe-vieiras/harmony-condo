@@ -421,5 +421,123 @@ console.log('\n## Excluir aviso e cancelar convite: só some se o banco apagou (
   ok((await cAdm.from('pending_invites').delete().eq('id', cv.id).select('id')).data.length === 1, 'ADM cancela o convite (1 linha)');
 }
 
+console.log('\n## Anular e apagar multa (spec 2026-10-02): regra no banco, por API direta');
+{
+  // Conta própria: o morador1 já foi apagado na seção anterior (excluir unidade de morador comum).
+  const { data: uA } = await admin.from('units').insert({ bloco: 'Q', numero: '401', proprietario_nome: 'QA A401', proprietario_telefone: '', proprietario_email: '', tipo_ocupacao: 'PROPRIETARIO', moradores: [] }).select().single();
+  const idA = await criarUsuario(email('moradorA'), { name: 'QA moradorA', role: 'MORADOR', bloco: 'Q', unidade: '401' });
+  await admin.from('units').update({ usuario_id: idA, status_convite: 'ATIVO' }).eq('id', uA.id);
+  const cMA = await clientDe(email('moradorA'));
+  const nova = async (n, extra = {}) => {
+    const { data, error } = await cSind.from('fines').insert({ numero_protocolo: `QA-A${n}`, bloco: 'Q', unidade: '401', unit_id: uA.id, morador_nome: 'QA moradorA', data_infracao: hoje, prazo_recurso_data: daqui(10), artigo_regimento: 'Art. 2', descricao_infracao: 'QA descrição sigilosa', valor: 200, tipo: 'MULTA', ...extra }).select().single();
+    if (error) throw new Error('nova multa: ' + error.message);
+    return data;
+  };
+  const lerF = async (id) => (await admin.from('fines').select('*').eq('id', id).single()).data;
+  const MOTIVO = 'Unidade errada na emissão da multa';
+  const { data: pAdm } = await admin.from('profiles').select('id,name').eq('email', email('adm')).single();
+  const { data: pSind } = await admin.from('profiles').select('id,name').eq('email', email('sindico')).single();
+  const f1 = await nova(1);
+
+  // Motivo obrigatório (mín. 10, máx. 500 depois do trim), para Síndico, Subsíndico e ADM.
+  for (const [nome, c] of [['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm]]) {
+    for (const [desc, motivo] of [['sem motivo', undefined], ['motivo vazio', ''], ['só espaços', '            '], ['motivo curto (9)', '123456789'], ['10 só com espaços nas pontas', '  123456789  '], ['501 caracteres', 'x'.repeat(501)]]) {
+      const r = await c.from('fines').update({ status: 'ANULADA', ...(motivo === undefined ? {} : { anulada_motivo: motivo }) }).eq('id', f1.id).select('id');
+      ok(!!r.error && (await lerF(f1.id)).status === 'PENDENTE_CIENCIA', `${nome} anula ${desc}: recusado e a multa não muda${r.error ? ` ("${r.error.message}")` : ''}`);
+    }
+  }
+  ok(/pelo menos 10 caracteres/.test((await cSind.from('fines').update({ status: 'ANULADA', anulada_motivo: 'curto' }).eq('id', f1.id)).error?.message ?? ''), 'mensagem de motivo curto em português');
+
+  // Carimbo de quem/quando é do servidor: o que o cliente manda é ignorado.
+  const forjado = await cSind.from('fines').update({ status: 'ANULADA', anulada_motivo: `  ${MOTIVO}  `, anulada_por: pAdm.id, anulada_por_nome: 'Fulano Forjado', anulada_por_papel: 'ADM', anulada_em: '2000-01-01T00:00:00Z' }).eq('id', f1.id).select().single();
+  ok(!forjado.error && forjado.data.status === 'ANULADA', `Síndico anula com motivo ${forjado.error?.message ?? ''}`);
+  const a1 = await lerF(f1.id);
+  ok(a1.anulada_por === pSind.id && a1.anulada_por_nome === pSind.name && a1.anulada_por_papel === 'SINDICO', 'quem anulou é o usuário logado (valores forjados ignorados)');
+  ok(Math.abs(Date.now() - new Date(a1.anulada_em).getTime()) < 120000, 'data da anulação é a do servidor (forjada 2000-01-01 ignorada)');
+  ok(a1.anulada_motivo === MOTIVO, 'motivo gravado já sem espaços nas pontas');
+  ok(a1.valor == 200 && a1.artigo_regimento === 'Art. 2', 'anular não apaga nenhum outro campo');
+  const { data: logA } = await admin.from('audit_logs').select('*').eq('acao', 'Anulou multa QA-A1');
+  ok(logA?.length === 1 && logA[0].modulo === 'MULTAS' && logA[0].usuario_id === pSind.id && logA[0].usuario_role === 'SINDICO' && logA[0].detalhes.motivo === MOTIVO && logA[0].detalhes.statusAnterior === 'PENDENTE_CIENCIA', 'anular grava no histórico (gatilho do banco), com motivo e status anterior');
+  ok((await cCons.from('audit_logs').select('id').eq('acao', 'Anulou multa QA-A1')).data.length === 1, 'Conselho lê o registro da anulação');
+
+  // Estado final: ninguém desfaz nem muda, nem o ADM.
+  for (const [nome, c] of [['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm]]) {
+    ok(!!(await c.from('fines').update({ status: 'CIENCIA_REGISTRADA' }).eq('id', f1.id)).error, `${nome} NÃO reativa multa anulada`);
+    ok(!!(await c.from('fines').update({ anulada_motivo: 'Outro motivo qualquer aqui' }).eq('id', f1.id)).error, `${nome} NÃO troca o motivo da anulação`);
+    ok(!!(await c.from('fines').update({ status: 'ANULADA', anulada_motivo: 'Anulando de novo a mesma multa' }).eq('id', f1.id)).error, `${nome} anular multa já anulada: recusado`);
+  }
+  ok((await lerF(f1.id)).anulada_motivo === MOTIVO && (await lerF(f1.id)).status === 'ANULADA', 'multa anulada continua intacta');
+  ok(!!(await cSind.from('fines').update({ anulada_motivo: 'x'.repeat(12) }).eq('id', (await nova(2)).id)).error, 'campos da anulação não valem numa multa que não está ANULADA');
+  ok(!!(await cSind.from('fines').insert({ numero_protocolo: 'QA-A3', bloco: 'Q', unidade: '101', unit_id: uA.id, morador_nome: 'QA', data_infracao: hoje, prazo_recurso_data: daqui(10), artigo_regimento: 'A', descricao_infracao: 'QA', valor: 1, tipo: 'MULTA', status: 'ANULADA', anulada_motivo: MOTIVO, anulada_em: new Date().toISOString() })).error, 'multa nova não nasce ANULADA (escaparia da regra)');
+
+  // Quem não pode anular, por API direta.
+  const f2 = await nova(4);
+  const antes = async () => (await lerF(f2.id)).status;
+  ok(!!(await cMA.from('fines').update({ status: 'ANULADA', anulada_motivo: MOTIVO }).eq('id', f2.id)).error && (await antes()) === 'PENDENTE_CIENCIA', 'Morador dono NÃO anula a própria multa');
+  ok(!!(await cMA.from('fines').update({ anulada_motivo: MOTIVO, anulada_em: new Date().toISOString() }).eq('id', f2.id)).error, 'Morador dono NÃO grava campos da anulação (guard 0024)');
+  ok(!(await cM2.from('fines').select('id').eq('id', f2.id)).data.length, 'Morador de OUTRA unidade nem vê a multa');
+  await cM2.from('fines').update({ status: 'ANULADA', anulada_motivo: MOTIVO }).eq('id', f2.id);
+  ok((await antes()) === 'PENDENTE_CIENCIA', 'Morador de outra unidade NÃO anula');
+  await cCons.from('fines').update({ status: 'ANULADA', anulada_motivo: MOTIVO }).eq('id', f2.id);
+  ok((await antes()) === 'PENDENTE_CIENCIA', 'Conselho NÃO anula');
+  await cPort.from('fines').update({ status: 'ANULADA', anulada_motivo: MOTIVO }).eq('id', f2.id);
+  ok((await antes()) === 'PENDENTE_CIENCIA', 'Portaria NÃO anula');
+  await anon().from('fines').update({ status: 'ANULADA', anulada_motivo: MOTIVO }).eq('id', f2.id);
+  ok((await antes()) === 'PENDENTE_CIENCIA', 'Visitante NÃO anula');
+  await cX.from('fines').update({ status: 'ANULADA', anulada_motivo: MOTIVO }).eq('id', f2.id);
+  ok((await antes()) === 'PENDENTE_CIENCIA', 'Conta sem perfil NÃO anula');
+
+  // Recurso deferido já é uma anulação; recurso em análise é encerrado, sem perder nada.
+  const f3 = await nova(5);
+  await cSind.from('fines').update({ status: 'RECURSO_DEFERIDO', recurso_status: 'DEFERIDO', recurso_resposta: 'QA' }).eq('id', f3.id);
+  ok(!!(await cSind.from('fines').update({ status: 'ANULADA', anulada_motivo: MOTIVO }).eq('id', f3.id)).error && (await lerF(f3.id)).status === 'RECURSO_DEFERIDO', 'anular multa RECURSO_DEFERIDO: recusado');
+  const f4 = await nova(6);
+  await cMA.from('fines').update({ status: 'CIENCIA_REGISTRADA', ciencia_data: new Date().toISOString(), ciencia_usuario_nome: 'QA moradorA' }).eq('id', f4.id);
+  await cMA.from('fines').update({ status: 'EM_RECURSO', recurso_texto: 'QA texto do recurso', recurso_data: new Date().toISOString(), recurso_status: 'EM_ANALISE', recurso_anexo_nome: 'prova.pdf' }).eq('id', f4.id);
+  ok(!(await cSub.from('fines').update({ status: 'ANULADA', anulada_motivo: MOTIVO }).eq('id', f4.id)).error, 'Subsíndico anula multa EM_RECURSO');
+  const a4 = await lerF(f4.id);
+  ok(a4.recurso_texto === 'QA texto do recurso' && a4.recurso_anexo_nome === 'prova.pdf' && a4.recurso_status === 'EM_ANALISE' && !a4.recurso_resposta && a4.ciencia_data, 'recurso encerrado sem julgamento: texto, anexo e ciência preservados, recurso_status não vira deferido/indeferido');
+  ok(!!(await cMA.from('fines').update({ recurso_texto: 'mexendo depois de anulada' }).eq('id', f4.id)).error && (await lerF(f4.id)).recurso_texto === 'QA texto do recurso', 'Morador NÃO altera multa anulada');
+  const lidaM1 = await cMA.from('fines').select('status,anulada_motivo,anulada_por_papel').eq('id', f4.id).single();
+  ok(lidaM1.data?.status === 'ANULADA' && lidaM1.data.anulada_motivo === MOTIVO, 'Morador dono continua vendo a multa anulada, com o motivo');
+
+  // Apagar: só o ADM.
+  const f5 = await nova(7, { valor: 350 });
+  for (const [nome, c] of [['Síndico', cSind], ['Subsíndico', cSub], ['Conselho', cCons], ['Portaria', cPort], ['Morador dono', cMA], ['Morador de outra unidade', cM2], ['Visitante', anon()], ['Conta sem perfil', cX]]) {
+    const r = await c.from('fines').delete().eq('id', f5.id).select('id');
+    ok(!(r.data?.length) && !!(await lerF(f5.id)), `${nome} NÃO apaga multa (${r.error ? 'erro: ' + r.error.message : '0 linhas'}) e ela continua lá`);
+  }
+  ok(!(await admin.from('audit_logs').select('id').eq('acao', 'Apagou multa QA-A7')).data.length, 'tentativas recusadas não deixam registro de exclusão');
+  const apagou = await cAdm.from('fines').delete().eq('id', f5.id).select('id');
+  ok(apagou.data?.length === 1 && !(await lerF(f5.id)), 'ADM apaga a multa (1 linha)');
+  ok(!(await cMA.from('fines').select('id').eq('id', f5.id)).data.length && !(await cSind.from('fines').select('id').eq('id', f5.id)).data.length, 'multa apagada some para morador e equipe');
+  const { data: logD } = await admin.from('audit_logs').select('*').eq('acao', 'Apagou multa QA-A7');
+  const dD = logD?.[0]?.detalhes ?? {};
+  ok(logD?.length === 1 && logD[0].usuario_id === pAdm.id && logD[0].usuario_role === 'ADM' && logD[0].usuario_nome === pAdm.name, 'apagar grava no histórico (gatilho) com nome, perfil e id de quem apagou');
+  ok(dD.protocolo === 'QA-A7' && dD.unidade === '401' && dD.bloco === 'Q' && dD.tipo === 'MULTA' && Number(dD.valor) === 350 && dD.statusAnterior === 'PENDENTE_CIENCIA', 'registro de exclusão traz protocolo, unidade, bloco, tipo, valor e status');
+  ok(!/QA moradorA|sigilosa|recurso_texto|Art\. 2/.test(JSON.stringify(logD?.[0])), 'registro de exclusão NÃO guarda nome do morador, descrição, recurso ou artigo (LGPD)');
+  // ADM apaga também multa anulada (e a em recurso): "ADM apaga qualquer uma".
+  ok((await cAdm.from('fines').delete().eq('id', f1.id).select('id')).data?.length === 1, 'ADM apaga também uma multa já anulada');
+  ok((await cAdm.from('fines').delete().eq('id', f4.id).select('id')).data?.length === 1, 'ADM apaga multa anulada que estava em recurso');
+
+  // O histórico não é editável nem apagável pelo app.
+  const algum = (await admin.from('audit_logs').select('id').eq('acao', 'Anulou multa QA-A1')).data[0];
+  for (const [nome, c] of [['Síndico', cSind], ['ADM', cAdm], ['Conselho', cCons], ['Morador', cMA]]) {
+    const u = await c.from('audit_logs').update({ acao: 'adulterado' }).eq('id', algum.id).select('id');
+    const d = await c.from('audit_logs').delete().eq('id', algum.id).select('id');
+    ok(!u.data?.length && !d.data?.length, `${nome} NÃO edita nem apaga registro do histórico`);
+  }
+  ok((await admin.from('audit_logs').select('acao').eq('id', algum.id).single()).data.acao === 'Anulou multa QA-A1', 'registro do histórico continua como estava');
+
+  // Frases legíveis para a tela de Relatórios.
+  {
+    const igual = (obtido, esperado, nome) => ok(obtido === esperado, `${nome}: ${JSON.stringify(obtido)}`);
+    igual(descreverAuditoria('Anulou multa NOT-2026/004', { fineId: 'x', protocolo: 'NOT-2026/004', unidade: '101', bloco: 'A', statusAnterior: 'PENDENTE_CIENCIA', motivo: 'Unidade errada' }).frase, 'Multa NOT-2026/004 (unidade 101, bloco A) anulada. Motivo: Unidade errada', 'anulação vira frase');
+    igual(descreverAuditoria('Anulou multa NOT-2026/004', { fineId: 'x', protocolo: 'NOT-2026/004', unidade: '101', bloco: 'A', motivo: 'Unidade errada' }).tecnicos.map((t) => t.chave).join(), 'fineId', 'id da multa só em detalhes técnicos');
+    ok(/^Multa NOT-2026\/005 \(unidade 7, bloco B, multa de R\$\s350,00, estava em recurso\) apagada\.$/.test(descreverAuditoria('Apagou multa NOT-2026/005', { fineId: 'x', protocolo: 'NOT-2026/005', unidade: '7', bloco: 'B', tipo: 'MULTA', valor: 350, statusAnterior: 'EM_RECURSO' }).frase), 'exclusão vira frase com tipo, valor e estado');
+    igual(descreverAuditoria('Apagou multa NOT-2026/006', { protocolo: 'NOT-2026/006', unidade: '7', bloco: 'B', tipo: 'ADVERTENCIA', valor: 0, statusAnterior: 'PENDENTE_CIENCIA' }).frase, 'Multa NOT-2026/006 (unidade 7, bloco B, advertência, estava aguardando ciência) apagada.', 'exclusão de advertência não mostra valor');
+  }
+}
+
 await limparQA();
 resumo();

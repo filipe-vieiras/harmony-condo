@@ -223,6 +223,7 @@ Cada uma tem recomendação padrão. Se o dono não responder, vale a recomenda�
   e mostra "em aberto" para quem já pagou (mesmo motivo da planilha mensal ter sido descartada).
 
 **D4. Permitir anular multa emitida por engano?**
+- **Decidido em 2026-10-02: ver `docs/specs/2026-10-02-anular-e-apagar-multa.md`.**
 - Recomendação: **sim**, estado `ANULADA`, motivo obrigatório, por Síndico/Subsíndico, nunca
   excluir, morador é avisado. Substitui a possibilidade de apagar a multa no banco.
 - Consequência se não: erro de emissão só se resolve mexendo no banco (risco e dependência do

@@ -10,6 +10,9 @@ export function isProvisorio(user?: User | null): boolean {
  * de produto). Mantidos como valores de role distintos para preservar a
  * trilha de auditoria (saber se quem agiu foi o síndico eleito, o
  * subsíndico ou a administradora).
+ *
+ * Exceção decidida pelo dono (2026-10-02): só o ADM APAGA multa; os três anulam.
+ * Ver src/lib/multas.ts e a migração 0029.
  */
 export const ADMIN_ROLES: Role[] = ['SINDICO', 'SUBSINDICO', 'ADM'];
 

@@ -92,6 +92,7 @@ export async function limparQA() {
   await admin.from('documents').delete().like('titulo', 'QA%');
   await admin.from('spaces').delete().like('nome', 'QA%');
   await admin.from('pending_invites').delete().like('email', `%@${DOMINIO}`);
-  await admin.from('audit_logs').delete().or('usuario_nome.like.QA%,acao.like.QA%');
+  // Inclui o que os gatilhos de anular/apagar multa gravaram (acao "Anulou multa QA-..." e a exclusão feita sem usuário logado).
+  await admin.from('audit_logs').delete().or('usuario_nome.like.QA%,acao.like.QA%,acao.like.Anulou multa QA-%,acao.like.Apagou multa QA-%');
   if (ids.length) await admin.from('units').delete().in('id', ids);
 }

@@ -53,7 +53,8 @@ function RelatoriosContent() {
   }
 
   // Cálculos consolidados
-  const totalMultasValor = fines.reduce((acc, f) => acc + f.valor, 0);
+  // Multa anulada não conta como valor emitido (continua na lista, marcada como anulada).
+  const totalMultasValor = fines.reduce((acc, f) => acc + (f.status === 'ANULADA' ? 0 : f.valor), 0);
   const totalMultasComCiencia = fines.filter((f) => f.ciencia).length;
   const totalRecursos = fines.filter((f) => f.recurso).length;
   const totalRecursosDeferidos = fines.filter((f) => f.status === 'RECURSO_DEFERIDO').length;
@@ -256,7 +257,12 @@ function RelatoriosContent() {
                       </td>
                       <td data-label="Data" className="px-4 py-3 text-slate-500">{formatarData(f.dataEmissao)}</td>
                       <td data-label="Valor" className="px-4 py-3 font-bold text-slate-900">
-                        {f.valor > 0 ? formatarMoeda(f.valor) : 'Advertência'}
+                        {f.status === 'ANULADA' ? (
+                          <>
+                            <span className="line-through"><span className="sr-only">valor anulado: </span>{f.valor > 0 ? formatarMoeda(f.valor) : 'Advertência'}</span>
+                            <span className="ml-1.5 text-[12px] font-semibold text-slate-600">Anulada</span>
+                          </>
+                        ) : f.valor > 0 ? formatarMoeda(f.valor) : 'Advertência'}
                       </td>
                       <td data-label="Ciência" className="px-4 py-3">
                         {f.ciencia ? (
