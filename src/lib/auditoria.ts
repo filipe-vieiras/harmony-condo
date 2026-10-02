@@ -32,10 +32,21 @@ const ROTULOS_CHAVE: Record<string, string> = {
   motivoRecusa: 'Motivo da recusa',
   resposta: 'Justificativa',
   nome: 'Nome',
+  titulo: 'Título',
   email: 'E-mail',
   role: 'Perfil',
   proprietario: 'Proprietário',
   taxaLimpeza: 'Taxa de limpeza',
+};
+
+const STATUS_DA_MULTA: Record<string, string> = {
+  PENDENTE_CIENCIA: 'aguardando ciência',
+  CIENCIA_REGISTRADA: 'com ciência registrada',
+  EM_RECURSO: 'em recurso',
+  RECURSO_DEFERIDO: 'com recurso deferido',
+  RECURSO_INDEFERIDO: 'com recurso indeferido',
+  CONCLUIDA: 'encerrada',
+  ANULADA: 'anulada',
 };
 
 // "id", "reservationId", "fineId", "unitId", "contaId", "usuario_id"…
@@ -104,6 +115,20 @@ export function descreverAuditoria(acao: string, detalhesBrutos: DetalhesAuditor
     frase = `${multa(d)}: recurso ${deferido ? 'deferido (multa anulada)' : 'indeferido (multa mantida)'}.`;
     const resposta = str(d.resposta);
     if (resposta) frase += ` Justificativa: ${resposta}`;
+  } else if (/^Anulou multa/.test(acao)) {
+    // Gravado pelo banco (0029). O texto do motivo é do síndico/ADM e o morador também lê.
+    const un = rotuloUnidade(d);
+    frase = `${multa(d)}${un ? ` (${un})` : ''} anulada.`;
+    const motivo = str(d.motivo);
+    if (motivo) frase += ` Motivo: ${motivo}`;
+  } else if (/^Apagou multa/.test(acao)) {
+    // Sem motivo e sem dados do morador, de propósito: só qual multa era e em que estado estava.
+    const un = rotuloUnidade(d);
+    const valor = typeof d.valor === 'number' ? d.valor : d.valor == null || d.valor === '' ? NaN : Number(d.valor);
+    const tipo = d.tipo === 'ADVERTENCIA' || valor === 0 ? 'advertência' : Number.isFinite(valor) ? `multa de ${brl.format(valor).replace(/ /g, ' ')}` : 'multa';
+    const estado = STATUS_DA_MULTA[str(d.statusAnterior)];
+    const partes = [un, tipo, estado ? `estava ${estado}` : ''].filter(Boolean).join(', ');
+    frase = `${multa(d)}${partes ? ` (${partes})` : ''} apagada.`;
   }
 
   if (frase) return { frase, detalhes: [], tecnicos };

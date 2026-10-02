@@ -169,8 +169,31 @@ function UsuariosContent() {
   };
 
   const handleDeleteUser = async (userId: string, nome: string) => {
-    if (!(await confirm({ title: `Excluir o acesso de ${nome}?`, message: 'Essa ação não pode ser desfeita.', confirmLabel: 'Excluir acesso', destructive: true }))) return;
+    if (!(await confirm({ title: `Excluir o acesso de ${nome}?`, message: `${nome} não consegue mais entrar no sistema. Se ela estiver ligada a uma unidade, a unidade fica sem acesso, mas continua cadastrada. Não dá para desfazer.`, confirmLabel: 'Excluir acesso', destructive: true }))) return;
     const res = await deleteSystemUser(userId);
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+  };
+
+  const handleCancelInvite = async (id: string, nome: string, comErro: boolean) => {
+    const confirmou = await confirm(
+      comErro
+        ? {
+            title: `Remover ${nome} da fila?`,
+            message: 'O convite deu erro e não foi enviado. Ele sai da lista; você pode cadastrar de novo.',
+            confirmLabel: 'Remover da fila',
+            cancelLabel: 'Voltar',
+            destructive: true,
+          }
+        : {
+            title: `Cancelar o convite de ${nome}?`,
+            message: 'A pessoa sai da fila e não recebe o link de acesso. Você pode cadastrar o convite de novo depois.',
+            confirmLabel: 'Cancelar convite',
+            cancelLabel: 'Voltar',
+            destructive: true,
+          }
+    );
+    if (!confirmou) return;
+    const res = await cancelPendingInvite(id);
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
 
@@ -478,7 +501,7 @@ function UsuariosContent() {
                           )}
                           {i.status !== 'ENVIADO' && (
                             <button
-                              onClick={() => cancelPendingInvite(i.id)}
+                              onClick={() => handleCancelInvite(i.id, i.nome, i.status === 'ERRO')}
                               title={i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite'}
                               aria-label={`${i.status === 'ERRO' ? 'Remover da fila' : 'Cancelar convite de'} ${i.nome}`}
                               className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition sm:size-auto sm:p-1.5"

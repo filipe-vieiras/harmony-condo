@@ -117,7 +117,8 @@ export type FineStatus =
   | 'EM_RECURSO' 
   | 'RECURSO_DEFERIDO' 
   | 'RECURSO_INDEFERIDO' 
-  | 'CONCLUIDA';
+  | 'CONCLUIDA'
+  | 'ANULADA';
 
 export interface FineEvidence {
   id: string;
@@ -154,6 +155,13 @@ export interface FineNotice {
     dataResposta?: string;
     status: 'EM_ANALISE' | 'DEFERIDO' | 'INDEFERIDO';
     analisadoPor?: string;
+  };
+  /** Preenchido só quando status é ANULADA. Quem anulou e quando são gravados pelo banco. */
+  anulacao?: {
+    motivo: string;
+    porNome: string;
+    porPapel: string;
+    em: string;
   };
 }
 

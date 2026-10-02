@@ -42,7 +42,15 @@ export async function POST(request: NextRequest) {
 
   // Se já existe um usuário/login vinculado a essa unidade, remove ele também
   // (Auth + profile) para não deixar uma conta órfã sem unidade.
+  // Exceção: conta de equipe (Síndico, Subsíndico, ADM, Conselho, Portaria) nunca é apagada
+  // por aqui. O síndico pode morar numa unidade (caso A-101) e excluí-la derrubaria o acesso
+  // dele; ao excluir a unidade o vínculo some junto, e a conta continua existindo.
+  let contaDeEquipe = false;
   if (unit.usuario_id) {
+    const { data: vinculado } = await admin.from('profiles').select('role').eq('id', unit.usuario_id).maybeSingle();
+    contaDeEquipe = !!vinculado && vinculado.role !== 'MORADOR';
+  }
+  if (unit.usuario_id && !contaDeEquipe) {
     await admin.from('profiles').delete().eq('id', unit.usuario_id);
     const { error: authDeleteError } = await admin.auth.admin.deleteUser(unit.usuario_id);
     if (authDeleteError) {

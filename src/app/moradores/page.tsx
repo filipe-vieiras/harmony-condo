@@ -181,7 +181,7 @@ function MoradoresContent() {
   };
 
   const handleDeleteUnit = async (u: Unit) => {
-    if (await confirm({ title: `Excluir a Unidade ${u.numero} (Bloco ${u.bloco})?`, message: 'Essa ação não pode ser desfeita.', confirmLabel: 'Excluir unidade', destructive: true })) {
+    if (await confirm({ title: `Excluir a Unidade ${u.numero} (Bloco ${u.bloco})?`, message: 'Os moradores cadastrados nela saem da lista. Se a unidade tiver uma conta de acesso vinculada, essa conta também é excluída, exceto contas da equipe (Síndico, Subsíndico, Administradora, Conselho, Portaria), que só saem da unidade. Não dá para desfazer.', confirmLabel: 'Excluir unidade', destructive: true })) {
       const res = await deleteUnit(u.id);
       setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     }

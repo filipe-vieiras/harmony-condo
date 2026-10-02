@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
-import { FineStatus, Unit } from '@/types';
+import { FineNotice, FineStatus, Unit } from '@/types';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
+import { AVISO_MULTA_APAGADA, multaAnulada } from '@/lib/multas';
 import {
   ShieldAlert,
   Search,
@@ -23,9 +24,10 @@ import {
   DollarSign,
   Lock,
   Printer,
+  Ban,
   X
 } from 'lucide-react';
-import { formatarData, formatarMoeda, pluralizar } from '@/lib/formatadores';
+import { formatarData, formatarMoeda, pluralizar, situacaoDoPrazo, textoDoPrazo } from '@/lib/formatadores';
 
 function moradorResponsavel(unit: Unit): string {
   const residente = unit.moradores.find((m) => m.tipo === 'TITULAR' || m.tipo === 'INQUILINO');
@@ -40,12 +42,28 @@ export default function MultasPage() {
   );
 }
 
+// Prazo de recurso já passou e ninguém recorreu nem houve decisão (só consulta, não muda dados).
+function prazoEncerradoSemRecurso(f: FineNotice): boolean {
+  return (f.status === 'PENDENTE_CIENCIA' || f.status === 'CIENCIA_REGISTRADA') && situacaoDoPrazo(f.prazoRecursoData) === 'ENCERRADO';
+}
+
 function MultasContent() {
   const { currentUser, fines, addFine, units } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('TODOS');
   const [showModal, setShowModal] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Quem apagou uma multa volta para cá com o aviso deixado pela tela de detalhe.
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(() => {
+    try {
+      const aviso = sessionStorage.getItem(AVISO_MULTA_APAGADA);
+      return aviso ? { type: 'success', text: aviso } : null;
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    try { sessionStorage.removeItem(AVISO_MULTA_APAGADA); } catch { /* sem armazenamento: o aviso só não persiste */ }
+  }, []);
 
   // Form states para nova infração (Síndico)
   // Campos de texto/número começam vazios (não com um exemplo pré-preenchido):
@@ -100,6 +118,9 @@ function MultasContent() {
     return true;
   });
 
+  const semCiencia = visibleFines.filter((f) => f.status === 'PENDENTE_CIENCIA').length;
+  const comPrazoEncerrado = visibleFines.filter(prazoEncerradoSemRecurso).length;
+
   const filteredFines = visibleFines.filter((f) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
@@ -107,7 +128,14 @@ function MultasContent() {
       f.moradorNome.toLowerCase().includes(term) ||
       f.unidade.includes(term) ||
       f.descricaoInfracao.toLowerCase().includes(term);
-    const matchesStatus = filterStatus === 'TODOS' || f.status === filterStatus;
+    // "Anulada" inclui as anuladas pela decisão do recurso; "Recurso Deferido" continua separado.
+    const matchesStatus =
+      filterStatus === 'TODOS' ||
+      (filterStatus === 'PRAZO_ENCERRADO'
+        ? prazoEncerradoSemRecurso(f)
+        : filterStatus === 'ANULADA'
+        ? multaAnulada(f.status)
+        : f.status === filterStatus);
     return matchesSearch && matchesStatus;
   });
 
@@ -117,7 +145,8 @@ function MultasContent() {
     EM_RECURSO: { label: 'Em Recurso', bg: 'bg-purple-100 text-purple-900', text: 'text-purple-900' },
     RECURSO_DEFERIDO: { label: 'Recurso Deferido (Anulada)', bg: 'bg-emerald-100', text: 'text-emerald-800' },
     RECURSO_INDEFERIDO: { label: 'Recurso Indeferido (Mantida)', bg: 'bg-red-100', text: 'text-red-800' },
-    CONCLUIDA: { label: 'Concluída / Paga', bg: 'bg-slate-100', text: 'text-slate-800' },
+    CONCLUIDA: { label: 'Encerrada', bg: 'bg-slate-100', text: 'text-slate-800' },
+    ANULADA: { label: 'Anulada', bg: 'bg-slate-100', text: 'text-slate-700' },
   };
 
   const selectedUnit = units.find((u) => u.id === unitId);
@@ -203,6 +232,7 @@ function MultasContent() {
       {/* Mensagem de Feedback */}
       {feedbackMsg && (
         <div
+          role={feedbackMsg.type === 'error' ? 'alert' : 'status'}
           className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
             feedbackMsg.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
@@ -249,9 +279,35 @@ function MultasContent() {
             <option value="EM_RECURSO">Em Recurso</option>
             <option value="RECURSO_DEFERIDO">Recurso Deferido</option>
             <option value="RECURSO_INDEFERIDO">Recurso Indeferido</option>
+            <option value="ANULADA">Anulada</option>
+            {isAdmin(currentUser.role) && <option value="PRAZO_ENCERRADO">Prazo encerrado (sem recurso)</option>}
           </select>
         </div>
       </div>
+
+      {/* Indicadores para a equipe: multas que pedem atenção. Tocar aplica o filtro. */}
+      {isAdmin(currentUser.role) && (semCiencia > 0 || comPrazoEncerrado > 0) && (
+        <div className="flex flex-wrap gap-2 no-print">
+          {semCiencia > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterStatus('PENDENTE_CIENCIA')}
+              className="min-h-11 rounded-xl border border-pendente-200 bg-pendente-50 px-3 py-1.5 text-xs font-semibold text-pendente-800 transition hover:bg-pendente-100 sm:min-h-0"
+            >
+              Sem ciência: {semCiencia}
+            </button>
+          )}
+          {comPrazoEncerrado > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterStatus('PRAZO_ENCERRADO')}
+              className="min-h-11 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-800 transition hover:bg-red-100 sm:min-h-0"
+            >
+              Prazo encerrado: {comPrazoEncerrado}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Lista de Multas */}
       <div className="space-y-4">
@@ -259,10 +315,12 @@ function MultasContent() {
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
             <h3 className="mt-3 text-sm font-bold text-slate-900">
-              Nenhuma notificação encontrada
+              {filterStatus === 'ANULADA' ? 'Nenhuma multa anulada.' : 'Nenhuma notificação encontrada'}
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              {currentUser.role === 'MORADOR'
+              {filterStatus === 'ANULADA'
+                ? 'Quando uma multa for anulada, ela aparece aqui.'
+                : currentUser.role === 'MORADOR'
                 ? 'Sua unidade está em perfeita harmonia e sem qualquer advertência ou multa registrada!'
                 : 'Não há registros disciplinares correspondentes ao filtro atual.'}
             </p>
@@ -270,6 +328,7 @@ function MultasContent() {
         ) : (
           filteredFines.map((fine) => {
             const st = statusLabels[fine.status] || { label: fine.status, bg: 'bg-slate-100', text: 'text-slate-800' };
+            const anulada = multaAnulada(fine.status);
 
             if (!currentUser) return null;
 
@@ -292,9 +351,16 @@ function MultasContent() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
-                    <Badge className={fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'}>
-                      {fine.tipo === 'MULTA' ? `Multa: ${formatarMoeda(fine.valor)}` : 'Advertência Formal'}
+                    <Badge className={`${st.bg} ${st.text}`} icon={fine.status === 'ANULADA' ? <Ban className="h-3 w-3" aria-hidden="true" /> : undefined}>{st.label}</Badge>
+                    <Badge className={anulada ? 'bg-slate-100 text-slate-600' : fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'}>
+                      {fine.tipo === 'MULTA' ? (
+                        anulada ? (
+                          <span className="line-through">
+                            <span className="sr-only">valor anulado: </span>
+                            Multa: {formatarMoeda(fine.valor)}
+                          </span>
+                        ) : `Multa: ${formatarMoeda(fine.valor)}`
+                      ) : 'Advertência Formal'}
                     </Badge>
                   </div>
                 </div>
@@ -311,7 +377,14 @@ function MultasContent() {
                 <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
                   <div className="flex items-center gap-4 flex-wrap">
                     <span>Data da Infração: <strong>{formatarData(fine.dataInfracao)}</strong></span>
-                    <span>Prazo p/ Recurso: <strong className="text-red-700">{formatarData(fine.prazoRecursoData)}</strong></span>
+                    {anulada ? null : prazoEncerradoSemRecurso(fine) ? (
+                      <span><strong className="text-red-700">{textoDoPrazo(fine.prazoRecursoData)}</strong>{fine.status === 'PENDENTE_CIENCIA' && isAdmin(currentUser.role) && ' sem ciência'}</span>
+                    ) : (
+                      <span>
+                        Prazo p/ Recurso: <strong className="text-red-700">{formatarData(fine.prazoRecursoData)}</strong>
+                        {situacaoDoPrazo(fine.prazoRecursoData) === 'HOJE' && (fine.status === 'PENDENTE_CIENCIA' || fine.status === 'CIENCIA_REGISTRADA') && <> ({textoDoPrazo(fine.prazoRecursoData).toLowerCase()})</>}
+                      </span>
+                    )}
                     {fine.evidencias.length > 0 && (
                       <span className="text-slate-600">
                         📷 {pluralizar(fine.evidencias.length, 'foto de evidência', 'fotos de evidência')}

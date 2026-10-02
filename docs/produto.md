@@ -33,7 +33,10 @@ Produção (dados reais, só o `main`) e staging (testes). Trabalho no branch `d
 prévia da Vercel liga no banco de staging, merge no `main` só com ok explícito do dono.
 Migrações rodam primeiro em staging. Bateria de QA em `scripts/qa/`.
 
+**Quadro de tarefas (GitHub Project "Harmony"):** colunas Todo → In Progress → **Teste** → Done. Decidido em 02/10/2026: nenhuma tarefa vai para Done sem passar pela coluna Teste, onde o agente `qa` (`.claude/agents/qa.md`) executa o roteiro no staging e grava o relatório em `docs/qa/`. Só com o QA aprovado (e o dono ciente) o cartão vai para Done.
+
 ## Decisões tomadas (e por quê)
+- **Nome do produto (02/10/2026): "Harmony".** O dono decidiu que o produto se chama apenas Harmony (antes aparecia como "Harmony Residence"). Vale para interface, e-mails, relatórios impressos, documentos e conversas da equipe. Ajustar os textos existentes é trabalho a planejar; o nome do condomínio (Harmony Residence) continua sendo o do cliente, não o do produto.
 - **Vários condomínios: adiado.** Quando houver o 2º cliente, instalação separada por
   condomínio ("caminho A", horas de trabalho, isolamento total). Reescrever para
   multi-tenant ("caminho B": 16 tabelas e ~45 regras de acesso) só com demanda concreta,

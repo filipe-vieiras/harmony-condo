@@ -8,8 +8,17 @@ import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { isAdmin } from '@/lib/roles';
+import {
+  AVISO_MULTA_APAGADA,
+  MOTIVO_ANULACAO_MAX,
+  MOTIVO_ANULACAO_MIN,
+  cargoDeQuemAnulou,
+  podeAnularMulta,
+  podeApagarMulta,
+  rotuloCargoAnulacao,
+} from '@/lib/multas';
 import type { FineStatus } from '@/types';
-import { formatarData, formatarMoeda } from '@/lib/formatadores';
+import { formatarData, formatarMoeda, situacaoDoPrazo, textoDoPrazo } from '@/lib/formatadores';
 import {
   ShieldAlert,
   ArrowLeft, 
@@ -23,6 +32,8 @@ import {
   Printer,
   Calendar,
   AlertTriangle,
+  Ban,
+  Trash2,
   Scale
 } from 'lucide-react';
 
@@ -44,7 +55,9 @@ function MultaDetalheContent() {
     units,
     confirmFineScience,
     submitFineAppeal,
-    judgeFineAppeal
+    judgeFineAppeal,
+    annulFine,
+    deleteFine
   } = useApp();
 
   const [textoRecurso, setTextoRecurso] = useState('');
@@ -52,10 +65,15 @@ function MultaDetalheContent() {
   const [showRecursoForm, setShowRecursoForm] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [erroJustificativa, setErroJustificativa] = useState(false);
-  const { confirm } = useDialog();
+  const [saindo, setSaindo] = useState(false);
+  const { confirm, askReason } = useDialog();
   const feedbackRef = useRef<HTMLDivElement>(null);
   const justificativaRef = useRef<HTMLTextAreaElement>(null);
   const recursoTextoRef = useRef<HTMLTextAreaElement>(null);
+  // Trava síncrona: dois cliques no mesmo instante abririam dois diálogos antes de o estado mudar.
+  const emCursoRef = useRef(false);
+  const anularBtnRef = useRef<HTMLButtonElement>(null);
+  const apagarBtnRef = useRef<HTMLButtonElement>(null);
 
   // A faixa fica no topo da página; no celular o morador/síndico está lá embaixo, na
   // ação. Traz a faixa para o meio da tela para o resultado não passar despercebido.
@@ -72,7 +90,8 @@ function MultaDetalheContent() {
   const fine = fines.find((f) => f.id === id);
 
   if (!fine) {
-    if (!currentUser) return null;
+    // Multa recém-apagada: a navegação para a lista já está em curso.
+    if (!currentUser || saindo) return null;
     return (
       <div className="rounded-2xl bg-white p-12 text-center border border-slate-200">
         <h2 className="text-base font-bold text-slate-900">Notificação não encontrada</h2>
@@ -151,16 +170,93 @@ function MultaDetalheContent() {
     if (res.success) setRespostaSindico('');
   };
 
+  // O foco volta ao botão que abriu o diálogo mesmo quando ele foi acionado sem foco (script, toque).
+  const devolverFoco = (ref: React.RefObject<HTMLButtonElement | null>) =>
+    setTimeout(() => { if (ref.current && document.contains(ref.current)) ref.current.focus(); }, 0);
+
+  const handleAnular = async () => {
+    if (emCursoRef.current) return;
+    emCursoRef.current = true;
+    try {
+      await anularComMotivo();
+    } finally {
+      emCursoRef.current = false;
+      devolverFoco(anularBtnRef);
+    }
+  };
+
+  const anularComMotivo = async () => {
+    const motivo = await askReason({
+      title: `Anular a multa ${fine.numeroProtocolo}?`,
+      message: 'Depois de anulada, a multa não pode ser reativada. Ela continua visível para o morador, marcada como anulada, com o motivo que você escrever. A anulação fica registrada com seu nome e a data. Anular não cancela boleto já emitido: se a multa já foi enviada para cobrança, fale com a administradora.',
+      label: 'Motivo da anulação',
+      placeholder: 'Ex.: a infração não foi confirmada pela administração',
+      helperText: `O morador vai ler este texto. Mínimo de ${MOTIVO_ANULACAO_MIN} caracteres.`,
+      minLength: MOTIVO_ANULACAO_MIN,
+      maxLength: MOTIVO_ANULACAO_MAX,
+      requiredMessage: `Escreva pelo menos ${MOTIVO_ANULACAO_MIN} caracteres para explicar o motivo.`,
+      confirmLabel: 'Anular multa',
+      cancelLabel: 'Voltar',
+      loadingLabel: 'Anulando…',
+      // Ação com o diálogo aberto: se falhar, o texto digitado fica onde está.
+      destructive: false,
+      onSubmit: async (texto) => {
+        const res = await annulFine(fine.id, texto);
+        return res.success ? { ok: true } : { ok: false, message: res.message };
+      },
+    });
+    if (motivo !== null) setFeedbackMsg({ type: 'success', text: 'Multa anulada. O motivo ficou registrado.' });
+  };
+
+  const handleApagar = async () => {
+    if (emCursoRef.current) return;
+    emCursoRef.current = true;
+    try {
+      await apagarConfirmado();
+    } finally {
+      emCursoRef.current = false;
+      devolverFoco(apagarBtnRef);
+    }
+  };
+
+  const apagarConfirmado = async () => {
+    await confirm({
+      title: 'Apagar esta multa de vez?',
+      message: `A multa ${fine.numeroProtocolo}, do apto ${fine.unidade}, bloco ${fine.bloco}, será apagada junto com recurso, evidências e ciência. O morador deixa de vê-la. Não há como desfazer. Se o objetivo é só cancelar a cobrança, volte e use Anular multa, que mantém o registro.`,
+      confirmLabel: 'Apagar definitivamente',
+      cancelLabel: 'Voltar',
+      loadingLabel: 'Apagando…',
+      destructive: true,
+      onSubmit: async () => {
+        const res = await deleteFine(fine.id);
+        if (!res.success) return { ok: false, message: res.message };
+        // A multa deixou de existir: o aviso viaja para a lista pela sessão do navegador.
+        try { sessionStorage.setItem(AVISO_MULTA_APAGADA, 'Multa apagada.'); } catch { /* sem armazenamento: só não mostra o aviso */ }
+        setSaindo(true);
+        router.push('/multas');
+        return { ok: true };
+      },
+    });
+  };
+
   if (!currentUser) return null;
 
   // Texto provisório, a aprovar pelo dono do produto: o app só guarda a data
   // limite, e a regra de quando o prazo começa a contar é jurídica.
   const textoCiencia = `Ao confirmar, você declara que recebeu esta notificação. O prazo para recurso vai até ${formatarData(fine.prazoRecursoData)}.`;
-  const precisaCiencia = !fine.ciencia && currentUser.role === 'MORADOR';
+  const anulada = fine.status === 'ANULADA';
+  const anulacao = fine.anulacao;
+  const precisaCiencia = !fine.ciencia && currentUser.role === 'MORADOR' && !anulada;
   const ehMorador = currentUser.role === 'MORADOR';
   // Mesma regra que já mostra o botão de recurso no corpo da página.
   const podeInterporRecurso = fine.status === 'CIENCIA_REGISTRADA' && ehMorador;
   const situacao = situacaoDaMulta(fine.status, ehMorador);
+  // Só importa avisar que o prazo passou enquanto ainda não há recurso nem decisão.
+  const prazoSemRecurso = fine.status === 'PENDENTE_CIENCIA' || fine.status === 'CIENCIA_REGISTRADA';
+  const podeAnular = podeAnularMulta(currentUser.role, fine);
+  const podeApagar = podeApagarMulta(currentUser.role);
+  // Recurso que estava em análise quando a multa foi anulada: fica guardado, mas encerrado.
+  const recursoEncerrado = anulada && fine.recurso?.status === 'EM_ANALISE';
 
   return (
     <div className="space-y-6">
@@ -168,11 +264,11 @@ function MultaDetalheContent() {
       {/* Cabeçalho impresso com o Logotipo Oficial */}
       <PrintReportHeader
         titulo={`Auto de Notificação e Infração Disciplinar • ${fine.numeroProtocolo}`}
-        subtitulo={`Unidade Notificada: Apto ${fine.unidade} - Bloco ${fine.bloco} • Infrator: ${fine.moradorNome}`}
+        subtitulo={`Unidade Notificada: Apto ${fine.unidade} - Bloco ${fine.bloco} • Infrator: ${fine.moradorNome}${anulacao ? ` • MULTA ANULADA em ${formatarData(anulacao.em)}` : ''}`}
       />
 
-      {/* Botão de Retorno e Ações */}
-      <div className="flex items-center justify-between no-print">
+      {/* Botão de Retorno e Ações. Celular: "Anular multa" ganha linha própria, de largura total. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 no-print">
         <Link
           href="/multas"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-primary"
@@ -181,14 +277,28 @@ function MultaDetalheContent() {
           <span>Voltar para Lista de Multas</span>
         </Link>
 
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50"
-        >
-          <Printer className="h-4 w-4 text-slate-500" />
-          <span>Imprimir Notificação Oficial</span>
-        </button>
+        <div className="contents sm:flex sm:items-center sm:gap-2">
+          {podeAnular && (
+            <button
+              type="button"
+              ref={anularBtnRef}
+              onClick={handleAnular}
+              className="order-last flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:order-none sm:w-auto"
+            >
+              <Ban className="h-4 w-4 text-slate-500" />
+              <span>Anular multa</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:min-h-0"
+          >
+            <Printer className="h-4 w-4 text-slate-500" />
+            <span>Imprimir Notificação Oficial</span>
+          </button>
+        </div>
       </div>
 
       {/* Mensagem de Feedback */}
@@ -228,12 +338,20 @@ function MultaDetalheContent() {
               </span>
               <span
                 className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${
-                  fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'
+                  anulada ? 'bg-slate-100 text-slate-600' : fine.tipo === 'MULTA' ? 'bg-red-100 text-red-800' : 'bg-pendente-100 text-pendente-800'
                 }`}
               >
-                {fine.tipo === 'MULTA' ? `Multa: ${formatarMoeda(fine.valor)}` : 'Advertência Formal'}
+                {fine.tipo === 'MULTA' ? (
+                  anulada ? (
+                    <span className="line-through">
+                      <span className="sr-only">valor anulado: </span>
+                      Multa: {formatarMoeda(fine.valor)}
+                    </span>
+                  ) : `Multa: ${formatarMoeda(fine.valor)}`
+                ) : 'Advertência Formal'}
               </span>
-              <span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${situacao.cor}`}>
+              <span className={`${anulada ? 'inline-flex items-center gap-1 ' : ''}whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${situacao.cor}`}>
+                {anulada && <Ban className="h-3.5 w-3.5" aria-hidden="true" />}
                 {situacao.formal ? (
                   <>
                     <span className="print:hidden">{situacao.texto}</span>
@@ -249,7 +367,11 @@ function MultaDetalheContent() {
               Auto de Constatação de Infração Condominial
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              Data de Emissão: {formatarData(fine.dataEmissao)} • Prazo Limite para Defesa: <strong>{formatarData(fine.prazoRecursoData)}</strong>
+              Data de Emissão: {formatarData(fine.dataEmissao)}
+              {!anulada && <> • Prazo Limite para Defesa: <strong>{formatarData(fine.prazoRecursoData)}</strong></>}
+              {prazoSemRecurso && situacaoDoPrazo(fine.prazoRecursoData) === 'ENCERRADO' && (
+                <> • <strong className="text-red-700">{textoDoPrazo(fine.prazoRecursoData)}</strong></>
+              )}
             </p>
           </div>
 
@@ -261,6 +383,40 @@ function MultaDetalheContent() {
             <p className="text-xs text-slate-600 font-medium">{fine.moradorNome}</p>
           </div>
         </div>
+
+        {/* Multa anulada: o motivo e o aviso da cobrança. Fica na impressão também. */}
+        {anulada && anulacao && (
+          <section aria-labelledby="multa-anulada-titulo" className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <h2 id="multa-anulada-titulo" className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Ban className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              <span>Multa anulada</span>
+            </h2>
+            {ehMorador ? (
+              <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                Esta multa foi anulada {cargoDeQuemAnulou(anulacao.porPapel)} em {formatarData(anulacao.em)} e não precisa ser paga.
+                {' '}Motivo informado: «{anulacao.motivo}».
+              </p>
+            ) : (
+              <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                Anulada por {anulacao.porNome} ({rotuloCargoAnulacao(anulacao.porPapel)}) em {formatarData(anulacao.em)}, às{' '}
+                {new Date(anulacao.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.
+                {' '}Motivo: «{anulacao.motivo}».
+              </p>
+            )}
+            {recursoEncerrado && (
+              <p className="mt-2 text-sm text-slate-700">
+                {ehMorador
+                  ? 'O recurso que você enviou foi encerrado porque a multa foi anulada.'
+                  : 'Recurso encerrado: multa anulada.'}
+              </p>
+            )}
+            {!ehMorador && (
+              <p className="mt-2 text-xs text-slate-600 no-print">
+                Anular não cancela boleto já emitido. Se esta multa já foi enviada para cobrança, avise a administradora.
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Artigo e Fato Gerador */}
         <div className="mt-6 space-y-4 text-xs sm:text-sm">
@@ -306,6 +462,7 @@ function MultaDetalheContent() {
         )}
 
         {/* STATUS DA CIÊNCIA FORMAL (REGISTRO JURÍDICO) */}
+        {/* Numa multa anulada continua aparecendo, só para leitura (histórico e impressão). */}
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -318,6 +475,10 @@ function MultaDetalheContent() {
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     <span>Ciência Confirmada</span>
                   </span>
+                ) : anulada ? (
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                    <span>Não registrada</span>
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-pendente-100 px-2.5 py-0.5 text-xs font-bold text-pendente-800">
                     <Clock className="h-3.5 w-3.5" />
@@ -329,6 +490,10 @@ function MultaDetalheContent() {
               {fine.ciencia ? (
                 <p className="mt-1 text-xs text-slate-600">
                   Registrada em <strong>{formatarData(fine.ciencia.data)}</strong> por <strong>{fine.ciencia.usuarioNome}</strong> ({fine.ciencia.ip})
+                </p>
+              ) : anulada ? (
+                <p className="mt-1 text-xs text-slate-600">
+                  A multa foi anulada antes de o morador registrar a ciência.
                 </p>
               ) : (
                 currentUser.role === 'MORADOR' ? (
@@ -343,7 +508,7 @@ function MultaDetalheContent() {
 
             {/* Ação do Morador: Dar Ciência */}
             {/* No celular a ação fica na barra fixa do fim da página (abaixo). */}
-            {!fine.ciencia && currentUser.role === 'MORADOR' && (
+            {!fine.ciencia && currentUser.role === 'MORADOR' && !anulada && (
               <button
                 type="button"
                 onClick={handleConfirmScience}
@@ -356,7 +521,8 @@ function MultaDetalheContent() {
           </div>
         </div>
 
-        {/* FLUXO DE RECURSO / DEFESA ADMINISTRATIVA */}
+        {/* FLUXO DE RECURSO / DEFESA ADMINISTRATIVA (some numa multa anulada sem recurso) */}
+        {(!anulada || fine.recurso) && (
         <div className="mt-6 border-t border-slate-100 pt-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
@@ -429,13 +595,15 @@ function MultaDetalheContent() {
                         ? 'bg-emerald-100 text-emerald-800'
                         : fine.recurso.status === 'INDEFERIDO'
                         ? 'bg-red-100 text-red-800'
+                        : recursoEncerrado
+                        ? 'bg-slate-100 text-slate-700'
                         : 'bg-pendente-100 text-pendente-800'
                     }`}
                   >
-                    {rotuloRecurso(fine.recurso.status, ehMorador)}
+                    {recursoEncerrado ? 'Encerrado: multa anulada' : rotuloRecurso(fine.recurso.status, ehMorador)}
                   </span>
                 </div>
-                {ehMorador && fine.recurso.status === 'EM_ANALISE' && (
+                {ehMorador && fine.recurso.status === 'EM_ANALISE' && !anulada && (
                   <p className="mt-2 text-xs text-slate-600">O síndico vai responder pelo portal.</p>
                 )}
 
@@ -473,7 +641,7 @@ function MultaDetalheContent() {
                     {fine.recurso.resposta}
                   </p>
                 </div>
-              ) : isAdmin(currentUser.role) ? (
+              ) : isAdmin(currentUser.role) && !anulada ? (
                 /* Painel de Julgamento para o Síndico */
                 <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-3 no-print">
                   <h4 className="text-xs font-bold text-primary uppercase tracking-wider">
@@ -539,8 +707,28 @@ function MultaDetalheContent() {
             </p>
           )}
         </div>
+        )}
 
       </div>
+
+      {/* Só o ADM apaga. Separado do Anular, no fim da página, para não ser tocado por engano. */}
+      {podeApagar && (
+        <section aria-labelledby="apagar-multa-titulo" className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-4 no-print sm:mt-6">
+          <h2 id="apagar-multa-titulo" className="text-sm font-bold text-red-900">Apagar multa</h2>
+          <p className="mt-1 text-xs text-red-900/80">
+            Remove a multa e todo o seu histórico, de forma definitiva. Para apenas cancelar a cobrança, use Anular multa.
+          </p>
+          <button
+            type="button"
+            ref={apagarBtnRef}
+            onClick={handleApagar}
+            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 sm:w-auto"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            <span>Apagar multa…</span>
+          </button>
+        </section>
+      )}
 
 
       {/* Celular: a ação do morador fica sempre à vista, sem precisar rolar até o fim. */}
@@ -562,7 +750,7 @@ function MultaDetalheContent() {
       {podeInterporRecurso && !showRecursoForm && (
         <div className="sticky bottom-0 z-30 -mx-4 border-t border-border bg-surface px-4 py-3 shadow-md no-print md:hidden">
           <p className="mb-2 text-xs leading-snug text-slate-600">
-            Prazo até <strong>{formatarData(fine.prazoRecursoData)}</strong>
+            <strong>{textoDoPrazo(fine.prazoRecursoData)}</strong>
           </p>
           <button
             type="button"
@@ -598,8 +786,10 @@ function situacaoDaMulta(status: FineStatus, ehMorador: boolean): { texto: strin
       return ehMorador
         ? { texto: 'Recurso negado (multa mantida)', formal: 'Recurso indeferido (multa mantida)', cor: 'bg-red-100 text-red-800' }
         : { texto: 'Recurso indeferido (multa mantida)', cor: 'bg-red-100 text-red-800' };
+    case 'ANULADA':
+      return { texto: 'Multa anulada', cor: 'bg-slate-100 text-slate-700' };
     default:
-      return { texto: 'Concluída', cor: 'bg-slate-100 text-slate-700' };
+      return { texto: 'Encerrada', cor: 'bg-slate-100 text-slate-700' };
   }
 }
 

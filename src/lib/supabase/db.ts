@@ -213,9 +213,12 @@ export async function insertNotice(supabase: SupabaseClient, n: Omit<Notice, 'id
   return rowToNotice(data);
 }
 
-export async function deleteNoticeDB(supabase: SupabaseClient, id: string): Promise<void> {
-  const { error } = await supabase.from('notices').delete().eq('id', id);
+// Devolve `true` só se uma linha foi mesmo apagada: a regra de acesso (RLS) recusa em silêncio,
+// sem erro, então conferir só `error` deixaria passar uma exclusão que o banco não fez.
+export async function deleteNoticeDB(supabase: SupabaseClient, id: string): Promise<boolean> {
+  const { data, error } = await supabase.from('notices').delete().eq('id', id).select('id');
   if (error) console.error('deleteNoticeDB:', error);
+  return !error && (data?.length ?? 0) > 0;
 }
 
 // ──────────────────────────────────────────────
@@ -251,6 +254,14 @@ function rowToFine(r: Record<string, unknown>): FineNotice {
           dataResposta: (r.recurso_data_resposta as string) ?? undefined,
           status: (r.recurso_status as 'EM_ANALISE' | 'DEFERIDO' | 'INDEFERIDO') ?? 'EM_ANALISE',
           analisadoPor: (r.recurso_analisado_por as string) ?? undefined,
+        }
+      : undefined,
+    anulacao: r.status === 'ANULADA'
+      ? {
+          motivo: (r.anulada_motivo as string) ?? '',
+          porNome: (r.anulada_por_nome as string) ?? '',
+          porPapel: (r.anulada_por_papel as string) ?? '',
+          em: (r.anulada_em as string) ?? '',
         }
       : undefined,
   };
@@ -292,6 +303,39 @@ export async function updateFineDB(supabase: SupabaseClient, id: string, payload
   const { data, error } = await supabase.from('fines').update(payload).eq('id', id).select().single();
   if (error) { console.error('updateFineDB:', error); return null; }
   return rowToFine(data);
+}
+
+/**
+ * Anula a multa como o próprio usuário logado (nunca com a chave de serviço): quem
+ * garante papel, motivo mínimo e carimbo de quem/quando é o gatilho do banco (0029).
+ * Devolve a mensagem do banco quando ele recusa, para a tela mostrar em português.
+ */
+export async function anularFineDB(
+  supabase: SupabaseClient, id: string, motivo: string,
+): Promise<{ fine: FineNotice | null; erro?: string; recusada?: boolean }> {
+  const { data, error } = await supabase
+    .from('fines')
+    .update({ status: 'ANULADA', anulada_motivo: motivo })
+    .eq('id', id)
+    .select()
+    .maybeSingle();
+  if (error) {
+    console.error('anularFineDB:', error);
+    // 42501/23514 = o banco recusou a regra; qualquer outro código é falha de rede/servidor.
+    const recusada = error.code === '42501' || error.code === '23514';
+    return { fine: null, erro: recusada ? error.message : undefined, recusada };
+  }
+  // A RLS recusa em silêncio (0 linhas) quando o perfil não pode alterar a multa.
+  if (!data) return { fine: null, erro: 'Você não tem permissão para anular esta multa.', recusada: true };
+  return { fine: rowToFine(data) };
+}
+
+/** Apaga a multa (só o ADM, pela policy). Confere se o banco apagou de fato: a RLS recusa com 0 linhas. */
+export async function deleteFineDB(supabase: SupabaseClient, id: string): Promise<{ ok: boolean; erro?: string }> {
+  const { data, error } = await supabase.from('fines').delete().eq('id', id).select('id');
+  if (error) { console.error('deleteFineDB:', error); return { ok: false }; }
+  if (!data || data.length === 0) return { ok: false, erro: 'Só a administradora pode apagar uma multa.' };
+  return { ok: true };
 }
 
 // ──────────────────────────────────────────────
@@ -684,9 +728,11 @@ export async function updatePendingInviteDB(
   return rowToPendingInvite(data);
 }
 
-export async function deletePendingInviteDB(supabase: SupabaseClient, id: string): Promise<void> {
-  const { error } = await supabase.from('pending_invites').delete().eq('id', id);
+// Mesmo cuidado de deleteNoticeDB: `true` só se o banco apagou de fato.
+export async function deletePendingInviteDB(supabase: SupabaseClient, id: string): Promise<boolean> {
+  const { data, error } = await supabase.from('pending_invites').delete().eq('id', id).select('id');
   if (error) console.error('deletePendingInviteDB:', error);
+  return !error && (data?.length ?? 0) > 0;
 }
 
 // ──────────────────────────────────────────────
