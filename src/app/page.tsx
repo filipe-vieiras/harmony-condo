@@ -1,5 +1,6 @@
 'use client';
 
+import { TipoVeiculoBadge } from '@/components/ui/TipoVeiculoBadge';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -262,6 +263,7 @@ function DashboardContent() {
                         <span className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 font-mono text-sm font-bold tracking-wider text-white">
                           {v.placa}
                         </span>
+                        <TipoVeiculoBadge tipo={v.tipoVeiculo} />
                         <span className="text-sm text-slate-700">{v.marca} {v.modelo} ({v.cor})</span>
                       </div>
                       <p className="text-sm text-slate-600">Vaga: {v.vaga}</p>
@@ -273,6 +275,7 @@ function DashboardContent() {
                         <span className="rounded-lg bg-slate-900 text-white font-mono font-bold text-xs px-2.5 py-1 tracking-wider border border-slate-700">
                           {v.placa}
                         </span>
+                        <TipoVeiculoBadge tipo={v.tipoVeiculo} />
                         <div>
                           <p className="text-xs font-bold text-slate-900">{v.marca} {v.modelo} ({v.cor})</p>
                           <p className="text-[12px] text-slate-500">

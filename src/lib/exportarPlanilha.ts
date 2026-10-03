@@ -1,4 +1,5 @@
 import type { CellObject, Row } from 'write-excel-file/browser';
+import { tipoVeiculoDe } from '@/lib/tiposVeiculo';
 import type { Autocadastro, ConviteStatus, Unit, Vehicle } from '@/types';
 
 // Exportação de moradores e veículos para .xlsx (uma aba para cada). Roda no
@@ -110,7 +111,7 @@ export function montarAbaMoradores(units: Unit[], autocadastros: Autocadastro[])
 
 export function montarAbaVeiculos(vehicles: Vehicle[], units: Unit[], autocadastros: Autocadastro[]): Linha[] {
   const linhas: Linha[] = [
-    cabecalho(['Bloco', 'Apto', 'Placa', 'Marca', 'Modelo', 'Cor', 'Vaga', 'Responsável', 'Telefone', 'Tipo', 'Situação']),
+    cabecalho(['Bloco', 'Apto', 'Placa', 'Marca', 'Modelo', 'Cor', 'Vaga', 'Responsável', 'Telefone', 'Vínculo', 'Tipo de veículo', 'Situação']),
   ];
 
   type Item = { bloco: string; numero: string; linha: Linha };
@@ -128,7 +129,7 @@ export function montarAbaVeiculos(vehicles: Vehicle[], units: Unit[], autocadast
       linha: [
         texto(bloco), texto(numero), texto(v.placa), texto(v.marca), texto(v.modelo), texto(v.cor),
         texto(v.vaga), texto(v.proprietarioNome), texto(v.telefoneContato),
-        texto(v.status === 'VISITANTE' ? 'Visitante' : 'Morador'), texto('Validado'),
+        texto(v.status === 'VISITANTE' ? 'Visitante' : 'Morador'), texto(tipoVeiculoDe(v.tipoVeiculo)?.rotulo ?? 'Outro'), texto('Validado'),
       ],
     });
   }
@@ -143,7 +144,7 @@ export function montarAbaVeiculos(vehicles: Vehicle[], units: Unit[], autocadast
         numero: u.numero,
         linha: [
           texto(u.bloco), texto(u.numero), texto(v.placa), texto(v.marca), texto(v.modelo), texto(v.cor),
-          texto(null), texto(a.nome), texto(a.telefone), texto('Morador'), texto('Aguardando validação'),
+          texto(null), texto(a.nome), texto(a.telefone), texto('Morador'), texto(tipoVeiculoDe(v.tipoVeiculo)?.rotulo ?? 'Tipo não informado'), texto('Aguardando validação'),
         ],
       });
     }
@@ -172,7 +173,7 @@ export async function baixarPlanilhaMoradoresVeiculos(units: Unit[], vehicles: V
       data: veiculos,
       sheet: 'Veículos',
       stickyRowsCount: 1,
-      columns: [{ width: 7 }, { width: 7 }, { width: 10 }, { width: 14 }, { width: 16 }, { width: 12 }, { width: 12 }, { width: 30 }, { width: 17 }, { width: 10 }, { width: 20 }],
+      columns: [{ width: 7 }, { width: 7 }, { width: 10 }, { width: 14 }, { width: 16 }, { width: 12 }, { width: 12 }, { width: 30 }, { width: 17 }, { width: 10 }, { width: 15 }, { width: 20 }],
     },
   ], { fontFamily: 'Calibri', fontSize: 11 }).toFile(`harmony-moradores-veiculos-${hoje}.xlsx`);
 

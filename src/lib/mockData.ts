@@ -130,6 +130,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     proprietarioNome: 'Felipe Vieira',
     telefoneContato: '(11) 98111-2233',
     status: 'ATIVO',
+    tipoVeiculo: 'CARRO',
   },
   {
     id: 'veh-2',
@@ -143,6 +144,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     proprietarioNome: 'Carlos Mendes',
     telefoneContato: '(11) 98765-4321',
     status: 'ATIVO',
+    tipoVeiculo: 'CARRO',
   },
   {
     id: 'veh-3',
@@ -156,6 +158,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     proprietarioNome: 'Renata Lima',
     telefoneContato: '(11) 99442-1100',
     status: 'ATIVO',
+    tipoVeiculo: 'CARRO',
   },
   {
     id: 'veh-4',
@@ -169,6 +172,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     proprietarioNome: 'Juliana Paes Costa',
     telefoneContato: '(11) 99123-4567',
     status: 'ATIVO',
+    tipoVeiculo: 'CARRO',
   },
   {
     id: 'veh-5',
@@ -182,6 +186,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     proprietarioNome: 'Roberto Justus Filho',
     telefoneContato: '(11) 98333-7766',
     status: 'ATIVO',
+    tipoVeiculo: 'CARRO',
   },
 ];
 

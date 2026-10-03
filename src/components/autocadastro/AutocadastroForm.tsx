@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { AlertCircle, Car, Plus, Trash2, Users, Building2, UserRound, Loader2 } from 'lucide-react';
 import { MAX_DEPENDENTES, MAX_VEICULOS, validarDados } from '@/lib/autocadastro';
 import type { AutocadastroDependente, AutocadastroVeiculo } from '@/types';
+import { TipoVeiculoSelector, idPrimeiroTipoVeiculo } from '@/components/ui/TipoVeiculoSelector';
 
 export interface UnidadeOpcao {
   id: string;
@@ -50,6 +51,8 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
   const [consentimento, setConsentimento] = useState(false);
   const [website, setWebsite] = useState('');
   const [erro, setErro] = useState<string | null>(null);
+  // Índice do veículo -> mensagem. Vazio = sem erro; o tipo nunca vem pré-selecionado.
+  const [errosTipo, setErrosTipo] = useState<Record<number, string>>({});
   const [enviando, setEnviando] = useState(false);
 
   const blocos = Array.from(new Set(unidades.map((u) => u.bloco)));
@@ -57,6 +60,16 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
+
+    // O tipo do veículo é obrigatório e conferido aqui, não só no atributo nativo: o primeiro
+    // cartão com problema recebe o foco. (O servidor confere de novo em validarDados.)
+    const faltando = veiculos.flatMap((v, i) => ((v.placa.trim() || v.modelo.trim()) && !v.tipoVeiculo ? [i] : []));
+    if (faltando.length > 0) {
+      setErrosTipo(Object.fromEntries(faltando.map((i) => [i, `Escolha o tipo do veículo ${i + 1}.`])));
+      document.getElementById(idPrimeiroTipoVeiculo(`ac-v-tipo-${faltando[0]}`))?.focus();
+      return;
+    }
+    setErrosTipo({});
 
     const payload: Record<string, unknown> = { unitId, nome, telefone, rgCpf, tipo, dependentes, veiculos };
     const base = validarDados(payload);
@@ -200,7 +213,7 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
             <div key={i} className="rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700">Veículo {i + 1}</span>
-                <button type="button" onClick={() => setVeiculos((p) => p.filter((_, j) => j !== i))} aria-label={`Remover veículo ${i + 1}`} className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 sm:size-auto sm:p-1.5">
+                <button type="button" onClick={() => { setVeiculos((p) => p.filter((_, j) => j !== i)); setErrosTipo({}); }} aria-label={`Remover veículo ${i + 1}`} className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 sm:size-auto sm:p-1.5">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -220,6 +233,18 @@ export function AutocadastroForm({ modo, unidades, inicial, submitLabel, onSubmi
                     />
                   </div>
                 ))}
+              </div>
+              <div className="mt-3">
+                <TipoVeiculoSelector
+                  name={`ac-v-tipo-${i}`}
+                  idBase={`ac-v-tipo-${i}`}
+                  value={v.tipoVeiculo ?? ''}
+                  onChange={(t) => {
+                    setVeiculos((p) => p.map((x, j) => (j === i ? { ...x, tipoVeiculo: t } : x)));
+                    setErrosTipo((p) => ({ ...p, [i]: '' }));
+                  }}
+                  erro={errosTipo[i]}
+                />
               </div>
             </div>
           ))

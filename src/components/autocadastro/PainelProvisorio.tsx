@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Hourglass, Pencil, Megaphone, Users, Car, CheckCircle2, X } from 'lucide-react';
+import { Hourglass, Pencil, Megaphone, Users, CheckCircle2, X } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
+import { ChipVeiculo } from '@/components/autocadastro/ChipVeiculo';
 import { AutocadastroForm, type UnidadeOpcao } from '@/components/autocadastro/AutocadastroForm';
 import type { AutocadastroDados } from '@/lib/autocadastro';
 
@@ -91,7 +92,7 @@ export function PainelProvisorio() {
                   <span className="flex flex-wrap gap-1.5">
                     {meuAutocadastro.veiculos.map((v) => (
                       <span key={v.placa} className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5">
-                        <Car className="h-3 w-3 text-slate-500" /> {v.placa} · {v.modelo}
+                        <ChipVeiculo v={v} />
                       </span>
                     ))}
                   </span>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ADMIN_ROLES } from '@/lib/roles';
+import { ehTipoVeiculo } from '@/lib/tiposVeiculo';
 import type { AutocadastroDependente, AutocadastroVeiculo, UnitResident } from '@/types';
 
 interface Resultado {
@@ -158,6 +159,9 @@ async function validar(admin: Admin, envio: Envio, validadoPor: string): Promise
       proprietario_nome: envio.nome,
       telefone_contato: envio.telefone,
       status: 'ATIVO',
+      // Envios feitos antes da #43 não têm tipo: viram Outro (a administração corrige depois).
+      // Valor inválido nunca chega ao banco, que também tem o check.
+      tipo_veiculo: ehTipoVeiculo(v.tipoVeiculo) ? v.tipoVeiculo : 'OUTRO',
     });
     if (error) {
       console.error('autocadastro validar vehicle:', error);

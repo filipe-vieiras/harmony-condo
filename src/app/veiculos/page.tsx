@@ -5,11 +5,14 @@ import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { useApp } from '@/context/AppContext';
-import { Vehicle } from '@/types';
+import { TipoVeiculo, Vehicle } from '@/types';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
+import { TipoVeiculoSelector, idPrimeiroTipoVeiculo } from '@/components/ui/TipoVeiculoSelector';
+import { TipoVeiculoBadge } from '@/components/ui/TipoVeiculoBadge';
+import { TIPOS_VEICULO } from '@/lib/tiposVeiculo';
 import {
   Car,
   Search,
@@ -21,8 +24,13 @@ import {
   X,
   AlertCircle,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Pencil,
+  Info
 } from 'lucide-react';
+
+const CHAVE_FAIXA_OUTRO = 'harmony:faixa-tipo-outro-fechada';
+
 
 export default function VeiculosPage() {
   return (
@@ -33,7 +41,7 @@ export default function VeiculosPage() {
 }
 
 function VeiculosContent() {
-  const { currentUser, vehicles, addVehicle, deleteVehicle, units } = useApp();
+  const { currentUser, vehicles, addVehicle, deleteVehicle, atualizarTipoVeiculo, units } = useApp();
   const { confirm } = useDialog();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -58,9 +66,28 @@ function VeiculosContent() {
   const [proprietarioNome, setProprietarioNome] = useState(currentUser?.role === 'MORADOR' ? currentUser.name : '');
   const [telefoneContato, setTelefoneContato] = useState(currentUser?.role === 'MORADOR' ? currentUser.telefone || '' : '');
   const [status, setStatus] = useState<'ATIVO' | 'VISITANTE'>('ATIVO');
+  // Sem pré-seleção: '' até a pessoa escolher.
+  const [tipoVeiculo, setTipoVeiculo] = useState<TipoVeiculo | ''>('');
+  const [erroTipo, setErroTipo] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState<'TODOS' | TipoVeiculo>('TODOS');
+  // Edição do tipo de um veículo já cadastrado.
+  const [editando, setEditando] = useState<Vehicle | null>(null);
+  const [tipoEditado, setTipoEditado] = useState<TipoVeiculo | ''>('');
+  const [erroEdicao, setErroEdicao] = useState('');
+  const [salvandoTipo, setSalvandoTipo] = useState(false);
+  // Fechar a faixa vale só neste navegador (sem estado "pendente" no banco).
+  const [faixaFechada, setFaixaFechada] = useState(() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem(CHAVE_FAIXA_OUTRO) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   useEscapeToClose(showModal, () => setShowModal(false));
   useModalFocus(showModal);
+  useEscapeToClose(!!editando && !salvandoTipo, () => setEditando(null));
+  useModalFocus(!!editando);
 
   // O perfil do usuário carrega de forma assíncrona — se o componente monta
   // antes disso, o useState inicial fica preso vazio/'A'. Sincroniza assim
@@ -77,12 +104,48 @@ function VeiculosContent() {
       setProprietarioNome((atual) => atual || currentUser.name);
       setTelefoneContato((atual) => atual || currentUser.telefone || '');
     }
+    setErroTipo('');
     setShowModal(true);
+  };
+
+  const fecharFaixa = () => {
+    setFaixaFechada(true);
+    try {
+      window.localStorage.setItem(CHAVE_FAIXA_OUTRO, '1');
+    } catch {
+      // navegador sem armazenamento: a faixa só some até recarregar
+    }
+  };
+
+  const abrirEdicao = (v: Vehicle) => {
+    setEditando(v);
+    setTipoEditado(v.tipoVeiculo);
+    setErroEdicao('');
+  };
+
+  const salvarTipo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editando || salvandoTipo) return;
+    if (!tipoEditado) {
+      setErroEdicao('Escolha o tipo do veículo.');
+      document.getElementById(idPrimeiroTipoVeiculo('veiculo-edit-tipo'))?.focus();
+      return;
+    }
+    setSalvandoTipo(true);
+    const res = await atualizarTipoVeiculo(editando.id, tipoEditado);
+    setSalvandoTipo(false);
+    if (!res.success) {
+      setErroEdicao(res.message);
+      return;
+    }
+    setEditando(null);
+    setFeedbackMsg({ type: 'success', text: res.message });
   };
 
   const filteredVehicles = vehicles.filter((v) => {
     const term = searchTerm.toLowerCase();
     if (!currentUser) return null;
+    if (filtroTipo !== 'TODOS' && v.tipoVeiculo !== filtroTipo) return false;
     return (
       v.placa.toLowerCase().includes(term) ||
       v.modelo.toLowerCase().includes(term) ||
@@ -96,6 +159,11 @@ function VeiculosContent() {
   const handleCreateVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!placa || !modelo || isSaving) return;
+    if (!tipoVeiculo) {
+      setErroTipo('Escolha o tipo do veículo.');
+      document.getElementById(idPrimeiroTipoVeiculo('veiculo-tipo'))?.focus();
+      return;
+    }
     setIsSaving(true);
 
     const res = await addVehicle({
@@ -109,6 +177,7 @@ function VeiculosContent() {
       proprietarioNome,
       telefoneContato,
       status,
+      tipoVeiculo,
     });
 
     setIsSaving(false);
@@ -121,6 +190,8 @@ function VeiculosContent() {
       setModelo('');
       setCor('');
       setVaga('');
+      setTipoVeiculo('');
+      setErroTipo('');
     }
   };
 
@@ -131,6 +202,10 @@ function VeiculosContent() {
   const minhaUnidade = units.find((u) => u.usuarioId === currentUser.id);
   // Sem ação para o perfil (ex.: Portaria): no celular a célula some, em vez de mostrar "AÇÕES" vazio.
   const podeRemover = (v: Vehicle) => isAdmin(currentUser.role) || (isMorador && v.unitId === minhaUnidade?.id);
+  // Quem edita o tipo: equipe administrativa e o morador, só na própria unidade (o banco confere de novo).
+  const podeEditarTipo = (v: Vehicle) => isAdmin(currentUser.role) || (isMorador && !!minhaUnidade && v.unitId === minhaUnidade.id);
+  const totalOutro = vehicles.filter((v) => v.tipoVeiculo === 'OUTRO').length;
+  const mostrarFaixa = isAdmin(currentUser.role) && totalOutro > 0 && !faixaFechada;
 
   return (
     <div className="space-y-6">
@@ -211,6 +286,28 @@ function VeiculosContent() {
         </div>
       )}
 
+      {/* Faixa informativa: só a equipe administrativa, enquanto houver veículos "Outro". */}
+      {mostrarFaixa && (
+        <div className="flex items-start gap-3 rounded-2xl border border-accent-200 bg-accent-50 p-4 text-xs text-slate-800 no-print">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden="true" />
+          <div className="flex-1">
+            <p>
+              {totalOutro} {totalOutro === 1 ? 'veículo está' : 'veículos estão'} como &quot;Outro&quot;. Se algum for carro ou moto, toque em &quot;Editar tipo&quot; para corrigir.
+            </p>
+            <button
+              type="button"
+              onClick={() => setFiltroTipo('OUTRO')}
+              className="mt-1 flex min-h-11 items-center font-semibold text-accent-strong underline sm:min-h-0"
+            >
+              Ver veículos &quot;Outro&quot;
+            </button>
+          </div>
+          <button type="button" onClick={fecharFaixa} aria-label="Fechar aviso" className="-m-3 flex size-11 shrink-0 items-center justify-center text-slate-500 hover:text-slate-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Barra de Busca Instantânea de Placa */}
       <div className="relative w-full no-print">
         <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -223,6 +320,26 @@ function VeiculosContent() {
         />
       </div>
 
+      {/* Filtro por tipo */}
+      <div role="group" aria-label="Filtrar por tipo de veículo" className="flex flex-wrap gap-2 no-print">
+        {([{ valor: 'TODOS' as const, rotulo: 'Todos' }, ...TIPOS_VEICULO.map((t) => ({ valor: t.valor, rotulo: t.valor === 'OUTRO' ? `Outro (${totalOutro})` : t.rotulo }))]).map((c) => {
+          const ativo = filtroTipo === c.valor;
+          return (
+            <button
+              key={c.valor}
+              type="button"
+              aria-pressed={ativo}
+              onClick={() => setFiltroTipo(c.valor)}
+              className={`min-h-11 rounded-xl border px-4 py-2 text-xs font-semibold transition ${
+                ativo ? 'border-primary bg-primary text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {c.rotulo}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Tabela de Veículos */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
@@ -230,6 +347,7 @@ function VeiculosContent() {
             <thead className="border-b border-slate-200 bg-slate-50/75 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
               <tr>
                 <th className="px-5 py-3.5">Placa</th>
+                <th className="px-5 py-3.5">Tipo</th>
                 <th className="px-5 py-3.5">Veículo / Modelo</th>
                 <th className="px-5 py-3.5">Cor</th>
                 <th className="px-5 py-3.5">Unidade</th>
@@ -241,8 +359,8 @@ function VeiculosContent() {
             <tbody className="divide-y divide-slate-100">
               {filteredVehicles.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-slate-500">
-                    Nenhum veículo encontrado correspondente à pesquisa.
+                  <td colSpan={8} className="px-5 py-8 text-center text-slate-500">
+                    {filtroTipo !== 'TODOS' ? 'Nenhum veículo deste tipo encontrado.' : 'Nenhum veículo encontrado correspondente à pesquisa.'}
                   </td>
                 </tr>
               ) : (
@@ -252,6 +370,9 @@ function VeiculosContent() {
                       <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-mono font-bold text-white border border-slate-700 tracking-wider">
                         {v.placa}
                       </span>
+                    </td>
+                    <td data-label="Tipo" className="px-5 py-3.5 whitespace-nowrap">
+                      <TipoVeiculoBadge tipo={v.tipoVeiculo} />
                     </td>
                     <td data-label="Veículo / Modelo" className="px-5 py-3.5 font-bold text-slate-900">
                       {v.marca} {v.modelo}
@@ -275,7 +396,20 @@ function VeiculosContent() {
                         <span className="whitespace-nowrap">{v.telefoneContato}</span>
                       </div>
                     </td>
-                    <td data-label="Ações" className={`px-5 py-3.5 text-right no-print ${podeRemover(v) ? '' : 'oculta-mobile'}`}>
+                    <td data-label="Ações" className={`px-5 py-3.5 text-right no-print ${podeRemover(v) || podeEditarTipo(v) ? '' : 'oculta-mobile'}`}>
+                      <div className="flex flex-wrap items-center justify-end gap-1">
+                      {podeEditarTipo(v) && (
+                        <button
+                          type="button"
+                          onClick={() => abrirEdicao(v)}
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-primary sm:min-h-0 sm:p-1.5"
+                          title="Editar tipo do veículo"
+                          aria-label={`Editar tipo do veículo ${v.placa}`}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                          <span className="sm:sr-only">Editar tipo</span>
+                        </button>
+                      )}
                       {podeRemover(v) && (
                         <button
                           onClick={async () => {
@@ -290,6 +424,7 @@ function VeiculosContent() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -336,6 +471,14 @@ function VeiculosContent() {
                   className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 font-mono uppercase font-bold focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
+
+              <TipoVeiculoSelector
+                name="veiculo-tipo"
+                idBase="veiculo-tipo"
+                value={tipoVeiculo}
+                onChange={(t) => { setTipoVeiculo(t); setErroTipo(''); }}
+                erro={erroTipo}
+              />
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
@@ -461,6 +604,62 @@ function VeiculosContent() {
                   className="min-h-11 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover sm:min-h-0 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSaving ? 'Salvando...' : 'Salvar Veículo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+
+      {/* Modal de edição do tipo do veículo */}
+      {editando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={() => !salvandoTipo && setEditando(null)} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="veiculo-tipo-modal-title"
+            className="relative max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 id="veiculo-tipo-modal-title" className="text-base font-bold text-slate-900">Tipo do veículo</h3>
+                <p className="mt-0.5 text-xs text-slate-500">{editando.placa} · {editando.modelo}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditando(null)}
+                aria-label="Fechar"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={salvarTipo} className="mt-4 space-y-4">
+              <TipoVeiculoSelector
+                name="veiculo-edit-tipo"
+                idBase="veiculo-edit-tipo"
+                value={tipoEditado}
+                onChange={(t) => { setTipoEditado(t); setErroEdicao(''); }}
+                erro={erroEdicao}
+              />
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+                <button
+                  type="button"
+                  disabled={salvandoTipo}
+                  onClick={() => setEditando(null)}
+                  className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 sm:min-h-0"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoTipo}
+                  className="min-h-11 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-60 sm:min-h-0"
+                >
+                  {salvandoTipo ? 'Salvando...' : 'Salvar tipo'}
                 </button>
               </div>
             </form>

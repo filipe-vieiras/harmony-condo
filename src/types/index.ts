@@ -15,11 +15,16 @@ export interface User {
 
 export type AutocadastroStatus = 'AGUARDANDO' | 'VALIDADO' | 'RECUSADO';
 
+/** Tipo do veículo (issue #43). Sem texto livre: "Outro" cobre tudo que não é carro nem moto. */
+export type TipoVeiculo = 'CARRO' | 'MOTO' | 'OUTRO';
+
 export interface AutocadastroVeiculo {
   placa: string;
   marca: string;
   modelo: string;
   cor: string;
+  /** Ausente nos envios feitos antes da #43 (o servidor trata como OUTRO ao validar). */
+  tipoVeiculo?: TipoVeiculo;
 }
 
 export interface AutocadastroDependente {
@@ -95,6 +100,7 @@ export interface Vehicle {
   proprietarioNome: string;
   telefoneContato: string;
   status: 'ATIVO' | 'VISITANTE';
+  tipoVeiculo: TipoVeiculo;
 }
 
 export type NoticeCategory = 'URGENTE' | 'MANUTENCAO' | 'ASSEMBLEIA' | 'COMUNICADO';
