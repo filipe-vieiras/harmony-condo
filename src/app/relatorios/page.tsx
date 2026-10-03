@@ -1,5 +1,6 @@
 'use client';
 
+import { TIPOS_VEICULO } from '@/lib/tiposVeiculo';
 import React, { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
@@ -319,6 +320,16 @@ function RelatoriosContent() {
                   <span className="text-slate-600">Veículos Registrados no Pátio:</span>
                   <strong className="text-slate-900">{vehicles.length} veículos ativos</strong>
                 </div>
+                {/* A soma das três linhas é sempre o total acima (todo veículo tem um tipo). */}
+                {TIPOS_VEICULO.map((t) => {
+                  const Icone = t.icone;
+                  return (
+                    <div key={t.valor} className="flex items-center justify-between pl-3 text-slate-600">
+                      <span className="flex items-center gap-1.5"><Icone className="h-3.5 w-3.5" aria-hidden="true" /> {t.plural}:</span>
+                      <strong className="text-slate-900">{vehicles.filter((v) => v.tipoVeiculo === t.valor).length}</strong>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

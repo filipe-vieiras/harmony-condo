@@ -64,3 +64,9 @@ Regras de todas as fases: contraste 4,5:1, alvo de 44px, SVG inline pequeno (sem
 - Montar (sessão principal) um **style tile estático em HTML/Figma** com 3 telas (Início morador, Início síndico, vazio de reservas) em A, e um **teste de preferência de 5 segundos** com 5 a 8 moradores e o síndico via WhatsApp (imagem simples: "qual passa mais confiança? qual é mais amigável?"), mais 1 pergunta aberta.
 - Antes disso, **perguntar ao dono o que não agradou** no Início rejeitado e o que exatamente é "padrão" (mostrar 2 ou 3 apps que ele acha bonitos).
 - Em staging, fazer um piloto só da fase 3 (vazios) com um morador de confiança.
+
+## Respostas do dono (02/10/2026)
+- Referências de estética que ele gosta: **Duolingo, Discord e Airbnb** (a analisar: o que dessas linguagens cabe num portal de condomínio, sem infantilizar nem perder seriedade em assuntos como multa).
+- O condomínio **tem fotos das áreas comuns e autorização de uso** (sem pessoas): a direção B (fotos nas reservas e na capa) pode entrar.
+- O **dono fará o teste de 5 segundos** do style tile com moradores e o síndico.
+- Pendente: confirmar a direção A; explicar ao dono o que é o logo horizontal transparente (#19).

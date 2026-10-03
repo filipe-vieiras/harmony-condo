@@ -135,6 +135,7 @@ function rowToVehicle(r: Record<string, unknown>): Vehicle {
     proprietarioNome: r.proprietario_nome as string,
     telefoneContato: r.telefone_contato as string,
     status: r.status as Vehicle['status'],
+    tipoVeiculo: (r.tipo_veiculo as Vehicle['tipoVeiculo']) ?? 'OUTRO',
   };
 }
 
@@ -157,9 +158,21 @@ export async function insertVehicle(supabase: SupabaseClient, v: Omit<Vehicle, '
     proprietario_nome: v.proprietarioNome,
     telefone_contato: v.telefoneContato,
     status: v.status,
+    tipo_veiculo: v.tipoVeiculo,
   }).select().single();
   if (error) { console.error('insertVehicle:', error); return null; }
   return rowToVehicle(data);
+}
+
+/**
+ * Troca só o tipo do veículo. Quem pode (equipe administrativa, ou o morador da própria
+ * unidade) é decidido pelo banco; um UPDATE bloqueado por RLS não dá erro, só 0 linhas,
+ * então confere quantas voltaram.
+ */
+export async function updateVehicleTipoDB(supabase: SupabaseClient, id: string, tipo: Vehicle['tipoVeiculo']): Promise<Vehicle | null> {
+  const { data, error } = await supabase.from('vehicles').update({ tipo_veiculo: tipo }).eq('id', id).select();
+  if (error) { console.error('updateVehicleTipoDB:', error); return null; }
+  return data?.[0] ? rowToVehicle(data[0]) : null;
 }
 
 export async function deleteVehicleDB(supabase: SupabaseClient, id: string): Promise<boolean> {

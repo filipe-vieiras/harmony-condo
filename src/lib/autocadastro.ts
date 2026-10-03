@@ -1,4 +1,5 @@
 import type { AutocadastroDependente, AutocadastroVeiculo } from '@/types';
+import { ehTipoVeiculo } from '@/lib/tiposVeiculo';
 
 export const MAX_VEICULOS = 5;
 export const MAX_DEPENDENTES = 10;
@@ -60,7 +61,7 @@ export function validarDados(body: unknown): { ok: true; dados: AutocadastroDado
   if (veicBrutos.length > MAX_VEICULOS) return { ok: false, erro: `No máximo ${MAX_VEICULOS} veículos.` };
   const veiculos: AutocadastroVeiculo[] = [];
   const placasVistas = new Set<string>();
-  for (const v of veicBrutos) {
+  for (const [indice, v] of veicBrutos.entries()) {
     const r = (v ?? {}) as Record<string, unknown>;
     const placa = normalizarPlaca(texto(r.placa, 12));
     const modelo = texto(r.modelo, 60);
@@ -68,8 +69,11 @@ export function validarDados(body: unknown): { ok: true; dados: AutocadastroDado
     if (!PLACA_RE.test(placa)) return { ok: false, erro: `Placa inválida: "${texto(r.placa, 12)}". Use o formato ABC1234 ou ABC1D23.` };
     if (placasVistas.has(placa)) return { ok: false, erro: `A placa ${placa} foi informada duas vezes.` };
     if (!modelo) return { ok: false, erro: `Informe o modelo do veículo ${placa}.` };
+    // Sem pré-seleção e sem texto livre: o tipo precisa ser um dos três valores. Quem chama a API
+    // direto sem o campo (ou com valor inventado) é recusado aqui, não vira "Outro" em silêncio.
+    if (!ehTipoVeiculo(r.tipoVeiculo)) return { ok: false, erro: `Escolha o tipo do veículo ${indice + 1}.` };
     placasVistas.add(placa);
-    veiculos.push({ placa, marca: texto(r.marca, 40), modelo, cor: texto(r.cor, 30) });
+    veiculos.push({ placa, marca: texto(r.marca, 40), modelo, cor: texto(r.cor, 30), tipoVeiculo: r.tipoVeiculo });
   }
 
   return { ok: true, dados: { unitId, nome, telefone, rgCpf: rgCpf || undefined, tipo, dependentes, veiculos } };

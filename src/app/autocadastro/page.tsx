@@ -1,5 +1,6 @@
 'use client';
 
+import { ChipVeiculo } from '@/components/autocadastro/ChipVeiculo';
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
@@ -11,7 +12,6 @@ import { isAdmin } from '@/lib/roles';
 import type { Autocadastro, Unit } from '@/types';
 import {
   AlertTriangle,
-  Car,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -506,7 +506,7 @@ function AutocadastroContent() {
                               <p className="flex flex-wrap gap-1">
                                 {p.veiculos.map((v) => (
                                   <span key={v.placa} className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-700">
-                                    <Car className="h-3 w-3 text-slate-500" /> {v.placa} · {v.modelo}
+                                    <ChipVeiculo v={v} />
                                   </span>
                                 ))}
                               </p>

@@ -74,10 +74,16 @@ ok(uni?.length === 4, 'Síndico cria Q-101..104');
 const U = Object.fromEntries(uni.map((u) => [u.numero, u.id]));
 const envio = (n, unitId, tipo, extra = {}) => ({ unitId, tipo, nome: `QA ${n}`, telefone: '(11) 90000-0000', email: email(n), senha: SENHA, consentimento: true, dependentes: [], veiculos: [], ...extra });
 const rs = [];
-rs.push(await api('/api/autocadastro/publico', { method: 'POST', headers: IP(), body: envio('morador1', U['101'], 'PROPRIETARIO', { veiculos: [{ placa: 'qaa1b23', marca: 'Fiat', modelo: 'Uno', cor: 'Branco' }] }) }));
+rs.push(await api('/api/autocadastro/publico', { method: 'POST', headers: IP(), body: envio('morador1', U['101'], 'PROPRIETARIO', { veiculos: [{ placa: 'qaa1b23', marca: 'Fiat', modelo: 'Uno', cor: 'Branco', tipoVeiculo: 'MOTO' }] }) }));
 rs.push(await api('/api/autocadastro/publico', { method: 'POST', headers: IP(), body: envio('morador2', U['102'], 'INQUILINO') }));
 rs.push(await api('/api/autocadastro/publico', { method: 'POST', headers: IP(), body: envio('morador3', U['103'], 'PROPRIETARIO') }));
 ok(rs.every((r) => r.status === 200), `3 envios aceitos (${rs.map((r) => r.status).join('/')})`);
+const veicSemTipo = { placa: 'QAS1T01', marca: 'X', modelo: 'Y', cor: 'Z' };
+for (const [nome, v, esperado] of [['sem tipo', veicSemTipo, /tipo do veículo 1/], ['tipo inválido (BICICLETA)', { ...veicSemTipo, tipoVeiculo: 'BICICLETA' }, /tipo do veículo 1/], ['tipo em minúscula', { ...veicSemTipo, tipoVeiculo: 'carro' }, /tipo do veículo 1/], ['tipo com texto livre', { ...veicSemTipo, tipoVeiculo: { outro: 'trator' } }, /tipo do veículo 1/]]) {
+  const r = await api('/api/autocadastro/publico', { method: 'POST', headers: IP(), body: envio('semtipo', U['104'], 'PROPRIETARIO', { veiculos: [v] }) });
+  ok(r.status === 400 && esperado.test(r.data?.error ?? ''), `autocadastro com veículo ${nome} recusado → ${r.status} "${r.data?.error}"`);
+}
+ok(!(await admin.from('autocadastros').select('id').eq('email', email('semtipo'))).data.length, 'nenhum envio gravado para os veículos sem tipo válido');
 const fraca = await api('/api/autocadastro/publico', { method: 'POST', headers: IP(), body: { ...envio('fraca', U['104'], 'PROPRIETARIO'), senha: '123456' } });
 ok(fraca.status === 400, `senha de 6 caracteres recusada → ${fraca.status} "${fraca.data?.error}"`);
 const dupMail = await api('/api/autocadastro/publico', { method: 'POST', headers: IP(), body: envio('morador1', U['104'], 'PROPRIETARIO') });
@@ -137,6 +143,49 @@ ok(!(await admin.from('vehicles').select('id').eq('placa', 'QAX9X99')).data.leng
 await cM2.from('vehicles').insert({ placa: 'QAX9X98', marca: 'X', modelo: 'X', cor: 'X', bloco: 'Q', unidade: '102', vaga: 'x', proprietario_nome: 'x', telefone_contato: '0' });
 ok(!(await admin.from('vehicles').select('id').eq('placa', 'QAX9X98')).data.length, 'morador NÃO cadastra carro sem unidade');
 ok(!(await cPort.from('vehicles').insert({ placa: 'QAV0S01', marca: 'V', modelo: 'QA', cor: 'Azul', bloco: 'Q', unidade: '102', vaga: 'Visitante', proprietario_nome: 'QA Visita', telefone_contato: '0', status: 'VISITANTE', unit_id: U['102'] })).error, 'Portaria registra visitante');
+
+console.log('\n## J2. Tipo do veículo (issue #43)');
+const tipoDe = async (placa) => (await admin.from('vehicles').select('tipo_veiculo').eq('placa', placa).single()).data?.tipo_veiculo;
+const veic = (placa, extra = {}) => ({ placa, marca: 'X', modelo: 'X', cor: 'X', bloco: 'Q', unidade: '102', vaga: 'Q102', proprietario_nome: 'x', telefone_contato: '0', unit_id: U['102'], ...extra });
+ok((await tipoDe('QAM2A22')) === 'OUTRO', 'veículo cadastrado sem tipo fica OUTRO (padrão do banco, igual aos veículos antigos)');
+ok((await tipoDe('QAA1B23')) === 'MOTO', 'validação do autocadastro cria o veículo com o tipo informado (MOTO)');
+ok(!!(await admin.from('vehicles').insert(veic('QAT0B01', { tipo_veiculo: 'BICICLETA' }))).error, 'banco recusa tipo inválido (BICICLETA) até com a chave de serviço');
+ok(!!(await admin.from('vehicles').insert(veic('QAT0B02', { tipo_veiculo: 'carro' }))).error, 'banco recusa tipo em minúscula');
+ok(!!(await cM2.from('vehicles').insert(veic('QAT0B03', { tipo_veiculo: 'TRATOR' }))).error, 'morador NÃO cadastra veículo com tipo inválido');
+ok(!!(await cPort.from('vehicles').insert(veic('QAT0B04', { tipo_veiculo: '' }))).error, 'Portaria NÃO cadastra veículo com tipo vazio');
+ok(!(await cPort.from('vehicles').insert(veic('QAT0M05', { tipo_veiculo: 'MOTO', status: 'VISITANTE' }))).error && (await tipoDe('QAT0M05')) === 'MOTO', 'Portaria cadastra visitante com tipo MOTO');
+for (const [nome, c, tipo] of [['Síndico', cSind, 'MOTO'], ['Subsíndico', cSub, 'CARRO'], ['ADM', cAdm, 'MOTO']]) {
+  const r = await c.from('vehicles').update({ tipo_veiculo: tipo }).eq('placa', 'QAM2A22').select('id');
+  ok(r.data?.length === 1 && (await tipoDe('QAM2A22')) === tipo, `${nome} define o tipo do veículo (${tipo})`);
+}
+const inv = await cSind.from('vehicles').update({ tipo_veiculo: 'BICICLETA' }).eq('placa', 'QAM2A22').select('id');
+ok(!!inv.error && (await tipoDe('QAM2A22')) === 'MOTO', 'Síndico NÃO grava tipo inválido pela API direta');
+for (const [nome, c] of [['Portaria', cPort], ['Conselho', cCons], ['visitante (sem login)', anon()]]) {
+  const r = await c.from('vehicles').update({ tipo_veiculo: 'CARRO' }).eq('placa', 'QAM2A22').select('id');
+  ok(!r.data?.length && (await tipoDe('QAM2A22')) === 'MOTO', `${nome} NÃO edita o tipo do veículo`);
+}
+// ── Dependem da policy/gatilhos do morador (parte final da migração 0030) ──
+const m2 = await cM2.from('vehicles').update({ tipo_veiculo: 'CARRO' }).eq('placa', 'QAM2A22').select('id');
+ok(m2.data?.length === 1 && (await tipoDe('QAM2A22')) === 'CARRO', '[0030-morador] morador2 corrige o tipo do PRÓPRIO veículo');
+const { data: logTipo } = await admin.from('audit_logs').select('acao,usuario_role,detalhes').like('acao', 'Alterou o tipo de um veículo da unidade 102 (Bloco Q)%').eq('usuario_role', 'MORADOR');
+ok(logTipo?.length >= 1 && logTipo.every((l) => !/QAM2A22/.test(JSON.stringify(l))) && /de Moto para Carro$/.test(logTipo[0].acao), `[0030-morador] o banco registra a troca com frase legível e sem placa ("${logTipo?.[0]?.acao}")`);
+const antes = (await admin.from('vehicles').select('*').eq('placa', 'QAM2A22').single()).data;
+for (const [nome, mudanca] of [['placa', { placa: 'QAZ9Z99' }], ['vaga', { vaga: 'Q999' }], ['marca', { marca: 'Outra' }], ['modelo', { modelo: 'Outro' }], ['cor', { cor: 'Rosa' }], ['status', { status: 'VISITANTE' }], ['unit_id (passar para a Q-101)', { unit_id: U['101'] }], ['tipo junto com a vaga', { tipo_veiculo: 'MOTO', vaga: 'Q999' }], ['telefone', { telefone_contato: '999' }]]) {
+  const r = await cM2.from('vehicles').update(mudanca).eq('placa', 'QAM2A22').select('id');
+  ok(!!r.error && !r.data?.length, `[0030-morador] dono NÃO altera ${nome} (recusado)`);
+}
+const depois = (await admin.from('vehicles').select('*').eq('placa', 'QAM2A22').single()).data;
+ok(JSON.stringify(antes) === JSON.stringify(depois), '[0030-morador] nada mudou no veículo depois das tentativas');
+ok(!!(await cM2.from('vehicles').update({ tipo_veiculo: 'TRATOR' }).eq('placa', 'QAM2A22').select('id')).error, '[0030-morador] dono NÃO grava tipo inválido');
+ok(!(await cM2.from('vehicles').update({ tipo_veiculo: 'MOTO' }).eq('placa', 'QAA1B23').select('id')).data?.length && (await tipoDe('QAA1B23')) === 'MOTO', '[0030-morador] morador2 NÃO edita veículo de OUTRA unidade (0 linhas)');
+ok(!(await cM1.from('vehicles').update({ tipo_veiculo: 'OUTRO' }).eq('placa', 'QAM2A22').select('id')).data?.length && (await tipoDe('QAM2A22')) === 'CARRO', '[0030-morador] morador1 NÃO edita veículo da unidade 102 (0 linhas)');
+// Morador com cadastro provisório continua bloqueado (policy restritiva vehicles_block_provisorio).
+const idProv = await criarUsuario(email('prov'), { name: 'QA provisório', role: 'MORADOR', bloco: 'Q', unidade: '104', cadastro_validado: false });
+await admin.from('units').update({ usuario_id: idProv, status_convite: 'ATIVO' }).eq('id', U['104']);
+await admin.from('vehicles').insert(veic('QAP0V04', { unidade: '104', unit_id: U['104'] }));
+const cProv = await clientDe(email('prov'));
+const rp = await cProv.from('vehicles').update({ tipo_veiculo: 'CARRO' }).eq('placa', 'QAP0V04').select('id');
+ok(!rp.data?.length && (await tipoDe('QAP0V04')) === 'OUTRO', '[0030-morador] morador provisório NÃO edita o tipo (continua bloqueado)');
 
 console.log('\n## K. Outro bloco com o mesmo número (correção 4)');
 const { data: r101 } = await admin.from('units').insert({ bloco: 'R', numero: '101', proprietario_nome: 'QA R101', proprietario_telefone: '', proprietario_email: '', tipo_ocupacao: 'PROPRIETARIO', moradores: [] }).select().single();
@@ -305,6 +354,9 @@ for (const p of ['/', '/moradores', '/autocadastro']) { const r = await api(p); 
 console.log('\n## Trilha de auditoria legível (src/lib/auditoria.ts) e quem grava/lê');
 {
   const igual = (obtido, esperado, nome) => ok(obtido === esperado, `${nome}: ${JSON.stringify(obtido)}`);
+  const tipoAud = descreverAuditoria('Alterou o tipo de um veículo da unidade 102 (Bloco A) de Outro para Moto', { vehicleId: 'v-1', de: 'OUTRO', para: 'MOTO' });
+  igual(tipoAud.frase, 'Alterou o tipo de um veículo da unidade 102 (Bloco A) de Outro para Moto.', 'troca de tipo do veículo vira frase');
+  ok(tipoAud.detalhes.length === 0 && tipoAud.tecnicos.some((t) => t.chave === 'vehicleId') && tipoAud.tecnicos.some((t) => t.chave === 'para'), 'troca de tipo: id e valores só em detalhes técnicos');
   const rec = descreverAuditoria('Recusou reserva de Salão de Festas', { reservationId: 'd43d768d-0000', espaco: 'Salão de Festas', unidade: '102', aprovado: false, motivoRecusa: 'Data indisponível' });
   igual(rec.frase, 'Reserva de Salão de Festas, unidade 102: recusada. Motivo: Data indisponível', 'reserva recusada vira frase');
   igual(descreverAuditoria('Aprovou reserva de Churrasqueira', { espaco: 'Churrasqueira', unidade: '5', aprovado: true }).frase, 'Reserva de Churrasqueira, unidade 5: aprovada.', 'reserva aprovada vira frase');

@@ -120,8 +120,11 @@ for (const u of usuarios) {
 const a101 = unitDe('A', '101');
 const a102 = unitDe('A', '102');
 falhar('veículos', (await admin.from('vehicles').insert([
-  { placa: 'STG1A01', marca: 'Volkswagen', modelo: 'Gol', cor: 'Prata', bloco: 'A', unidade: '101', vaga: 'A101', proprietario_nome: 'Morador Proprietário', telefone_contato: '(11) 91111-1111', unit_id: a101.id },
-  { placa: 'STG2B02', marca: 'Honda', modelo: 'Civic', cor: 'Preto', bloco: 'A', unidade: '102', vaga: 'A102', proprietario_nome: 'Morador Inquilino', telefone_contato: '(11) 92222-2222', unit_id: a102.id },
+  { placa: 'STG1A01', marca: 'Volkswagen', modelo: 'Gol', cor: 'Prata', bloco: 'A', unidade: '101', vaga: 'A101', proprietario_nome: 'Morador Proprietário', telefone_contato: '(11) 91111-1111', unit_id: a101.id, tipo_veiculo: 'CARRO' },
+  { placa: 'STG3C03', marca: 'Honda', modelo: 'CG 160', cor: 'Vermelha', bloco: 'A', unidade: '101', vaga: 'A101-M', proprietario_nome: 'Morador Proprietário', telefone_contato: '(11) 91111-1111', unit_id: a101.id, tipo_veiculo: 'MOTO' },
+  { placa: 'STG2B02', marca: 'Honda', modelo: 'Civic', cor: 'Preto', bloco: 'A', unidade: '102', vaga: 'A102', proprietario_nome: 'Morador Inquilino', telefone_contato: '(11) 92222-2222', unit_id: a102.id, tipo_veiculo: 'CARRO' },
+  // Tipo Outro (o mesmo valor que a migração deu aos veículos antigos).
+  { placa: 'STG4D04', marca: 'Caloi', modelo: 'Elétrica', cor: 'Cinza', bloco: 'A', unidade: '102', vaga: 'A102-B', proprietario_nome: 'Morador Inquilino', telefone_contato: '(11) 92222-2222', unit_id: a102.id , tipo_veiculo: 'OUTRO' },
 ])).error);
 falhar('espaço', (await admin.from('spaces').insert({
   nome: 'Salão de Festas', descricao: 'Salão para até 50 pessoas', capacidade_max: 50,
@@ -132,6 +135,6 @@ falhar('aviso', (await admin.from('notices').insert({
   categoria: 'COMUNICADO', autor: 'Síndico Teste', fixado: true,
 })).error);
 
-console.log(`Staging recriado: ${usuarios.length} usuários, ${units.length} unidades, 2 veículos, 1 espaço, 1 aviso.`);
+console.log(`Staging recriado: ${usuarios.length} usuários, ${units.length} unidades, 4 veículos, 1 espaço, 1 aviso.`);
 console.log(`Contas (senha ${SENHA}):`);
 for (const u of usuarios) console.log(`  ${u.role.padEnd(10)} ${u.email}`);

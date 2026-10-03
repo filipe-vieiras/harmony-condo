@@ -24,7 +24,7 @@ import { isAdmin, SINGLETON_ROLES } from '@/lib/roles';
 import { avaliarVinculo, normalizarEmail, rotuloUnidade } from '@/lib/vinculoUnidade';
 import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
-  fetchVehicles, insertVehicle, deleteVehicleDB,
+  fetchVehicles, insertVehicle, deleteVehicleDB, updateVehicleTipoDB,
   fetchNotices, insertNotice, deleteNoticeDB,
   fetchFines, insertFine, updateFineDB, anularFineDB, deleteFineDB,
   fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB,
@@ -68,6 +68,7 @@ interface AppContextType {
   vehicles: Vehicle[];
   addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<{ success: boolean; message: string }>;
   deleteVehicle: (id: string) => Promise<{ success: boolean; message: string }>;
+  atualizarTipoVeiculo: (id: string, tipo: Vehicle['tipoVeiculo']) => Promise<{ success: boolean; message: string }>;
   notices: Notice[];
   addNotice: (notice: Omit<Notice, 'id' | 'data'>) => Promise<void>;
   deleteNotice: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -660,6 +661,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true, message: `Veículo ${created.placa} cadastrado com sucesso.` };
   };
 
+  // A auditoria desta troca é gravada pelo banco (0030), então não há recordAudit aqui.
+  const atualizarTipoVeiculo = async (id: string, tipo: Vehicle['tipoVeiculo']): Promise<{ success: boolean; message: string }> => {
+    const atualizado = await updateVehicleTipoDB(supabase, id, tipo);
+    if (!atualizado) return { success: false, message: 'Não foi possível salvar o tipo. Tente de novo.' };
+    setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, tipoVeiculo: atualizado.tipoVeiculo } : v)));
+    return { success: true, message: 'Tipo do veículo atualizado.' };
+  };
+
   const deleteVehicle = async (id: string): Promise<{ success: boolean; message: string }> => {
     const target = vehicles.find((v) => v.id === id);
     const deleted = await deleteVehicleDB(supabase, id);
@@ -1241,6 +1250,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         vehicles,
         addVehicle,
         deleteVehicle,
+        atualizarTipoVeiculo,
         notices,
         addNotice,
         deleteNotice,

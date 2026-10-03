@@ -129,9 +129,13 @@ export function descreverAuditoria(acao: string, detalhesBrutos: DetalhesAuditor
     const estado = STATUS_DA_MULTA[str(d.statusAnterior)];
     const partes = [un, tipo, estado ? `estava ${estado}` : ''].filter(Boolean).join(', ');
     frase = `${multa(d)}${partes ? ` (${partes})` : ''} apagada.`;
+  } else if (/^Alterou o tipo de um veículo/.test(acao)) {
+    // Gravado pelo banco (0030); a acao já é a frase completa, sem placa. Os valores de/para
+    // (CARRO/MOTO/OUTRO) ficam só nos detalhes técnicos.
+    frase = `${acao}.`;
   }
 
-  if (frase) return { frase, detalhes: [], tecnicos };
+  if (frase) return { frase, detalhes: [], tecnicos: [...tecnicos, ...entradas.filter(([k]) => k === 'de' || k === 'para').map(([chave, v]) => ({ chave, valor: texto(v) }))] };
 
   // Ação não mapeada: o texto da ação já é uma frase; o resto vira "chave: valor" sem ids.
   const detalhes = entradas
