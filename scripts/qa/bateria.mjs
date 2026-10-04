@@ -170,7 +170,8 @@ ok(m2.data?.length === 1 && (await tipoDe('QAM2A22')) === 'CARRO', '[0030-morado
 const { data: logTipo } = await admin.from('audit_logs').select('acao,usuario_role,detalhes').like('acao', 'Alterou o tipo de um veículo da unidade 102 (Bloco Q)%').eq('usuario_role', 'MORADOR');
 ok(logTipo?.length >= 1 && logTipo.every((l) => !/QAM2A22/.test(JSON.stringify(l))) && /de Moto para Carro$/.test(logTipo[0].acao), `[0030-morador] o banco registra a troca com frase legível e sem placa ("${logTipo?.[0]?.acao}")`);
 const antes = (await admin.from('vehicles').select('*').eq('placa', 'QAM2A22').single()).data;
-for (const [nome, mudanca] of [['placa', { placa: 'QAZ9Z99' }], ['vaga', { vaga: 'Q999' }], ['marca', { marca: 'Outra' }], ['modelo', { modelo: 'Outro' }], ['cor', { cor: 'Rosa' }], ['status', { status: 'VISITANTE' }], ['unit_id (passar para a Q-101)', { unit_id: U['101'] }], ['tipo junto com a vaga', { tipo_veiculo: 'MOTO', vaga: 'Q999' }], ['telefone', { telefone_contato: '999' }]]) {
+// Placa, marca, modelo e cor deixaram de ser recusados ao morador na migração 0031 (issue #46): ver a seção J3.
+for (const [nome, mudanca] of [['vaga', { vaga: 'Q999' }], ['status', { status: 'VISITANTE' }], ['unit_id (passar para a Q-101)', { unit_id: U['101'] }], ['tipo junto com a vaga', { tipo_veiculo: 'MOTO', vaga: 'Q999' }], ['telefone', { telefone_contato: '999' }]]) {
   const r = await cM2.from('vehicles').update(mudanca).eq('placa', 'QAM2A22').select('id');
   ok(!!r.error && !r.data?.length, `[0030-morador] dono NÃO altera ${nome} (recusado)`);
 }
@@ -186,6 +187,94 @@ await admin.from('vehicles').insert(veic('QAP0V04', { unidade: '104', unit_id: U
 const cProv = await clientDe(email('prov'));
 const rp = await cProv.from('vehicles').update({ tipo_veiculo: 'CARRO' }).eq('placa', 'QAP0V04').select('id');
 ok(!rp.data?.length && (await tipoDe('QAP0V04')) === 'OUTRO', '[0030-morador] morador provisório NÃO edita o tipo (continua bloqueado)');
+
+console.log('\n## J3. Morador edita o veículo da própria unidade (issue #46) — itens [0031] só passam depois de aplicar a migração 0031');
+// {} quando a placa não existe (ex.: a 0031 ainda não foi aplicada): a verificação falha em vez de a bateria quebrar.
+const linha = async (placa) => (await admin.from('vehicles').select('*').eq('placa', placa).single()).data ?? {};
+const veicId = (await linha('QAM2A22')).id;
+const veicOutraId = (await linha('QAA1B23')).id;
+// 1) morador da própria unidade edita os cinco campos; placa em minúsculas é normalizada
+const e1 = await cM2.from('vehicles').update({ placa: 'qab3c45', marca: 'Fiat', modelo: 'Uno', cor: 'Rosa', tipo_veiculo: 'MOTO' }).eq('id', veicId).select();
+const v1 = await linha('QAB3C45');
+ok(e1.data?.length === 1 && v1?.id === veicId && v1.marca === 'Fiat' && v1.modelo === 'Uno' && v1.cor === 'Rosa' && v1.tipo_veiculo === 'MOTO', '[0031] morador2 edita placa, marca, modelo, cor e tipo do PRÓPRIO veículo (placa em minúsculas vira maiúscula)');
+// 2) auditoria: frase sem placa, de-para nos detalhes
+const { data: logEd } = await admin.from('audit_logs').select('acao,usuario_role,detalhes').like('acao', 'Alterou um veículo da unidade 102 (Bloco Q)%').eq('usuario_role', 'MORADOR');
+ok(logEd?.length === 1 && logEd[0].acao === 'Alterou um veículo da unidade 102 (Bloco Q): placa, marca, modelo, cor e tipo' && !/QAM2A22|QAB3C45/.test(logEd[0].acao), `[0031] auditoria do banco com frase legível e SEM placa ("${logEd?.[0]?.acao}")`);
+ok(logEd?.[0]?.detalhes?.alteracoes?.placa?.de === 'QAM2A22' && logEd[0].detalhes.alteracoes.placa.para === 'QAB3C45' && logEd[0].detalhes.alteracoes.cor?.para === 'Rosa', '[0031] auditoria guarda o de-para (placa antiga e nova) nos detalhes');
+// 3) o que continua só da equipe: recusado ao morador
+const antes3 = await linha('QAB3C45');
+for (const [nome, mudanca] of [['vaga', { vaga: 'Q999' }], ['status', { status: 'VISITANTE' }], ['proprietário', { proprietario_nome: 'Outro Nome' }], ['telefone', { telefone_contato: '999' }], ['unidade', { unidade: '101' }], ['bloco', { bloco: 'R' }], ['unit_id', { unit_id: U['101'] }], ['id', { id: 'forjado' }], ['created_at', { created_at: '2001-01-01T00:00:00Z' }], ['cor junto com a vaga', { cor: 'Verde', vaga: 'Q999' }]]) {
+  const r = await cM2.from('vehicles').update(mudanca).eq('id', veicId).select('id');
+  ok(!!r.error && !r.data?.length, `[0031] dono NÃO altera ${nome} (recusado)`);
+}
+ok(JSON.stringify(antes3) === JSON.stringify(await linha('QAB3C45')), '[0031] nada mudou depois das tentativas recusadas');
+// 4) placa inválida recusada (morador, Síndico e até a chave de serviço); cadastro também
+for (const ruim of ['ABC123', 'ABC12345', 'AB1C234', 'ABC-123', '1BC1D23', 'ABCDE12', 'ABC1D2E', '']) {
+  const rm = await cM2.from('vehicles').update({ placa: ruim }).eq('id', veicId).select('id');
+  const rs = await cSind.from('vehicles').update({ placa: ruim }).eq('id', veicId).select('id');
+  const rk = await admin.from('vehicles').update({ placa: ruim }).eq('id', veicId).select('id');
+  ok(!!rm.error && !!rs.error && !!rk.error && (await linha('QAB3C45'))?.id === veicId, `[0031] placa inválida "${ruim}" recusada em edição (morador, Síndico e chave de serviço)`);
+}
+ok(!!(await cM2.from('vehicles').insert(veic('XX', { unidade: '102' }))).error, '[0031] morador NÃO cadastra veículo com placa inválida');
+ok(!!(await cPort.from('vehicles').insert(veic('ABC-123'))).error, '[0031] Portaria NÃO cadastra veículo com placa inválida');
+ok(!!(await cSind.from('vehicles').insert(veic('qaz9z9'))).error, '[0031] Síndico NÃO cadastra placa de 6 caracteres');
+// 5) outra unidade: 0 linhas; Portaria, Conselho, visitante (sem login) e provisório: recusados
+ok(!(await cM1.from('vehicles').update({ marca: 'Invasor' }).eq('id', veicId).select('id')).data?.length && (await linha('QAB3C45')).marca === 'Fiat', '[0031] morador1 NÃO edita veículo de OUTRA unidade (0 linhas)');
+ok(!(await cM2.from('vehicles').update({ marca: 'Invasor' }).eq('id', veicOutraId).select('id')).data?.length && (await linha('QAA1B23')).marca !== 'Invasor', '[0031] morador2 NÃO edita veículo da Q-101 (0 linhas)');
+for (const [nome, c] of [['Portaria', cPort], ['Conselho', cCons], ['visitante (sem login)', anon()], ['morador provisório', cProv]]) {
+  const r = await c.from('vehicles').update({ placa: 'QAH8H88', marca: 'Invasor' }).eq('id', veicId).select('id');
+  ok(!r.data?.length && (await linha('QAB3C45'))?.id === veicId && (await linha('QAB3C45')).marca === 'Fiat', `[0031] ${nome} NÃO edita placa nem marca`);
+}
+// 6) veículo de visitante: o morador não edita (o status é da equipe)
+const visitanteId = (await linha('QAV0S01')).id;
+const rv = await cM2.from('vehicles').update({ cor: 'Roxa' }).eq('id', visitanteId).select('id');
+ok(!rv.data?.length && (await linha('QAV0S01')).cor !== 'Roxa', '[0031] morador NÃO edita veículo de VISITANTE da própria unidade');
+// 7) equipe edita tudo
+{
+  const r = await cSind.from('vehicles').update({ placa: 'QAC4D56', vaga: 'Q777', cor: 'Cinza' }).eq('id', veicId).select();
+  const l = await linha('QAC4D56');
+  ok(r.data?.length === 1 && l?.vaga === 'Q777' && l.cor === 'Cinza', '[0031] Síndico edita placa, vaga e cor');
+  const r2 = await cSub.from('vehicles').update({ proprietario_nome: 'QA Dono Novo', telefone_contato: '(11) 98888-7777', status: 'VISITANTE' }).eq('id', veicId).select();
+  const l2 = await linha('QAC4D56');
+  ok(r2.data?.length === 1 && l2.proprietario_nome === 'QA Dono Novo' && l2.status === 'VISITANTE', '[0031] Subsíndico edita proprietário, telefone e status');
+  const r3 = await cAdm.from('vehicles').update({ marca: 'Honda', modelo: 'CG', status: 'ATIVO', tipo_veiculo: 'CARRO' }).eq('id', veicId).select();
+  const l3 = await linha('QAC4D56');
+  ok(r3.data?.length === 1 && l3.marca === 'Honda' && l3.status === 'ATIVO' && l3.tipo_veiculo === 'CARRO', '[0031] ADM edita marca, modelo, status e tipo');
+  const { data: logs } = await admin.from('audit_logs').select('acao,detalhes').like('acao', 'Alterou um veículo da unidade 102 (Bloco Q): %').neq('usuario_role', 'MORADOR');
+  ok(logs?.length === 3 && logs.every((x) => !/QAC4D56|QAB3C45/.test(x.acao)), '[0031] edições da equipe também entram no histórico, sem placa na frase');
+  const sem = logs?.find((x) => /proprietário/.test(x.acao));
+  ok(!!sem && !/QA Dono Novo|98888/.test(JSON.stringify(sem)) && sem.detalhes.camposAlteradosSemValor?.includes('telefone_contato'), '[0031] histórico NÃO guarda nome nem telefone do proprietário (só diz que mudaram)');
+}
+// 8) cadastro do morador: banco força status ATIVO, vaga vazia e unidade pela chave
+{
+  const r = await cM2.from('vehicles').insert(veic('qad5e67', { status: 'VISITANTE', vaga: 'Q999', bloco: 'Z', unidade: '999' })).select().single();
+  ok(!r.error && r.data?.status === 'ATIVO' && r.data.vaga === '' && r.data.placa === 'QAD5E67', '[0031] cadastro do morador força status ATIVO, vaga vazia e placa em maiúsculas');
+  ok(r.data?.bloco === 'Q' && r.data?.unidade === '102', '[0031] cadastro do morador ignora bloco/unidade do navegador (vêm da unidade)');
+  const rs = await cSind.from('vehicles').insert(veic('QAE6F78', { status: 'VISITANTE', vaga: 'Q555' })).select().single();
+  ok(!rs.error && rs.data?.status === 'VISITANTE' && rs.data.vaga === 'Q555', '[0031] equipe continua definindo status e vaga no cadastro');
+}
+// 9) placa única no condomínio (decisão do dono, 03/10/2026): repetida é recusada com 23505
+{
+  const existente = (await linha('QAC4D56')).id; // veículo da Q-102, criado/editado acima
+  const dupCad = await cM1.from('vehicles').insert(veic('QAC4D56', { unidade: '101', unit_id: U['101'] }));
+  ok(dupCad.error?.code === '23505', `[0031] morador NÃO cadastra placa já existente em outra unidade (23505: ${dupCad.error?.code})`);
+  const dupCadMin = await cM1.from('vehicles').insert(veic('qac4d56', { unidade: '101', unit_id: U['101'] }));
+  ok(dupCadMin.error?.code === '23505', '[0031] "qac4d56" e "QAC4D56" contam como a mesma placa (cadastro)');
+  const dupEquipe = await cSind.from('vehicles').insert(veic('QAC4D56', { unidade: '101', unit_id: U['101'] }));
+  ok(dupEquipe.error?.code === '23505', '[0031] Síndico NÃO cadastra placa já existente');
+  const dupMesma = await cM2.from('vehicles').insert(veic('QAC4D56'));
+  ok(dupMesma.error?.code === '23505', '[0031] morador NÃO cadastra a mesma placa duas vezes na própria unidade');
+  const dupEd = await cM1.from('vehicles').update({ placa: 'qac4d56' }).eq('id', veicOutraId).select('id');
+  ok(dupEd.error?.code === '23505' && (await linha('QAA1B23')).id === veicOutraId, '[0031] morador NÃO edita para uma placa já existente (23505; a placa dele fica como estava)');
+  const dupEdEq = await cSind.from('vehicles').update({ placa: 'QAC4D56' }).eq('id', veicOutraId).select('id');
+  ok(dupEdEq.error?.code === '23505', '[0031] Síndico NÃO edita para uma placa já existente');
+  ok((await admin.from('vehicles').select('id').eq('placa', 'QAC4D56')).data?.length === 1, '[0031] continua só 1 veículo com a placa QAC4D56');
+  // O dono da placa regrava a própria placa com o mesmo valor (e em minúsculas): continua funcionando
+  const mesma = await cM2.from('vehicles').update({ placa: 'qac4d56', cor: 'Azul' }).eq('id', existente).select('id');
+  ok(mesma.data?.length === 1 && (await linha('QAC4D56')).cor === 'Azul', '[0031] morador salva a própria placa com o mesmo valor (sem acusar duplicidade)');
+  const semAviso = (await admin.from('notifications').select('id').eq('titulo', 'Placa repetida entre unidades')).data ?? [];
+  ok(semAviso.length === 0, '[0031] nenhuma notificação de placa repetida existe (a regra caiu)');
+}
 
 console.log('\n## K. Outro bloco com o mesmo número (correção 4)');
 const { data: r101 } = await admin.from('units').insert({ bloco: 'R', numero: '101', proprietario_nome: 'QA R101', proprietario_telefone: '', proprietario_email: '', tipo_ocupacao: 'PROPRIETARIO', moradores: [] }).select().single();
@@ -357,6 +446,9 @@ console.log('\n## Trilha de auditoria legível (src/lib/auditoria.ts) e quem gra
   const tipoAud = descreverAuditoria('Alterou o tipo de um veículo da unidade 102 (Bloco A) de Outro para Moto', { vehicleId: 'v-1', de: 'OUTRO', para: 'MOTO' });
   igual(tipoAud.frase, 'Alterou o tipo de um veículo da unidade 102 (Bloco A) de Outro para Moto.', 'troca de tipo do veículo vira frase');
   ok(tipoAud.detalhes.length === 0 && tipoAud.tecnicos.some((t) => t.chave === 'vehicleId') && tipoAud.tecnicos.some((t) => t.chave === 'para'), 'troca de tipo: id e valores só em detalhes técnicos');
+  const edAud = descreverAuditoria('Alterou um veículo da unidade 102 (Bloco A): placa, cor e tipo', { vehicleId: 'v-1', unidade: '102', bloco: 'A', alteracoes: { placa: { de: 'AAA1A11', para: 'BBB2B22' } } });
+  igual(edAud.frase, 'Alterou um veículo da unidade 102 (Bloco A): placa, cor e tipo.', 'edição do veículo vira frase (sem placa)');
+  ok(edAud.detalhes.length === 0 && edAud.tecnicos.some((t) => t.chave === 'alteracoes') && edAud.tecnicos.some((t) => t.chave === 'vehicleId'), 'edição do veículo: de-para e id só em detalhes técnicos');
   const rec = descreverAuditoria('Recusou reserva de Salão de Festas', { reservationId: 'd43d768d-0000', espaco: 'Salão de Festas', unidade: '102', aprovado: false, motivoRecusa: 'Data indisponível' });
   igual(rec.frase, 'Reserva de Salão de Festas, unidade 102: recusada. Motivo: Data indisponível', 'reserva recusada vira frase');
   igual(descreverAuditoria('Aprovou reserva de Churrasqueira', { espaco: 'Churrasqueira', unidade: '5', aprovado: true }).frase, 'Reserva de Churrasqueira, unidade 5: aprovada.', 'reserva aprovada vira frase');

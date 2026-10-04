@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
-import { useApp } from '@/context/AppContext';
+import { useApp, type ResultadoSalvarVeiculo } from '@/context/AppContext';
 import { TipoVeiculo, Vehicle } from '@/types';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
@@ -12,7 +12,9 @@ import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
 import { TipoVeiculoSelector, idPrimeiroTipoVeiculo } from '@/components/ui/TipoVeiculoSelector';
 import { TipoVeiculoBadge } from '@/components/ui/TipoVeiculoBadge';
+import { CampoVeiculo, classeCampoVeiculo } from '@/components/ui/CampoVeiculo';
 import { TIPOS_VEICULO } from '@/lib/tiposVeiculo';
+import { AJUDA_PLACA, MENSAGEM_PLACA_INVALIDA, normalizarPlacaDigitada, placaValida } from '@/lib/placa';
 import {
   Car,
   Search,
@@ -22,7 +24,6 @@ import {
   Trash2,
   Printer,
   X,
-  AlertCircle,
   CheckCircle2,
   AlertTriangle,
   Pencil,
@@ -31,6 +32,10 @@ import {
 
 const CHAVE_FAIXA_OUTRO = 'harmony:faixa-tipo-outro-fechada';
 
+type ErrosForm = { placa?: string; tipo?: string; marca?: string; modelo?: string; unidade?: string; proprietario?: string };
+const MSG_PLACA_DUPLICADA = 'Esta placa já está cadastrada.';
+const MSG_ERRO_SERVIDOR = 'Não foi possível salvar. Verifique a conexão e tente de novo.';
+const rotuloUnidade = (v: { bloco: string; unidade: string }) => `${v.bloco}-${v.unidade}`;
 
 export default function VeiculosPage() {
   return (
@@ -41,12 +46,15 @@ export default function VeiculosPage() {
 }
 
 function VeiculosContent() {
-  const { currentUser, vehicles, addVehicle, deleteVehicle, atualizarTipoVeiculo, units } = useApp();
+  const { currentUser, vehicles, addVehicle, deleteVehicle, atualizarVeiculo, units } = useApp();
   const { confirm } = useDialog();
   const [searchTerm, setSearchTerm] = useState('');
-  const [showModal, setShowModal] = useState(false);
+  // Um só formulário para cadastrar e editar: null = fechado.
+  const [formulario, setFormulario] = useState<{ modo: 'novo' } | { modo: 'editar'; veiculo: Vehicle } | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const focarFeedback = useRef(false);
 
   // Form states
   const [placa, setPlaca] = useState('');
@@ -68,13 +76,9 @@ function VeiculosContent() {
   const [status, setStatus] = useState<'ATIVO' | 'VISITANTE'>('ATIVO');
   // Sem pré-seleção: '' até a pessoa escolher.
   const [tipoVeiculo, setTipoVeiculo] = useState<TipoVeiculo | ''>('');
-  const [erroTipo, setErroTipo] = useState('');
+  const [erros, setErros] = useState<ErrosForm>({});
+  const [erroServidor, setErroServidor] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<'TODOS' | TipoVeiculo>('TODOS');
-  // Edição do tipo de um veículo já cadastrado.
-  const [editando, setEditando] = useState<Vehicle | null>(null);
-  const [tipoEditado, setTipoEditado] = useState<TipoVeiculo | ''>('');
-  const [erroEdicao, setErroEdicao] = useState('');
-  const [salvandoTipo, setSalvandoTipo] = useState(false);
   // Fechar a faixa vale só neste navegador (sem estado "pendente" no banco).
   const [faixaFechada, setFaixaFechada] = useState(() => {
     try {
@@ -84,10 +88,10 @@ function VeiculosContent() {
     }
   });
 
-  useEscapeToClose(showModal, () => setShowModal(false));
-  useModalFocus(showModal);
-  useEscapeToClose(!!editando && !salvandoTipo, () => setEditando(null));
-  useModalFocus(!!editando);
+  // Durante o salvamento o formulário não fecha (nem por Esc, X, fundo ou Cancelar).
+  const fecharFormulario = () => { if (!isSaving) setFormulario(null); };
+  useEscapeToClose(formulario !== null && !isSaving, () => setFormulario(null));
+  useModalFocus(formulario !== null);
 
   // O perfil do usuário carrega de forma assíncrona — se o componente monta
   // antes disso, o useState inicial fica preso vazio/'A'. Sincroniza assim
@@ -97,15 +101,41 @@ function VeiculosContent() {
     if (currentUser?.bloco) setBloco(currentUser.bloco);
   }, [currentUser?.unidade, currentUser?.bloco]);
 
-  // O perfil chega depois do primeiro render: o morador tem o nome e o telefone dele
-  // preenchidos ao abrir o formulário (sem sobrescrever o que já digitou).
-  const abrirModal = () => {
-    if (currentUser?.role === 'MORADOR') {
-      setProprietarioNome((atual) => atual || currentUser.name);
-      setTelefoneContato((atual) => atual || currentUser.telefone || '');
+  // Depois de salvar, o foco vai para o cartão de resultado: a linha editada pode sumir da
+  // lista (filtro ativo) e o foco não pode ficar perdido. Roda depois de o modal devolver o foco.
+  useEffect(() => {
+    if (focarFeedback.current && feedbackMsg) {
+      focarFeedback.current = false;
+      feedbackRef.current?.focus();
     }
-    setErroTipo('');
-    setShowModal(true);
+  }, [feedbackMsg]);
+
+  const limparFormulario = () => {
+    setPlaca(''); setMarca(''); setModelo(''); setCor(''); setVaga(''); setTipoVeiculo('');
+    setStatus('ATIVO'); setErros({}); setErroServidor('');
+    // O perfil chega depois do primeiro render: o morador tem o nome e o telefone dele
+    // preenchidos ao abrir o formulário.
+    setProprietarioNome(currentUser?.role === 'MORADOR' ? currentUser.name : '');
+    setTelefoneContato(currentUser?.role === 'MORADOR' ? currentUser.telefone || '' : '');
+  };
+
+  const abrirCadastro = () => {
+    limparFormulario();
+    setFormulario({ modo: 'novo' });
+  };
+
+  const abrirEdicao = (v: Vehicle) => {
+    limparFormulario();
+    setPlaca(v.placa);
+    setMarca(v.marca);
+    setModelo(v.modelo);
+    setCor(v.cor);
+    setTipoVeiculo(v.tipoVeiculo);
+    setVaga(v.vaga);
+    setStatus(v.status);
+    setProprietarioNome(v.proprietarioNome);
+    setTelefoneContato(v.telefoneContato);
+    setFormulario({ modo: 'editar', veiculo: v });
   };
 
   const fecharFaixa = () => {
@@ -115,31 +145,6 @@ function VeiculosContent() {
     } catch {
       // navegador sem armazenamento: a faixa só some até recarregar
     }
-  };
-
-  const abrirEdicao = (v: Vehicle) => {
-    setEditando(v);
-    setTipoEditado(v.tipoVeiculo);
-    setErroEdicao('');
-  };
-
-  const salvarTipo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editando || salvandoTipo) return;
-    if (!tipoEditado) {
-      setErroEdicao('Escolha o tipo do veículo.');
-      document.getElementById(idPrimeiroTipoVeiculo('veiculo-edit-tipo'))?.focus();
-      return;
-    }
-    setSalvandoTipo(true);
-    const res = await atualizarTipoVeiculo(editando.id, tipoEditado);
-    setSalvandoTipo(false);
-    if (!res.success) {
-      setErroEdicao(res.message);
-      return;
-    }
-    setEditando(null);
-    setFeedbackMsg({ type: 'success', text: res.message });
   };
 
   const filteredVehicles = vehicles.filter((v) => {
@@ -156,43 +161,86 @@ function VeiculosContent() {
     );
   });
 
-  const handleCreateVehicle = async (e: React.FormEvent) => {
+  // Placa de veículo antigo fora do padrão só é cobrada se a pessoa a alterou.
+  const placaErro = (valor: string, original?: string): string => {
+    if (original !== undefined && valor === original) return '';
+    return placaValida(valor) ? '' : MENSAGEM_PLACA_INVALIDA;
+  };
+
+  const salvarVeiculo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!placa || !modelo || isSaving) return;
-    if (!tipoVeiculo) {
-      setErroTipo('Escolha o tipo do veículo.');
-      document.getElementById(idPrimeiroTipoVeiculo('veiculo-tipo'))?.focus();
+    if (!formulario || !currentUser || isSaving) return;
+    const editandoVeiculo = formulario.modo === 'editar' ? formulario.veiculo : null;
+    const souEquipe = isAdmin(currentUser.role);
+    const novoDaEquipe = !editandoVeiculo && currentUser.role !== 'MORADOR';
+
+    const novos: ErrosForm = {};
+    const eplaca = placaErro(placa, editandoVeiculo?.placa);
+    if (eplaca) novos.placa = eplaca;
+    if (!tipoVeiculo) novos.tipo = 'Escolha o tipo do veículo.';
+    if (!marca.trim()) novos.marca = 'Informe a marca do veículo.';
+    if (!modelo.trim()) novos.modelo = 'Informe o modelo do veículo.';
+    if (novoDaEquipe && !unidade.trim()) novos.unidade = 'Informe o apartamento.';
+    if (novoDaEquipe && !proprietarioNome.trim()) novos.proprietario = 'Informe o proprietário ou motorista.';
+    setErros(novos);
+    setErroServidor('');
+    if (Object.keys(novos).length > 0) {
+      // Foco no primeiro campo com erro, na ordem em que aparecem na tela.
+      const ids: [keyof ErrosForm, string][] = [
+        ['placa', 'veiculo-placa'],
+        ['tipo', idPrimeiroTipoVeiculo('veiculo-tipo')],
+        ['marca', 'veiculo-marca'],
+        ['modelo', 'veiculo-modelo'],
+        ['unidade', 'veiculo-apto'],
+        ['proprietario', 'veiculo-proprietario'],
+      ];
+      const primeiro = ids.find(([campo]) => novos[campo]);
+      if (primeiro) document.getElementById(primeiro[1])?.focus();
       return;
     }
+
     setIsSaving(true);
-
-    const res = await addVehicle({
-      placa: placa.toUpperCase().trim(),
-      marca,
-      modelo,
-      cor,
-      bloco,
-      unidade,
-      vaga: vaga || 'G1-Livre',
-      proprietarioNome,
-      telefoneContato,
-      status,
-      tipoVeiculo,
-    });
-
-    setIsSaving(false);
-    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
-
-    if (res.success) {
-      setShowModal(false);
-      setPlaca('');
-      setMarca('');
-      setModelo('');
-      setCor('');
-      setVaga('');
-      setTipoVeiculo('');
-      setErroTipo('');
+    let res: ResultadoSalvarVeiculo;
+    if (editandoVeiculo) {
+      // O morador envia só os cinco campos que pode mudar; a equipe envia também os dela.
+      res = await atualizarVeiculo(editandoVeiculo.id, {
+        placa, marca: marca.trim(), modelo: modelo.trim(), cor: cor.trim(), tipoVeiculo: tipoVeiculo as TipoVeiculo,
+        ...(souEquipe ? { vaga: vaga.trim(), status, proprietarioNome: proprietarioNome.trim(), telefoneContato: telefoneContato.trim() } : {}),
+      });
+    } else {
+      // Morador não manda vaga nem situação: o banco ignora e fixa ATIVO e vaga vazia.
+      res = await addVehicle({
+        placa,
+        marca: marca.trim(),
+        modelo: modelo.trim(),
+        cor: cor.trim(),
+        bloco,
+        unidade: unidade.trim(),
+        vaga: novoDaEquipe ? vaga.trim() || 'G1-Livre' : '',
+        proprietarioNome: proprietarioNome.trim(),
+        telefoneContato: telefoneContato.trim(),
+        status: novoDaEquipe ? status : 'ATIVO',
+        tipoVeiculo: tipoVeiculo as TipoVeiculo,
+      });
     }
+    setIsSaving(false);
+
+    if (!res.success || !res.veiculo) {
+      // Fica aberto e com os dados, para tentar de novo.
+      if (res.placaDuplicada) {
+        // Placa já cadastrada (única no condomínio): erro no campo Placa, com foco, e na faixa do modal.
+        setErros((x) => ({ ...x, placa: MSG_PLACA_DUPLICADA }));
+        setErroServidor(MSG_PLACA_DUPLICADA);
+        document.getElementById('veiculo-placa')?.focus();
+      } else {
+        setErroServidor(MSG_ERRO_SERVIDOR);
+      }
+      return;
+    }
+
+    focarFeedback.current = true;
+    setFeedbackMsg({ type: 'success', text: editandoVeiculo ? 'Veículo atualizado.' : 'Veículo cadastrado.' });
+    setFormulario(null);
   };
 
   if (!currentUser) return null;
@@ -202,10 +250,22 @@ function VeiculosContent() {
   const minhaUnidade = units.find((u) => u.usuarioId === currentUser.id);
   // Sem ação para o perfil (ex.: Portaria): no celular a célula some, em vez de mostrar "AÇÕES" vazio.
   const podeRemover = (v: Vehicle) => isAdmin(currentUser.role) || (isMorador && v.unitId === minhaUnidade?.id);
-  // Quem edita o tipo: equipe administrativa e o morador, só na própria unidade (o banco confere de novo).
-  const podeEditarTipo = (v: Vehicle) => isAdmin(currentUser.role) || (isMorador && !!minhaUnidade && v.unitId === minhaUnidade.id);
+  const ehEquipe = isAdmin(currentUser.role);
+  // Quem edita: equipe administrativa e o morador, só na própria unidade e nunca veículo de
+  // visitante (o status é da equipe). O banco confere de novo.
+  const podeEditar = (v: Vehicle) =>
+    ehEquipe || (isMorador && !!minhaUnidade && v.unitId === minhaUnidade.id && v.status !== 'VISITANTE');
   const totalOutro = vehicles.filter((v) => v.tipoVeiculo === 'OUTRO').length;
-  const mostrarFaixa = isAdmin(currentUser.role) && totalOutro > 0 && !faixaFechada;
+  const mostrarFaixa = ehEquipe && totalOutro > 0 && !faixaFechada;
+  const editando = formulario?.modo === 'editar' ? formulario.veiculo : null;
+  const ehNovoDaEquipe = formulario?.modo === 'novo' && !isMorador;
+  // Uma só condição para mostrar E exigir os campos da equipe (vaga, status, dono, telefone; apto e bloco no
+  // cadastro): quem cadastra sem ser morador (Síndico, Subsíndico, ADM e Portaria) ou a equipe administrativa editando.
+  const camposDaEquipe = editando ? ehEquipe : !isMorador;
+  // Quem o banco deixa inserir (policy vehicles_insert, 0028): equipe administrativa, Portaria e Morador. Conselho não.
+  const podeCadastrar = ehEquipe || currentUser.role === 'PORTARIA' || isMorador;
+  const placaForaDoPadrao = !!editando && editando.placa === placa && !placaValida(editando.placa);
+  const subtituloUnidade = editando ? rotuloUnidade(editando) : isMorador && currentUser.unidade ? `${currentUser.bloco ?? ''}-${currentUser.unidade}` : '';
 
   return (
     <div className="space-y-6">
@@ -242,21 +302,25 @@ function VeiculosContent() {
             <span className="sr-only sm:not-sr-only">Imprimir Relação</span>
           </button>
 
-          <button
-            onClick={abrirModal}
-            className="order-1 flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:order-2 sm:min-h-0 sm:flex-none"
-          >
-            <Plus className="h-4 w-4 text-accent" />
-            <span>Cadastrar Veículo</span>
-          </button>
+          {podeCadastrar && (
+            <button
+              onClick={abrirCadastro}
+              className="order-1 flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:order-2 sm:min-h-0 sm:flex-none"
+            >
+              <Plus className="h-4 w-4 text-accent" />
+              <span>Cadastrar Veículo</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Mensagem de Feedback */}
       {feedbackMsg && (
         <div
+          ref={feedbackRef}
+          tabIndex={-1}
           role={feedbackMsg.type === 'error' ? 'alert' : 'status'}
-          className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
+          className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-strong/30 ${
             feedbackMsg.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
               : 'bg-red-50 text-red-900 border border-red-200'
@@ -292,7 +356,9 @@ function VeiculosContent() {
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden="true" />
           <div className="flex-1">
             <p>
-              {totalOutro} {totalOutro === 1 ? 'veículo está' : 'veículos estão'} como &quot;Outro&quot;. Se algum for carro ou moto, toque em &quot;Editar tipo&quot; para corrigir.
+              {totalOutro === 1
+                ? '1 veículo está como "Outro". Se for carro ou moto, toque em "Editar veículo" e corrija o tipo.'
+                : `${totalOutro} veículos estão como "Outro". Se algum for carro ou moto, toque em "Editar veículo" e corrija o tipo.`}
             </p>
             <button
               type="button"
@@ -387,7 +453,7 @@ function VeiculosContent() {
                       Apto {v.unidade} - Bloco {v.bloco}
                     </td>
                     <td data-label="Vaga" className="px-5 py-3.5 font-mono text-slate-700 font-bold">
-                      {v.vaga}
+                      {v.vaga || '—'}
                     </td>
                     <td data-label="Morador Responsável" className="empilhada px-5 py-3.5">
                       <div className="font-semibold text-slate-900">{v.proprietarioNome}</div>
@@ -396,18 +462,17 @@ function VeiculosContent() {
                         <span className="whitespace-nowrap">{v.telefoneContato}</span>
                       </div>
                     </td>
-                    <td data-label="Ações" className={`px-5 py-3.5 text-right no-print ${podeRemover(v) || podeEditarTipo(v) ? '' : 'oculta-mobile'}`}>
+                    <td data-label="Ações" className={`px-5 py-3.5 text-right no-print ${podeRemover(v) || podeEditar(v) ? '' : 'oculta-mobile'}`}>
                       <div className="flex flex-wrap items-center justify-end gap-1">
-                      {podeEditarTipo(v) && (
+                      {podeEditar(v) && (
                         <button
                           type="button"
                           onClick={() => abrirEdicao(v)}
-                          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-primary sm:min-h-0 sm:p-1.5"
-                          title="Editar tipo do veículo"
-                          aria-label={`Editar tipo do veículo ${v.placa}`}
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-primary"
+                          aria-label={`Editar veículo ${v.placa}`}
                         >
-                          <Pencil className="h-4 w-4" aria-hidden="true" />
-                          <span className="sm:sr-only">Editar tipo</span>
+                          <Pencil className="size-4 shrink-0" aria-hidden="true" />
+                          <span>Editar veículo</span>
                         </button>
                       )}
                       {podeRemover(v) && (
@@ -434,232 +499,212 @@ function VeiculosContent() {
         </div>
       </div>
 
-      {/* Modal de Cadastro de Veículo */}
-      {showModal && (
+      {/* Formulário de veículo: o mesmo para cadastrar e editar */}
+      {formulario && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
-            onClick={() => setShowModal(false)}
-          />
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={fecharFormulario} />
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="veiculo-modal-title"
             className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 id="veiculo-modal-title" className="text-base font-bold text-slate-900">Cadastrar Novo Veículo</h3>
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 id="veiculo-modal-title" className="text-base font-bold text-slate-900">
+                  {editando ? 'Editar veículo' : 'Cadastrar veículo'}
+                </h3>
+                {subtituloUnidade && <p className="mt-0.5 text-xs text-slate-500">Unidade {subtituloUnidade}</p>}
+              </div>
               <button
-                onClick={() => setShowModal(false)}
+                type="button"
+                onClick={fecharFormulario}
+                disabled={isSaving}
                 aria-label="Fechar"
-                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateVehicle} className="mt-4 space-y-3">
-              <div>
-                <label htmlFor="veiculo-placa" className="block text-xs font-semibold text-slate-700">Placa do Veículo</label>
-                <input
-                  id="veiculo-placa"
-                  type="text"
-                  required
-                  placeholder="Ex: BRA2E19"
-                  value={placa}
-                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 font-mono uppercase font-bold focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
-                />
-              </div>
+            <form onSubmit={salvarVeiculo} noValidate className="mt-4 space-y-3">
+              <CampoVeiculo
+                id="veiculo-placa"
+                label="Placa do veículo"
+                type="text"
+                placeholder="Ex: ABC1D23"
+                value={placa}
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                classeInput="font-mono font-bold"
+                onChange={(e) => {
+                  const nova = normalizarPlacaDigitada(e.target.value);
+                  setPlaca(nova);
+                  // Limpa o erro assim que a placa passa a valer; não acusa erro enquanto ainda digita.
+                  if (erros.placa && !placaErro(nova, editando?.placa)) setErros((x) => ({ ...x, placa: undefined }));
+                }}
+                onBlur={() => {
+                  if (placa.length === 0 || erros.placa === MSG_PLACA_DUPLICADA) return;
+                  const e = placaErro(placa, editando?.placa);
+                  setErros((x) => ({ ...x, placa: e || undefined }));
+                }}
+                erro={erros.placa}
+                apoio={
+                  <>
+                    <span>{AJUDA_PLACA}</span>
+                    {placaForaDoPadrao && (
+                      <span className="mt-1 flex items-center gap-1.5 font-semibold text-pendente-800">
+                        <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        Esta placa está fora do padrão. Corrija ou deixe como está.
+                      </span>
+                    )}
+                  </>
+                }
+              />
 
               <TipoVeiculoSelector
                 name="veiculo-tipo"
                 idBase="veiculo-tipo"
                 value={tipoVeiculo}
-                onChange={(t) => { setTipoVeiculo(t); setErroTipo(''); }}
-                erro={erroTipo}
+                onChange={(t) => { setTipoVeiculo(t); setErros((x) => ({ ...x, tipo: undefined })); }}
+                erro={erros.tipo}
               />
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="veiculo-marca" className="block text-xs font-semibold text-slate-700">Marca</label>
-                  <input
-                    id="veiculo-marca"
-                    type="text"
-                    required
-                    placeholder="Ex: Toyota"
-                    value={marca}
-                    onChange={(e) => setMarca(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="veiculo-modelo" className="block text-xs font-semibold text-slate-700">Modelo</label>
-                  <input
-                    id="veiculo-modelo"
-                    type="text"
-                    required
-                    placeholder="Ex: Corolla"
-                    value={modelo}
-                    onChange={(e) => setModelo(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
-                  />
-                </div>
+                <CampoVeiculo
+                  id="veiculo-marca"
+                  label="Marca"
+                  type="text"
+                  placeholder="Ex: Toyota"
+                  value={marca}
+                  autoComplete="off"
+                  onChange={(e) => { setMarca(e.target.value); setErros((x) => ({ ...x, marca: undefined })); }}
+                  erro={erros.marca}
+                />
+                <CampoVeiculo
+                  id="veiculo-modelo"
+                  label="Modelo"
+                  type="text"
+                  placeholder="Ex: Corolla"
+                  value={modelo}
+                  autoComplete="off"
+                  onChange={(e) => { setModelo(e.target.value); setErros((x) => ({ ...x, modelo: undefined })); }}
+                  erro={erros.modelo}
+                />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="veiculo-cor" className="block text-xs font-semibold text-slate-700">Cor</label>
-                  <input
-                    id="veiculo-cor"
-                    type="text"
-                    placeholder="Ex: Preto"
-                    value={cor}
-                    onChange={(e) => setCor(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="veiculo-vaga" className="block text-xs font-semibold text-slate-700">Vaga de Garagem</label>
-                  <input
-                    id="veiculo-vaga"
-                    type="text"
-                    placeholder="Ex: G2-45"
-                    value={vaga}
-                    onChange={(e) => setVaga(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
-                  />
-                </div>
-              </div>
+              <CampoVeiculo
+                id="veiculo-cor"
+                label={<>Cor <span className="font-normal text-slate-500">(opcional)</span></>}
+                type="text"
+                placeholder="Ex: Preto"
+                value={cor}
+                autoComplete="off"
+                onChange={(e) => setCor(e.target.value)}
+              />
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="veiculo-apto" className="block text-xs font-semibold text-slate-700">Apartamento</label>
-                  <input
-                    id="veiculo-apto"
+              {/* Campos da equipe: vaga, situação, dono e telefone. O morador não os vê. */}
+              {camposDaEquipe && (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <CampoVeiculo
+                      id="veiculo-vaga"
+                      label="Vaga de garagem"
+                      type="text"
+                      placeholder="Ex: G2-45"
+                      value={vaga}
+                      onChange={(e) => setVaga(e.target.value)}
+                    />
+                    <div>
+                      <label htmlFor="veiculo-status" className="block text-xs font-semibold text-slate-700">Status</label>
+                      <select
+                        id="veiculo-status"
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as 'ATIVO' | 'VISITANTE')}
+                        className={classeCampoVeiculo()}
+                      >
+                        <option value="ATIVO">Ativo</option>
+                        <option value="VISITANTE">Visitante</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {ehNovoDaEquipe && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <CampoVeiculo
+                        id="veiculo-apto"
+                        label="Apartamento"
+                        type="text"
+                        placeholder="304"
+                        value={unidade}
+                        onChange={(e) => { setUnidade(e.target.value); setErros((x) => ({ ...x, unidade: undefined })); }}
+                        erro={erros.unidade}
+                      />
+                      <div>
+                        <label htmlFor="veiculo-bloco" className="block text-xs font-semibold text-slate-700">Bloco</label>
+                        <select
+                          id="veiculo-bloco"
+                          value={bloco}
+                          onChange={(e) => setBloco(e.target.value)}
+                          className={classeCampoVeiculo()}
+                        >
+                          <option value="A">Bloco A</option>
+                          <option value="B">Bloco B</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <CampoVeiculo
+                    id="veiculo-proprietario"
+                    label="Proprietário / Motorista"
                     type="text"
-                    required
-                    disabled={isMorador}
-                    placeholder="304"
-                    value={unidade}
-                    onChange={(e) => setUnidade(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 disabled:bg-slate-100 disabled:text-slate-500"
+                    value={proprietarioNome}
+                    onChange={(e) => { setProprietarioNome(e.target.value); setErros((x) => ({ ...x, proprietario: undefined })); }}
+                    erro={erros.proprietario}
                   />
-                </div>
-                <div>
-                  <label htmlFor="veiculo-bloco" className="block text-xs font-semibold text-slate-700">Bloco</label>
-                  <select
-                    id="veiculo-bloco"
-                    value={bloco}
-                    disabled={isMorador}
-                    onChange={(e) => setBloco(e.target.value)}
-                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 disabled:bg-slate-100 disabled:text-slate-500"
-                  >
-                    <option value="A">Bloco A</option>
-                    <option value="B">Bloco B</option>
-                  </select>
-                </div>
-              </div>
+                  <CampoVeiculo
+                    id="veiculo-telefone"
+                    label="Telefone de contato"
+                    type="text"
+                    inputMode="tel"
+                    value={telefoneContato}
+                    onChange={(e) => setTelefoneContato(e.target.value)}
+                  />
+                </>
+              )}
+
               {isMorador && (
                 <p className="text-[12px] text-slate-500">
-                  O veículo é sempre cadastrado na sua própria unidade.
+                  O veículo fica na sua unidade. Vaga e situação são definidas pelo síndico.
                 </p>
               )}
 
-              <div>
-                <label htmlFor="veiculo-proprietario" className="block text-xs font-semibold text-slate-700">Proprietário / Motorista</label>
-                <input
-                  id="veiculo-proprietario"
-                  type="text"
-                  required
-                  value={proprietarioNome}
-                  onChange={(e) => setProprietarioNome(e.target.value)}
-                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
-                />
-              </div>
+              {erroServidor && (
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-900">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-700" aria-hidden="true" />
+                  <span>{erroServidor}</span>
+                </div>
+              )}
 
-              <div>
-                <label htmlFor="veiculo-telefone" className="block text-xs font-semibold text-slate-700">Telefone de Contato</label>
-                <input
-                  id="veiculo-telefone"
-                  type="text"
-                  value={telefoneContato}
-                  onChange={(e) => setTelefoneContato(e.target.value)}
-                  className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 text-base sm:text-xs sm:min-h-0 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
-                />
-              </div>
-
-              <div className="mt-5 flex justify-end gap-2 pt-3 border-t border-slate-100">
+              {/* No celular os botões empilham com "Salvar" em cima (col-reverse); no computador ficam lado a lado. */}
+              <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   disabled={isSaving}
-                  onClick={() => setShowModal(false)}
-                  className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 sm:min-h-0 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={fecharFormulario}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="min-h-11 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover sm:min-h-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                  aria-busy={isSaving}
+                  className="min-h-11 w-full rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
-                  {isSaving ? 'Salvando...' : 'Salvar Veículo'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-
-      {/* Modal de edição do tipo do veículo */}
-      {editando && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs" onClick={() => !salvandoTipo && setEditando(null)} />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="veiculo-tipo-modal-title"
-            className="relative max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
-          >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-              <div>
-                <h3 id="veiculo-tipo-modal-title" className="text-base font-bold text-slate-900">Tipo do veículo</h3>
-                <p className="mt-0.5 text-xs text-slate-500">{editando.placa} · {editando.modelo}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditando(null)}
-                aria-label="Fechar"
-                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={salvarTipo} className="mt-4 space-y-4">
-              <TipoVeiculoSelector
-                name="veiculo-edit-tipo"
-                idBase="veiculo-edit-tipo"
-                value={tipoEditado}
-                onChange={(t) => { setTipoEditado(t); setErroEdicao(''); }}
-                erro={erroEdicao}
-              />
-              <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-                <button
-                  type="button"
-                  disabled={salvandoTipo}
-                  onClick={() => setEditando(null)}
-                  className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 sm:min-h-0"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={salvandoTipo}
-                  className="min-h-11 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-60 sm:min-h-0"
-                >
-                  {salvandoTipo ? 'Salvando...' : 'Salvar tipo'}
+                  {isSaving ? 'Salvando...' : 'Salvar veículo'}
                 </button>
               </div>
             </form>
