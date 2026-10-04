@@ -81,6 +81,7 @@ function MultasContent() {
   const [descricaoInfracao, setDescricaoInfracao] = useState('');
   const [valor, setValor] = useState('');
   const [tipo, setTipo] = useState<'ADVERTENCIA' | 'MULTA'>('MULTA');
+  const [erroValor, setErroValor] = useState('');
   const [fotoUrl, setFotoUrl] = useState('');
   const [fotoDescricao, setFotoDescricao] = useState('');
 
@@ -155,6 +156,22 @@ function MultasContent() {
     e.preventDefault();
     if (!selectedUnit || !descricaoInfracao) return;
 
+    // Valor só vale para Multa Financeira: maior que zero. O banco também recusa negativo (0035).
+    // Mensagem própria (e não a do navegador) para sair sempre em português, junto do campo.
+    if (tipo === 'MULTA') {
+      const numero = Number(valor.replace(',', '.'));
+      const mensagem = valor.trim() !== '' && Number.isFinite(numero) && numero < 0
+        ? 'O valor da multa não pode ser negativo.'
+        : !Number.isFinite(numero) || valor.trim() === '' || numero <= 0
+        ? 'Informe o valor da multa.'
+        : '';
+      if (mensagem) {
+        setErroValor(mensagem);
+        document.getElementById('multa-valor')?.focus();
+        return;
+      }
+    }
+
     const res = await addFine({
       unitId: selectedUnit.id,
       bloco: selectedUnit.bloco,
@@ -170,6 +187,7 @@ function MultasContent() {
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
 
     if (res.success) {
+      setErroValor('');
       setShowModal(false);
       setUnitId('');
       setDescricaoInfracao('');
@@ -210,7 +228,7 @@ function MultasContent() {
         <div className="flex flex-wrap items-center gap-3 sm:gap-2">
           {isAdmin(currentUser.role) && (
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => { setErroValor(''); setShowModal(true); }}
               className="order-first flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-red-700 sm:order-last sm:min-h-0 sm:w-auto"
             >
               <Plus className="h-4 w-4 text-white" />
@@ -440,7 +458,7 @@ function MultasContent() {
                   <select
                     id="multa-tipo"
                     value={tipo}
-                    onChange={(e) => setTipo(e.target.value as 'ADVERTENCIA' | 'MULTA')}
+                    onChange={(e) => { setTipo(e.target.value as 'ADVERTENCIA' | 'MULTA'); setErroValor(''); }}
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 min-h-11 sm:min-h-0"
                   >
                     <option value="MULTA">Multa Financeira</option>
@@ -453,13 +471,17 @@ function MultasContent() {
                     id="multa-valor"
                     type="number"
                     step="0.01"
-                    required={tipo !== 'ADVERTENCIA'}
                     disabled={tipo === 'ADVERTENCIA'}
                     placeholder="Ex: 350.00"
                     value={tipo === 'ADVERTENCIA' ? '0.00' : valor}
-                    onChange={(e) => setValor(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-100 min-h-11 sm:min-h-0"
+                    aria-invalid={erroValor ? true : undefined}
+                    aria-describedby={erroValor ? 'multa-valor-erro' : undefined}
+                    onChange={(e) => { setValor(e.target.value); setErroValor(''); }}
+                    className={`mt-1 w-full rounded-xl border px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-100 min-h-11 sm:min-h-0 ${erroValor ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-red-500'}`}
                   />
+                  {erroValor && (
+                    <p id="multa-valor-erro" role="alert" className="mt-1 text-xs font-semibold text-red-700">{erroValor}</p>
+                  )}
                 </div>
               </div>
 

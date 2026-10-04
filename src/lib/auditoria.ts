@@ -138,6 +138,9 @@ export function descreverAuditoria(acao: string, detalhesBrutos: DetalhesAuditor
     // Gravado pelo banco (0031); a acao já é a frase completa (quais campos mudaram), sem placa.
     // O de-para (placa antiga e nova, marca, cor...) fica em `alteracoes`, nos detalhes técnicos.
     frase = `${acao}.`;
+  } else if (/^Removeu um veículo da unidade /.test(acao)) {
+    // Gravado pelo banco (0036); a acao já é a frase completa, sem placa.
+    frase = `${acao}.`;
   } else if (/^Alterou o tipo de um veículo/.test(acao)) {
     // Gravado pelo banco (0030); a acao já é a frase completa, sem placa. Os valores de/para
     // (CARRO/MOTO/OUTRO) ficam só nos detalhes técnicos.
