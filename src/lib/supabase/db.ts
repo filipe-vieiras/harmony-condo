@@ -387,6 +387,7 @@ export async function fetchSpaces(supabase: SupabaseClient): Promise<CommonSpace
     regras: (r.regras as string[]) ?? [],
     imagemUrl: (r.imagem_url as string) ?? '',
     ativo: (r.ativo as boolean) ?? true,
+    exigeAprovacao: (r.exige_aprovacao as boolean) ?? true,
   }));
 }
 
@@ -403,6 +404,7 @@ export async function insertSpace(
     regras: space.regras,
     imagem_url: space.imagemUrl,
     ativo: space.ativo ?? true,
+    exige_aprovacao: space.exigeAprovacao,
   }).select().single();
   if (error) { console.error('insertSpace:', error); return null; }
   return {
@@ -415,6 +417,7 @@ export async function insertSpace(
     regras: data.regras ?? [],
     imagemUrl: data.imagem_url ?? '',
     ativo: data.ativo ?? true,
+    exigeAprovacao: data.exige_aprovacao ?? true,
   };
 }
 
@@ -432,6 +435,7 @@ export async function updateSpaceDB(
   if (space.regras !== undefined) payload.regras = space.regras;
   if (space.imagemUrl !== undefined) payload.imagem_url = space.imagemUrl;
   if (space.ativo !== undefined) payload.ativo = space.ativo;
+  if (space.exigeAprovacao !== undefined) payload.exige_aprovacao = space.exigeAprovacao;
 
   const { data, error } = await supabase.from('spaces').update(payload).eq('id', id).select().single();
   if (error) { console.error('updateSpaceDB:', error); return null; }
@@ -445,6 +449,7 @@ export async function updateSpaceDB(
     regras: data.regras ?? [],
     imagemUrl: data.imagem_url ?? '',
     ativo: data.ativo ?? true,
+    exigeAprovacao: data.exige_aprovacao ?? true,
   };
 }
 
@@ -492,10 +497,15 @@ export async function fetchReservations(supabase: SupabaseClient): Promise<Reser
   return (data ?? []).map(rowToReservation);
 }
 
+/** Por que o banco recusou a reserva (mensagens curtas das migrações 0032 e 0034). */
+export type ErroReserva = 'CONFLITO' | 'DIA_PASSADO' | 'INDISPONIVEL' | 'ERRO';
+
 export async function insertReservation(
   supabase: SupabaseClient,
   res: Omit<Reservation, 'id' | 'dataSolicitacao' | 'dataAvaliacao' | 'avaliadoPor' | 'motivoRecusa'>,
-): Promise<Reservation | null> {
+): Promise<{ reserva: Reservation | null; erro?: ErroReserva }> {
+  // O status enviado é só um pedido: quem decide PENDENTE ou APROVADA é o gatilho do banco (0034),
+  // pela configuração do espaço. A reserva devolvida aqui já traz o status real.
   const { data, error } = await supabase.from('reservations').insert({
     espaco_id: res.espacoId,
     espaco_nome: res.espacoNome,
@@ -508,8 +518,30 @@ export async function insertReservation(
     convidados_estimados: res.convidadosEstimados,
     status: 'PENDENTE',
   }).select().single();
-  if (error) { console.error('insertReservation:', error); return null; }
-  return rowToReservation(data);
+  if (error) {
+    console.error('insertReservation:', error);
+    // 23505 = índice único (espaço + dia já ocupado por PENDENTE/APROVADA).
+    if (error.code === '23505') return { reserva: null, erro: 'CONFLITO' };
+    if (error.message === 'reserva_dia_passado') return { reserva: null, erro: 'DIA_PASSADO' };
+    if (error.message === 'reserva_espaco_indisponivel') return { reserva: null, erro: 'INDISPONIVEL' };
+    return { reserva: null, erro: 'ERRO' };
+  }
+  return { reserva: rowToReservation(data) };
+}
+
+/**
+ * Dias ocupados (PENDENTE ou APROVADA) por espaço, de `inicio` a `fim` (YYYY-MM-DD).
+ * Função do banco (0033): devolve só espaço + data, sem nome, unidade ou status de ninguém.
+ * Devolve null quando a consulta falha, para a tela mostrar erro em vez de "tudo livre".
+ */
+export async function fetchDisponibilidade(
+  supabase: SupabaseClient,
+  inicio: string,
+  fim: string,
+): Promise<{ espacoId: string; data: string }[] | null> {
+  const { data, error } = await supabase.rpc('disponibilidade_reservas', { inicio, fim });
+  if (error) { console.error('fetchDisponibilidade:', error); return null; }
+  return ((data ?? []) as { espaco_id: string; data: string }[]).map((l) => ({ espacoId: l.espaco_id, data: l.data }));
 }
 
 export async function updateReservationDB(supabase: SupabaseClient, id: string, payload: Record<string, unknown>): Promise<Reservation | null> {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
@@ -11,6 +11,8 @@ import { isAdmin, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
+import { ReservasCalendario } from '@/components/reservas/ReservasCalendario';
+import { dataLonga, hojeBrasilia, somarDias } from '@/lib/datasReservas';
 import {
   CalendarDays,
   Plus, 
@@ -30,7 +32,9 @@ import {
   Settings,
   Building2,
   EyeOff,
-  Eye
+  Eye,
+  List,
+  Lock
 } from 'lucide-react';
 import { formatarData, formatarIntervalo, formatarMoeda, pluralizar } from '@/lib/formatadores';
 
@@ -42,12 +46,20 @@ export default function ReservasPage() {
   );
 }
 
-// Data de hoje no fuso local (toISOString usaria UTC e viraria o dia à noite)
-function hojeLocal(): string {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
+type Visao = 'lista' | 'calendario';
+const CHAVE_VISAO = 'reservas-visao';
+/** Marcador gravado pelo banco (0034) quando o espaço não exige aprovação. */
+const APROVACAO_AUTOMATICA = 'Aprovação automática';
+
+// Lembra a visão escolhida neste aparelho. localStorage pode faltar (janela anônima, dados
+// bloqueados): sem ele a tela só volta ao padrão do perfil.
+function lerVisaoSalva(): Visao | null {
+  try {
+    const v = window.localStorage.getItem(CHAVE_VISAO);
+    return v === 'lista' || v === 'calendario' ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 function ReservasContent() {
@@ -59,6 +71,7 @@ function ReservasContent() {
     deleteSpace,
     reservations, 
     requestReservation, 
+    buscarDisponibilidade,
     judgeReservation 
   } = useApp();
   const { confirm, askReason } = useDialog();
@@ -75,6 +88,15 @@ function ReservasContent() {
   const [reservaBloco, setReservaBloco] = useState('A');
   const [reservaUnidade, setReservaUnidade] = useState('');
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Visão (Lista ou Calendário), dia aberto no modal e trava contra duplo clique no envio.
+  const [visaoEscolhida, setVisaoEscolhida] = useState<Visao | null>(() => (typeof window === 'undefined' ? null : lerVisaoSalva()));
+  const [dataFixa, setDataFixa] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  // Muda quando algo foi criado ou decidido: calendário e modal consultam a disponibilidade de novo.
+  const [recarregarKey, setRecarregarKey] = useState(0);
+  const [disp, setDisp] = useState<{ dia: string; ocupados: Set<string> | null } | null>(null);
+  const buscarRef = useRef(buscarDisponibilidade);
+  useEffect(() => { buscarRef.current = buscarDisponibilidade; });
 
   // Estados para Gestão de Espaços (Síndico)
   const [showSpaceModal, setShowSpaceModal] = useState(false);
@@ -87,13 +109,21 @@ function ReservasContent() {
   const [spaceRegras, setSpaceRegras] = useState('');
   const [spaceImagemUrl, setSpaceImagemUrl] = useState('');
   const [spaceAtivo, setSpaceAtivo] = useState(true);
+  const [spaceExigeAprovacao, setSpaceExigeAprovacao] = useState(true);
 
   const isSindico = isAdmin(currentUser?.role);
   // Equipe sem unidade própria (Síndico/ADM/Portaria) precisa informar de qual
   // morador é a reserva ao registrar em nome de alguém (ex: pedido por telefone).
   const isStaff = currentUser?.role !== 'MORADOR';
 
-  useEscapeToClose(showModal, () => setShowModal(false));
+  // Esc fecha o modal da reserva, a não ser que um diálogo por cima dele (ex.: justificativa da recusa) esteja aberto.
+  const fecharModalReserva = () => {
+    const abertos = Array.from(document.querySelectorAll<HTMLElement>('[aria-modal="true"]')).filter((m) => m.getClientRects().length > 0);
+    const topo = abertos[abertos.length - 1];
+    if (topo && topo.id !== 'reserva-dialog') return;
+    setShowModal(false);
+  };
+  useEscapeToClose(showModal, fecharModalReserva);
   useModalFocus(showModal);
   useEscapeToClose(showSpaceModal, () => setShowSpaceModal(false));
   useModalFocus(showSpaceModal);
@@ -112,6 +142,17 @@ function ReservasContent() {
     }
   }, [spaces, selectedSpaceId]);
 
+  const hoje = hojeBrasilia();
+  const dataValida = !!dataReserva && dataReserva >= hoje && dataReserva <= somarDias(hoje, 365);
+  useEffect(() => {
+    if (!showModal || !dataValida) return;
+    let cancelado = false;
+    buscarRef.current(dataReserva, dataReserva).then((linhas) => {
+      if (!cancelado) setDisp({ dia: dataReserva, ocupados: linhas ? new Set(linhas.map((l) => l.espacoId)) : null });
+    });
+    return () => { cancelado = true; };
+  }, [showModal, dataValida, dataReserva, recarregarKey]);
+
   const handleOpenNewSpace = () => {
     // Campos de texto começam vazios (o "Ex: ..." fica só no placeholder) —
     // um valor de exemplo como state inicial engana quem digita por cima sem
@@ -127,6 +168,7 @@ function ReservasContent() {
     setSpaceRegras('');
     setSpaceImagemUrl('');
     setSpaceAtivo(true);
+    setSpaceExigeAprovacao(true);
     setShowSpaceModal(true);
   };
 
@@ -140,6 +182,7 @@ function ReservasContent() {
     setSpaceRegras(s.regras.join('\n'));
     setSpaceImagemUrl(s.imagemUrl);
     setSpaceAtivo(s.ativo !== false);
+    setSpaceExigeAprovacao(s.exigeAprovacao !== false);
     setShowSpaceModal(true);
   };
 
@@ -159,6 +202,7 @@ function ReservasContent() {
         regras: regrasList,
         imagemUrl: spaceImagemUrl || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80',
         ativo: spaceAtivo,
+        exigeAprovacao: spaceExigeAprovacao,
       });
       setFeedbackMsg({ type: 'success', text: `Espaço "${spaceNome}" atualizado com sucesso!` });
     } else {
@@ -171,6 +215,7 @@ function ReservasContent() {
         regras: regrasList,
         imagemUrl: spaceImagemUrl || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80',
         ativo: spaceAtivo,
+        exigeAprovacao: spaceExigeAprovacao,
       });
       setFeedbackMsg({ type: 'success', text: `Espaço "${spaceNome}" cadastrado com sucesso!` });
     }
@@ -200,8 +245,62 @@ function ReservasContent() {
     CANCELADA: { label: 'Cancelada', bg: 'bg-slate-100', text: 'text-slate-700' },
   };
 
+  // ── Modal da reserva: situação de cada espaço no dia escolhido ──
+  const ocupadosDia = disp?.dia === dataReserva ? disp.ocupados : null;
+  const verificandoDia = dataValida && disp?.dia !== dataReserva;
+  type Situacao = 'LIVRE' | 'OCUPADO' | 'MANUTENCAO' | 'VERIFICANDO' | 'SEM_INFORMACAO';
+  const situacaoDe = (s: CommonSpace): Situacao => {
+    if (s.ativo === false) return 'MANUTENCAO';
+    const ocupadoLocal = !!dataReserva && reservations.some(
+      (r) => r.espacoId === s.id && r.data === dataReserva && (r.status === 'PENDENTE' || r.status === 'APROVADA')
+    );
+    if (ocupadoLocal || ocupadosDia?.has(s.id)) return 'OCUPADO';
+    if (verificandoDia) return 'VERIFICANDO';
+    return ocupadosDia ? 'LIVRE' : 'SEM_INFORMACAO';
+  };
+  const escolhivel = (s: CommonSpace) => {
+    const sit = situacaoDe(s);
+    return sit !== 'OCUPADO' && sit !== 'MANUTENCAO';
+  };
+  // O espaço marcado nunca é um que está ocupado ou em manutenção: se o escolhido deixou de
+  // servir (ex.: alguém acabou de pegar o dia), vale o primeiro livre.
+  const espacoEscolhido = spaces.find((s) => s.id === selectedSpaceId && escolhivel(s)) ?? spaces.find(escolhivel) ?? null;
+  const reservasDoDia = dataReserva
+    ? reservations.filter((r) => r.data === dataReserva && (r.status === 'PENDENTE' || r.status === 'APROVADA'))
+    : [];
+
+  const abrirModalReserva = (opcoes: { dia?: string; espacoId?: string }) => {
+    setFeedbackMsg(null);
+    setReservaFormError(null);
+    setDataReserva(opcoes.dia ?? '');
+    setDataFixa(!!opcoes.dia);
+    if (opcoes.espacoId) setSelectedSpaceId(opcoes.espacoId);
+    setShowModal(true);
+  };
+
+  const alternarVisao = (v: Visao) => {
+    setVisaoEscolhida(v);
+    try { window.localStorage.setItem(CHAVE_VISAO, v); } catch { /* sem armazenamento: só não lembra */ }
+  };
+
+  // Decidir (aprovar/recusar) pode liberar o dia: o calendário consulta de novo.
+  const decidir = async (id: string, aprovado: boolean, motivo?: string) => {
+    await judgeReservation(id, aprovado, motivo);
+    setRecarregarKey((k) => k + 1);
+  };
+  const recusar = async (r: { id: string; espacoNome: string; data: string; unidade: string; bloco: string }) => {
+    const motivo = await askReason({
+      title: 'Recusar reserva',
+      message: `${r.espacoNome} em ${formatarData(r.data)}, Apto ${r.unidade}-${r.bloco}.`,
+      label: 'Justificativa da recusa',
+      confirmLabel: 'Recusar reserva',
+    });
+    if (motivo) await decidir(r.id, false, motivo);
+  };
+
   const handleCreateReservation = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (enviando) return; // trava contra duplo clique
     setReservaFormError(null);
     if (!termoAceito) {
       setReservaFormError('É obrigatório aceitar o regulamento e normas de uso do espaço.');
@@ -211,12 +310,20 @@ function ReservasContent() {
       setReservaFormError('Escolha a data da reserva.');
       return;
     }
-    if (dataReserva < hojeLocal()) {
-      setReservaFormError('Escolha uma data a partir de hoje.');
+    if (dataReserva < hoje) {
+      setReservaFormError('Esse dia já passou. Escolha uma data a partir de hoje.');
+      return;
+    }
+    if (!espacoEscolhido) {
+      setReservaFormError('Não há espaço livre neste dia. Escolha outro dia.');
       return;
     }
     if (horarioFim <= horarioInicio) {
       setReservaFormError('O horário de término precisa ser depois do início.');
+      return;
+    }
+    if (Number(convidados) > espacoEscolhido.capacidadeMax) {
+      setReservaFormError(`Este espaço comporta até ${espacoEscolhido.capacidadeMax} convidados.`);
       return;
     }
     if (isStaff && !reservaMoradorNome.trim()) {
@@ -224,25 +331,36 @@ function ReservasContent() {
       return;
     }
 
-    const res = await requestReservation({
-      espacoId: selectedSpaceId,
-      data: dataReserva,
-      horarioInicio,
-      horarioFim,
-      convidadosEstimados: Number(convidados),
-      ...(isStaff ? { moradorNome: reservaMoradorNome.trim(), bloco: reservaBloco, unidade: reservaUnidade.trim() } : {}),
-    });
+    setEnviando(true);
+    try {
+      const res = await requestReservation({
+        espacoId: espacoEscolhido.id,
+        data: dataReserva,
+        horarioInicio,
+        horarioFim,
+        convidadosEstimados: Number(convidados),
+        ...(isStaff ? { moradorNome: reservaMoradorNome.trim(), bloco: reservaBloco, unidade: reservaUnidade.trim() } : {}),
+      });
+      // Qualquer resposta (sucesso ou conflito) muda a disponibilidade: o calendário consulta de novo.
+      setRecarregarKey((k) => k + 1);
 
-    if (res.success) {
-      setFeedbackMsg({ type: 'success', text: res.message });
-      setShowModal(false);
-      setTermoAceito(false);
-      setReservaMoradorNome('');
-      setReservaUnidade('');
-    } else {
-      setFeedbackMsg({ type: 'error', text: res.message });
+      if (res.success) {
+        setFeedbackMsg({ type: 'success', text: res.message });
+        setShowModal(false);
+        setTermoAceito(false);
+        setReservaMoradorNome('');
+        setReservaUnidade('');
+      } else {
+        // Erro fica dentro do modal, com os dados do formulário preservados.
+        setReservaFormError(res.message);
+      }
+    } finally {
+      setEnviando(false);
     }
   };
+
+  // Padrão: Calendário para o morador (quer ver dia livre), Lista para a equipe (quer decidir pedidos).
+  const visao: Visao = spaces.length === 0 ? 'lista' : (visaoEscolhida ?? (isStaff ? 'lista' : 'calendario'));
 
   if (isProvisorio(currentUser)) return <AguardandoValidacao recurso="As reservas" />;
 
@@ -265,7 +383,7 @@ function ReservasContent() {
             </h1>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Salão de festas, churrasqueira e quadra poliesportiva com validação e aprovação do Síndico.
+            Veja os dias livres e reserve. Cada espaço informa se o pedido precisa da aprovação da equipe.
           </p>
         </div>
 
@@ -294,11 +412,7 @@ function ReservasContent() {
               confundia. A equipe mantém este botão, que abre o formulário para registrar em nome de um morador. */}
           {isStaff && (
             <button
-              onClick={() => {
-                setFeedbackMsg(null);
-                setReservaFormError(null);
-                setShowModal(true);
-              }}
+              onClick={() => abrirModalReserva({})}
               className="order-first flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:order-last sm:min-h-0 sm:w-auto"
             >
               <Plus className="h-4 w-4 text-accent" />
@@ -394,8 +508,14 @@ function ReservasContent() {
                 </div>
 
                 <div className="p-5">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
                     <h3 className="text-base font-bold text-slate-900">{spc.nome}</h3>
+                    {/* Visível a todos: o morador precisa saber se o pedido depende da equipe. */}
+                    {spc.exigeAprovacao !== false ? (
+                      <Badge icon={<Clock className="h-3 w-3" aria-hidden="true" />} className="bg-pendente-100 text-pendente-800">Exige aprovação</Badge>
+                    ) : (
+                      <Badge icon={<CheckCircle2 className="h-3 w-3" aria-hidden="true" />} className="bg-emerald-100 text-emerald-800">Confirmação automática</Badge>
+                    )}
                   </div>
                   <p className="mt-1 text-xs text-slate-600 leading-relaxed">{spc.descricao}</p>
 
@@ -425,11 +545,7 @@ function ReservasContent() {
                 <button
                   type="button"
                   disabled={!isAtivo}
-                  onClick={() => {
-                    setSelectedSpaceId(spc.id);
-                    setReservaFormError(null);
-                    setShowModal(true);
-                  }}
+                  onClick={() => abrirModalReserva({ espacoId: spc.id })}
                   className={`min-h-11 w-full rounded-xl py-2.5 text-xs font-semibold transition sm:min-h-0 ${
                     isAtivo
                       ? 'bg-primary text-white shadow-xs hover:bg-primary-hover'
@@ -445,11 +561,47 @@ function ReservasContent() {
       </div>
       )}
 
-      {/* Tabela de Solicitações e Agenda de Reservas */}
-      <div className="space-y-4">
+      {/* Barra de visão: Lista ou Calendário (só a Lista vai para a impressão) */}
+      {spaces.length > 0 && (
+        <div role="group" aria-label="Visão das reservas" className="no-print flex gap-2">
+          {([['lista', 'Lista', List], ['calendario', 'Calendário', CalendarDays]] as const).map(([chave, rotulo, Icone]) => {
+            const ativo = visao === chave;
+            return (
+              <button
+                key={chave}
+                type="button"
+                aria-pressed={ativo}
+                onClick={() => alternarVisao(chave)}
+                className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:flex-none ${
+                  ativo ? 'border-primary bg-primary text-white shadow-xs' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Icone className="h-4 w-4" aria-hidden="true" />
+                <span>{rotulo}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {visao === 'calendario' && (
+        <ReservasCalendario
+          spaces={spaces}
+          reservations={reservations}
+          ehEquipe={isStaff}
+          buscar={buscarDisponibilidade}
+          recarregarKey={recarregarKey}
+          diaSelecionado={showModal && dataFixa ? dataReserva : null}
+          onSelecionarDia={(dia) => abrirModalReserva({ dia })}
+        />
+      )}
+
+      {/* Tabela de Solicitações e Agenda de Reservas. Com o calendário na tela ela continua no
+          documento, escondida, para a "Imprimir Agenda" sair sempre com a tabela. */}
+      <div className={visao === 'lista' ? 'space-y-4' : 'hidden space-y-4 print:block'}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900">
-            Cronograma e Histórico de Solicitações
+            {isStaff ? 'Cronograma e Histórico de Solicitações' : 'Minhas solicitações'}
           </h2>
           <span className="text-xs text-slate-500">
             Total: {pluralizar(reservations.length, 'solicitação', 'solicitações')}
@@ -503,7 +655,12 @@ function ReservasContent() {
                           <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
                         </td>
                         <td data-label="Avaliação / Parecer" className={`px-4 py-3.5 text-[12px] text-slate-600 ${r.status === 'PENDENTE' ? 'oculta-mobile' : ''}`}>
-                          {r.status === 'APROVADA' && (
+                          {r.status === 'APROVADA' && r.avaliadoPor === APROVACAO_AUTOMATICA && (
+                            <span className="text-emerald-700 font-semibold">
+                              Confirmada automaticamente em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
+                            </span>
+                          )}
+                          {r.status === 'APROVADA' && r.avaliadoPor !== APROVACAO_AUTOMATICA && (
                             <span className="text-emerald-700 font-semibold">
                               Aprovado por {(r.avaliadoPor || 'Administração').replace(/\s*\([A-Z]+\)$/, '')} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
                             </span>
@@ -521,7 +678,7 @@ function ReservasContent() {
                             {r.status === 'PENDENTE' ? (
                               <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:justify-end md:gap-1.5">
                                 <button
-                                  onClick={() => judgeReservation(r.id, true)}
+                                  onClick={() => decidir(r.id, true)}
                                   className="flex min-h-11 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold md:min-h-0 md:w-auto text-white transition hover:bg-emerald-700"
                                   title="Aprovar reserva"
                                 >
@@ -529,15 +686,7 @@ function ReservasContent() {
                                   <span>Aprovar</span>
                                 </button>
                                 <button
-                                  onClick={async () => {
-                                    const motivo = await askReason({
-                                      title: 'Recusar reserva',
-                                      message: `${r.espacoNome} em ${formatarData(r.data)}, Apto ${r.unidade}-${r.bloco}.`,
-                                      label: 'Justificativa da recusa',
-                                      confirmLabel: 'Recusar reserva',
-                                    });
-                                    if (motivo) judgeReservation(r.id, false, motivo);
-                                  }}
+                                  onClick={() => recusar(r)}
                                   className="flex min-h-11 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-red-300 bg-white px-2.5 py-1 text-xs font-bold md:min-h-0 md:w-auto text-red-700 transition hover:bg-red-50"
                                   title="Recusar reserva"
                                 >
@@ -558,188 +707,304 @@ function ReservasContent() {
         </div>
       </div>
 
-      {/* Modal de Solicitação de Reserva */}
+      {/* Modal da reserva: abre pelo dia do calendário (data fixa) ou pelos botões (data escolhida no formulário) */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
           <div
             className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
             onClick={() => setShowModal(false)}
           />
           <div
+            id="reserva-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="reserva-modal-title"
-            className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="relative flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 id="reserva-modal-title" className="text-base font-bold text-slate-900">Solicitar Reserva de Espaço</h3>
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
+              <div>
+                <h3 id="reserva-modal-title" className="text-base font-bold text-slate-900">Reservar espaço</h3>
+                {dataFixa && dataReserva && (
+                  <p className="mt-0.5 text-sm font-semibold text-primary">{dataLonga(dataReserva)}</p>
+                )}
+                <p className="mt-0.5 text-xs text-slate-600">Escolha o espaço e o horário.</p>
+              </div>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
                 aria-label="Fechar"
-                className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 sm:size-auto sm:p-1"
+                className="-mr-2 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateReservation} className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="reserva-espaco" className="block text-xs font-semibold text-slate-700">Espaço Comum</label>
-                <select
-                  id="reserva-espaco"
-                  value={selectedSpaceId}
-                  onChange={(e) => setSelectedSpaceId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
-                >
-                  {spaces.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nome} (Até {s.capacidadeMax} pessoas)
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <form onSubmit={handleCreateReservation} className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+                {/* Reservas do dia: a equipe vê todas; o morador, só a da própria unidade */}
+                {reservasDoDia.length > 0 && (
+                  <section aria-label={isStaff ? 'Neste dia' : 'Sua reserva neste dia'} className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                    <h4 className="text-[12px] font-bold uppercase tracking-wider text-slate-600">{isStaff ? 'Neste dia' : 'Sua reserva'}</h4>
+                    <ul className="mt-2 space-y-2">
+                      {reservasDoDia.map((r) => {
+                        const st = statusMap[r.status];
+                        return (
+                          <li key={r.id} className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-bold text-slate-900">{r.espacoNome}</span>
+                              <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
+                            </div>
+                            <div className="mt-0.5 text-[12px] text-slate-600">{formatarIntervalo(r.horarioInicio, r.horarioFim)}</div>
+                            {isStaff && (
+                              <div className="mt-0.5 text-[12px] text-slate-600">Apto {r.unidade} – Bloco {r.bloco} · {r.moradorNome}</div>
+                            )}
+                            {isSindico && r.status === 'PENDENTE' && (
+                              <div className="mt-2 flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => decidir(r.id, true)}
+                                  className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-xs font-bold text-white transition hover:bg-emerald-700"
+                                >
+                                  <Check className="h-3 w-3" />
+                                  <span>Aprovar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => recusar(r)}
+                                  className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg border border-red-300 bg-white px-2.5 text-xs font-bold text-red-700 transition hover:bg-red-50"
+                                >
+                                  <X className="h-3 w-3" />
+                                  <span>Recusar</span>
+                                </button>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                )}
 
-              {isStaff && (
-                <div className="rounded-xl border border-accent-200 bg-accent-50 p-3.5 space-y-3">
-                  <p className="text-[12px] font-bold text-accent-900">
-                    Registrando em nome de um morador (ex: pedido recebido por telefone)
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-1">
-                      <label htmlFor="reserva-morador-nome" className="block text-xs font-semibold text-slate-700">Nome do Morador</label>
-                      <input
-                        id="reserva-morador-nome"
-                        type="text"
-                        required
-                        placeholder="Nome completo"
-                        value={reservaMoradorNome}
-                        onChange={(e) => setReservaMoradorNome(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="reserva-bloco" className="block text-xs font-semibold text-slate-700">Bloco</label>
-                      <select
-                        id="reserva-bloco"
-                        value={reservaBloco}
-                        onChange={(e) => setReservaBloco(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
-                      >
-                        <option value="A">Bloco A</option>
-                        <option value="B">Bloco B</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="reserva-unidade" className="block text-xs font-semibold text-slate-700">Apto</label>
-                      <input
-                        id="reserva-unidade"
-                        type="text"
-                        required
-                        placeholder="Ex: 602"
-                        value={reservaUnidade}
-                        onChange={(e) => setReservaUnidade(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
-                      />
+                {isStaff && (
+                  <div className="rounded-xl border border-accent-200 bg-accent-50 p-3.5 space-y-3">
+                    <p className="text-[12px] font-bold text-accent-900">
+                      Registrando em nome de um morador (ex: pedido recebido por telefone)
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-1">
+                        <label htmlFor="reserva-morador-nome" className="block text-xs font-semibold text-slate-700">Nome do Morador</label>
+                        <input
+                          id="reserva-morador-nome"
+                          type="text"
+                          required
+                          placeholder="Nome completo"
+                          value={reservaMoradorNome}
+                          onChange={(e) => setReservaMoradorNome(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="reserva-bloco" className="block text-xs font-semibold text-slate-700">Bloco</label>
+                        <select
+                          id="reserva-bloco"
+                          value={reservaBloco}
+                          onChange={(e) => setReservaBloco(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                        >
+                          <option value="A">Bloco A</option>
+                          <option value="B">Bloco B</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="reserva-unidade" className="block text-xs font-semibold text-slate-700">Apto</label>
+                        <input
+                          id="reserva-unidade"
+                          type="text"
+                          required
+                          placeholder="Ex: 602"
+                          value={reservaUnidade}
+                          onChange={(e) => setReservaUnidade(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {/* Aberto pelos botões (sem dia escolhido no calendário): a data é um campo */}
+                {!dataFixa && (
+                  <div>
+                    <label htmlFor="reserva-data" className="block text-xs font-semibold text-slate-700">Data desejada</label>
+                    <input
+                      id="reserva-data"
+                      type="date"
+                      required
+                      min={hoje}
+                      value={dataReserva}
+                      onChange={(e) => setDataReserva(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                    />
+                  </div>
+                )}
+
+                {/* Espaço: cartões de escolha única (rádio), com a situação no dia */}
+                <div role="radiogroup" aria-labelledby="reserva-espaco-rotulo">
+                  <p id="reserva-espaco-rotulo" className="block text-xs font-semibold text-slate-700">Espaço</p>
+                  <div className="mt-1.5 space-y-2">
+                    {spaces.map((s) => {
+                      const sit = situacaoDe(s);
+                      const livre = sit !== 'OCUPADO' && sit !== 'MANUTENCAO';
+                      const marcado = espacoEscolhido?.id === s.id;
+                      return (
+                        <label
+                          key={s.id}
+                          className={`relative flex min-h-11 items-center justify-between gap-3 rounded-xl border p-3 text-xs transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent-strong ${
+                            !livre ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500'
+                              : marcado ? 'cursor-pointer border-primary bg-accent-50 ring-1 ring-primary'
+                              : 'cursor-pointer border-slate-200 bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="reserva-espaco"
+                            className="sr-only"
+                            value={s.id}
+                            disabled={!livre}
+                            checked={marcado}
+                            onChange={() => setSelectedSpaceId(s.id)}
+                          />
+                          <span>
+                            <span className={`block font-bold ${livre ? 'text-slate-900' : 'text-slate-600'}`}>{s.nome}</span>
+                            <span className="block text-[12px] text-slate-600">Até {s.capacidadeMax} pessoas</span>
+                          </span>
+                          {sit === 'LIVRE' && (
+                            <Badge icon={<Check className="h-3 w-3" aria-hidden="true" />} className="bg-emerald-100 text-emerald-800">Livre</Badge>
+                          )}
+                          {sit === 'OCUPADO' && (
+                            <Badge icon={<Lock className="h-3 w-3" aria-hidden="true" />} className="bg-slate-100 text-slate-700">Ocupado neste dia</Badge>
+                          )}
+                          {sit === 'MANUTENCAO' && (
+                            <Badge icon={<AlertTriangle className="h-3 w-3" aria-hidden="true" />} className="bg-pendente-100 text-pendente-800">Em manutenção</Badge>
+                          )}
+                          {sit === 'VERIFICANDO' && <span className="text-[12px] text-slate-500">Verificando…</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {dataValida && !verificandoDia && !espacoEscolhido && (
+                    <p className="mt-2 text-xs font-semibold text-slate-700">Nenhum espaço livre neste dia. Escolha outro dia.</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="reserva-inicio" className="block text-xs font-semibold text-slate-700">Início</label>
+                    <input
+                      id="reserva-inicio"
+                      type="time"
+                      required
+                      value={horarioInicio}
+                      onChange={(e) => setHorarioInicio(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="reserva-fim" className="block text-xs font-semibold text-slate-700">Término</label>
+                    <input
+                      id="reserva-fim"
+                      type="time"
+                      required
+                      value={horarioFim}
+                      onChange={(e) => setHorarioFim(e.target.value)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                    />
+                  </div>
+                  {espacoEscolhido && (
+                    <p className="col-span-2 -mt-1 text-[12px] text-slate-600">Horário permitido do espaço: {espacoEscolhido.horarioFuncionamento}</p>
+                  )}
+                </div>
+
                 <div>
-                  <label htmlFor="reserva-data" className="block text-xs font-semibold text-slate-700">Data Desejada</label>
+                  <label htmlFor="reserva-convidados" className="block text-xs font-semibold text-slate-700">
+                    Estimativa de convidados{espacoEscolhido ? ` (máximo ${espacoEscolhido.capacidadeMax})` : ''}
+                  </label>
                   <input
-                    id="reserva-data"
-                    type="date"
+                    id="reserva-convidados"
+                    type="number"
+                    min="1"
+                    max={espacoEscolhido?.capacidadeMax}
                     required
-                    min={hojeLocal()}
-                    value={dataReserva}
-                    onChange={(e) => setDataReserva(e.target.value)}
+                    value={convidados}
+                    onChange={(e) => setConvidados(Number(e.target.value))}
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                   />
                 </div>
-                <div>
-                  <label htmlFor="reserva-inicio" className="block text-xs font-semibold text-slate-700">Início</label>
+
+                {espacoEscolhido && (
+                  <p className="text-xs text-slate-700">
+                    Taxa de limpeza: <strong className="text-primary">{espacoEscolhido.taxaLimpeza > 0 ? formatarMoeda(espacoEscolhido.taxaLimpeza) : 'Isento'}</strong>
+                  </p>
+                )}
+
+                {/* O aviso muda com a regra do espaço escolhido (a regra de verdade é do banco) */}
+                {espacoEscolhido && (
+                  <div aria-live="polite">
+                    {espacoEscolhido.exigeAprovacao !== false ? (
+                      <div className="rounded-xl border border-pendente-200 bg-pendente-50 p-3.5 text-xs text-pendente-900">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <Clock className="h-4 w-4 text-pendente-700" aria-hidden="true" />
+                          <span>Precisa de aprovação</span>
+                        </div>
+                        <p className="mt-1 text-[12px] text-pendente-800">Seu pedido vai para a equipe e só vale depois da aprovação.</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-900">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+                          <span>Confirmação imediata</span>
+                        </div>
+                        <p className="mt-1 text-[12px] text-emerald-800">Este espaço confirma na hora: sua reserva fica confirmada ao enviar.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Termo de Responsabilidade */}
+                <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 p-3 bg-slate-50 cursor-pointer">
                   <input
-                    id="reserva-inicio"
-                    type="time"
-                    required
-                    value={horarioInicio}
-                    onChange={(e) => setHorarioInicio(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                    type="checkbox"
+                    checked={termoAceito}
+                    onChange={(e) => setTermoAceito(e.target.checked)}
+                    className="mt-0.5 size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent-strong"
                   />
-                </div>
-                <div>
-                  <label htmlFor="reserva-fim" className="block text-xs font-semibold text-slate-700">Término</label>
-                  <input
-                    id="reserva-fim"
-                    type="time"
-                    required
-                    value={horarioFim}
-                    onChange={(e) => setHorarioFim(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
-                  />
-                </div>
+                  <span className="text-[12px] text-slate-600 leading-tight">
+                    Declaro ter lido as regras de uso do espaço, responsabilizando-me pela integridade do mobiliário, higienização e respeito à lei do silêncio às 22h00.
+                  </span>
+                </label>
+
+                {reservaFormError && (
+                  <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                    <span>{reservaFormError}</span>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label htmlFor="reserva-convidados" className="block text-xs font-semibold text-slate-700">Estimativa de Convidados</label>
-                <input
-                  id="reserva-convidados"
-                  type="number"
-                  min="1"
-                  max="100"
-                  required
-                  value={convidados}
-                  onChange={(e) => setConvidados(Number(e.target.value))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
-                />
-              </div>
-
-              {/* Informação sobre Aprovação Obrigatória do Síndico */}
-              <div className="rounded-xl border border-pendente-200 bg-pendente-50 p-3.5 text-xs text-pendente-900">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <Clock className="h-4 w-4 text-pendente-700" />
-                  <span>Aprovação Obrigatória:</span>
-                </div>
-                <p className="mt-1 text-[12px] text-pendente-800">
-                  Conforme determinado pela convenção, a sua solicitação será enviada ao Síndico com status <strong>PENDENTE</strong>. A reserva só estará confirmada após o deferimento pelo gestor.
-                </p>
-              </div>
-
-              {/* Termo de Responsabilidade */}
-              <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 p-3 bg-slate-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={termoAceito}
-                  onChange={(e) => setTermoAceito(e.target.checked)}
-                  className="mt-0.5 size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent-strong"
-                />
-                <span className="text-[12px] text-slate-600 leading-tight">
-                  Declaro ter lido as regras de uso do espaço, responsabilizando-me pela integridade do mobiliário, higienização e respeito à lei do silêncio às 22h00.
-                </span>
-              </label>
-
-              {reservaFormError && (
-                <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-                  <span>{reservaFormError}</span>
-                </div>
-              )}
-
-              <div className="mt-5 flex justify-end gap-2 pt-3 border-t border-slate-100">
+              {/* Botões fixos no rodapé: no celular o formulário rola, os botões não */}
+              <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 px-5 py-3 sm:px-6">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11 sm:min-h-0"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover min-h-11 sm:min-h-0"
+                  disabled={enviando}
+                  className="min-h-11 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Enviar para Aprovação do Síndico
+                  {enviando ? 'Enviando…' : espacoEscolhido && espacoEscolhido.exigeAprovacao === false ? 'Reservar agora' : 'Solicitar reserva'}
                 </button>
               </div>
             </form>
@@ -868,6 +1133,30 @@ function ReservasContent() {
                   onChange={(e) => setSpaceRegras(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 font-mono min-h-11 sm:min-h-0"
                 />
+              </div>
+
+              {/* Regras de reserva: decide se o pedido nasce aguardando a equipe ou já confirmado (o banco aplica) */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                <h4 className="text-[12px] font-bold uppercase tracking-wider text-slate-600">Regras de reserva</h4>
+                <label className="mt-1 flex min-h-11 cursor-pointer items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={spaceExigeAprovacao}
+                    onChange={(e) => setSpaceExigeAprovacao(e.target.checked)}
+                    aria-describedby="espaco-aprovacao-ajuda"
+                    className="size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent-strong"
+                  />
+                  <span className="text-xs font-semibold text-slate-700">Exige aprovação da equipe</span>
+                </label>
+                <p id="espaco-aprovacao-ajuda" className="text-[12px] text-slate-600">
+                  Marcado: o pedido fica &quot;Aguardando aprovação&quot; até o Síndico decidir. Desmarcado: a reserva já nasce confirmada.
+                </p>
+                {!spaceExigeAprovacao && (
+                  <div className="mt-3 flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 p-3 text-[12px] text-pendente-900">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-pendente-700" aria-hidden="true" />
+                    <span>Atenção: novos pedidos serão confirmados sem passar pela equipe. Reservas que já estão aguardando continuam aguardando.</span>
+                  </div>
+                )}
               </div>
 
               <label className="flex min-h-11 items-center gap-2 cursor-pointer pt-1">

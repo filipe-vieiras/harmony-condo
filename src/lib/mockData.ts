@@ -327,6 +327,7 @@ export const INITIAL_SPACES: CommonSpace[] = [
       'Vistoria de entrada e saída realizada junto à portaria.',
     ],
     imagemUrl: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&auto=format&fit=crop&q=60',
+    exigeAprovacao: true,
   },
   {
     id: 'spc-2',
@@ -341,6 +342,7 @@ export const INITIAL_SPACES: CommonSpace[] = [
       'Limite de 1 reserva por mês por unidade.',
     ],
     imagemUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=60',
+    exigeAprovacao: true,
   },
   {
     id: 'spc-3',
@@ -355,6 +357,7 @@ export const INITIAL_SPACES: CommonSpace[] = [
       'Menores de 10 anos acompanhados de responsáveis.',
     ],
     imagemUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&auto=format&fit=crop&q=60',
+    exigeAprovacao: true,
   },
 ];
 

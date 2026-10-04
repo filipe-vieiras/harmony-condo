@@ -181,6 +181,8 @@ export interface CommonSpace {
   regras: string[];
   imagemUrl: string;
   ativo?: boolean;
+  /** Se true, o pedido nasce PENDENTE e a equipe decide; se false, o banco já grava APROVADA (0034). */
+  exigeAprovacao: boolean;
 }
 
 export type ReservationStatus = 'PENDENTE' | 'APROVADA' | 'RECUSADA' | 'CANCELADA';

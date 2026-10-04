@@ -11,6 +11,7 @@ import {
   FineNotice,
   CommonSpace,
   Reservation,
+  ReservationStatus,
   InAppNotification,
   DocumentLink,
   AuditLog,
@@ -28,7 +29,7 @@ import {
   fetchNotices, insertNotice, deleteNoticeDB,
   fetchFines, insertFine, updateFineDB, anularFineDB, deleteFineDB,
   fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB,
-  fetchReservations, insertReservation, updateReservationDB,
+  fetchReservations, insertReservation, updateReservationDB, fetchDisponibilidade,
   fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
   fetchDocuments, insertDocument, updateDocumentDB, deleteDocumentDB,
   fetchAuditLogs, insertAuditLog,
@@ -38,7 +39,7 @@ import {
   fetchProfiles,
   fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
-import type { AlteracaoVeiculo } from '@/lib/supabase/db';
+import type { AlteracaoVeiculo, ErroReserva } from '@/lib/supabase/db';
 
 /** Resultado de cadastrar/editar veículo; `placaDuplicada` = a placa já existe no condomínio. */
 const MSG_PLACA_DUPLICADA = 'Esta placa já está cadastrada.';
@@ -117,7 +118,9 @@ interface AppContextType {
     moradorNome?: string;
     bloco?: string;
     unidade?: string;
-  }) => Promise<{ success: boolean; message: string }>;
+  }) => Promise<{ success: boolean; message: string; erro?: ErroReserva; status?: ReservationStatus }>;
+  /** Dias ocupados por espaço (função do banco, sem nome nem unidade). null = falhou. */
+  buscarDisponibilidade: (inicio: string, fim: string) => Promise<{ espacoId: string; data: string }[] | null>;
   judgeReservation: (reservationId: string, aprovado: boolean, motivoRecusa?: string) => Promise<void>;
   notifications: InAppNotification[];
   unreadNotificationCount: number;
@@ -1047,22 +1050,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     espacoId: string; data: string; horarioInicio: string;
     horarioFim: string; convidadosEstimados: number;
     moradorNome?: string; bloco?: string; unidade?: string;
-  }): Promise<{ success: boolean; message: string }> => {
+  }): Promise<{ success: boolean; message: string; erro?: ErroReserva; status?: ReservationStatus }> => {
     const targetSpace = spaces.find((s) => s.id === espacoId);
-    if (!targetSpace) return { success: false, message: 'Espaço comum não encontrado.' };
-
-    const hasConflict = reservations.some(
-      (r) => r.espacoId === espacoId && r.data === data &&
-        (r.status === 'APROVADA' || r.status === 'PENDENTE')
-    );
-    if (hasConflict) {
-      return { success: false, message: 'Este espaço já possui uma reserva confirmada ou pendente para esta data.' };
-    }
+    if (!targetSpace) return { success: false, message: 'Espaço comum não encontrado.', erro: 'ERRO' };
 
     // Equipe (Síndico/ADM/Portaria) pode registrar em nome de um morador (ex:
     // pedido por telefone) — nesse caso os campos vêm preenchidos no formulário
     // em vez de usar os dados do próprio usuário logado, que não tem unidade.
-    const created = await insertReservation(supabase, {
+    // Conflito de dia, dia passado e espaço inativo são conferidos pelo BANCO (0032):
+    // o teste que existia aqui era cego para o morador, que só enxerga a própria unidade.
+    const { reserva: created, erro } = await insertReservation(supabase, {
       espacoId,
       espacoNome: targetSpace.nome,
       bloco: bloco || currentUser?.bloco || 'A',
@@ -1071,19 +1068,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       data, horarioInicio, horarioFim, convidadosEstimados,
       status: 'PENDENTE',
     });
-    if (!created) return { success: false, message: 'Erro ao salvar reserva. Tente novamente.' };
+    if (!created) {
+      if (erro === 'CONFLITO') {
+        // Alguém pegou o dia antes: atualiza a lista (equipe e a própria unidade) para refletir.
+        setReservations(await fetchReservations(supabase));
+        return { success: false, erro, message: 'Esse espaço acabou de ser reservado para este dia. Escolha outro espaço ou outro dia.' };
+      }
+      if (erro === 'DIA_PASSADO') return { success: false, erro, message: 'Esse dia já passou. Escolha uma data a partir de hoje.' };
+      if (erro === 'INDISPONIVEL') return { success: false, erro, message: 'Este espaço está indisponível no momento. Escolha outro espaço.' };
+      return { success: false, erro: 'ERRO', message: 'Não foi possível enviar agora. Seus dados continuam aqui, tente de novo.' };
+    }
 
     setReservations((prev) => [created, ...prev]);
-    await insertNotification(supabase, {
-      titulo: 'Nova Solicitação de Reserva',
-      mensagem: `${created.moradorNome} (Unidade ${created.unidade}) solicitou ${targetSpace.nome} para ${formatarData(data)}. Requer aprovação.`,
-      tipo: 'RESERVA',
-      perfilAlvo: 'SINDICO',
-      linkDestino: '/reservas',
-    });
 
-    return { success: true, message: 'Sua solicitação foi enviada e aguarda aprovação do Síndico!' };
+    // A mensagem sai do status que o BANCO devolveu, nunca do que o navegador acha.
+    const confirmada = created.status === 'APROVADA';
+    const registradoPelaEquipe = !!moradorNome;
+    // Pedido que aguarda decisão: o navegador avisa a equipe, como sempre. Quem decide
+    // (Síndico/Subsíndico/ADM) não precisa de aviso do próprio registro. Reserva confirmada
+    // automaticamente: o aviso à equipe e à unidade é gravado pelo banco (0034).
+    if (!confirmada && !isAdmin(currentUser?.role)) {
+      await insertNotification(supabase, {
+        titulo: 'Nova Solicitação de Reserva',
+        mensagem: `${created.moradorNome} (Unidade ${created.unidade}) solicitou ${targetSpace.nome} para ${formatarData(data)}. Requer aprovação.`,
+        tipo: 'RESERVA',
+        perfilAlvo: 'SINDICO',
+        linkDestino: '/reservas',
+      });
+    }
+
+    let message: string;
+    if (registradoPelaEquipe) {
+      message = confirmada
+        ? `Reserva confirmada para ${created.moradorNome}, Apto ${created.unidade}.`
+        : `Pedido registrado para ${created.moradorNome}. Aguardando aprovação.`;
+    } else {
+      message = confirmada
+        ? `Reserva confirmada! ${targetSpace.nome}, dia ${formatarData(data)}.`
+        : 'Pedido enviado! A equipe vai analisar e você será avisado da decisão.';
+    }
+    return { success: true, message, status: created.status };
   };
+
+  const buscarDisponibilidade = (inicio: string, fim: string) => fetchDisponibilidade(supabase, inicio, fim);
 
   const judgeReservation = async (reservationId: string, aprovado: boolean, motivoRecusa?: string) => {
     const timestamp = new Date().toISOString();
@@ -1295,6 +1322,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchAuditLogsData,
         reservations,
         requestReservation,
+        buscarDisponibilidade,
         judgeReservation,
         notifications: visibleNotifications,
         unreadNotificationCount,
