@@ -35,6 +35,7 @@ const CHAVE_FAIXA_OUTRO = 'harmony:faixa-tipo-outro-fechada';
 type ErrosForm = { placa?: string; tipo?: string; marca?: string; modelo?: string; unidade?: string; proprietario?: string };
 const MSG_PLACA_DUPLICADA = 'Esta placa já está cadastrada.';
 const MSG_ERRO_SERVIDOR = 'Não foi possível salvar. Verifique a conexão e tente de novo.';
+const MSG_ERRO_REMOVER = 'Não foi possível remover o veículo. Verifique a conexão e tente de novo.';
 const rotuloUnidade = (v: { bloco: string; unidade: string }) => `${v.bloco}-${v.unidade}`;
 
 export default function VeiculosPage() {
@@ -243,18 +244,48 @@ function VeiculosContent() {
     setFormulario(null);
   };
 
+  // Remoção: o diálogo cuida da confirmação e do "Removendo…" (trava botões e Esc até a resposta,
+  // o que também impede o duplo clique). O resultado sai do diálogo e vira cartão de feedback.
+  const removerVeiculo = async (v: Vehicle) => {
+    // Sem a placa no texto (dado pessoal na tela de confirmação): marca, modelo e unidade bastam.
+    // Se a unidade tem outro veículo igual, a cor desempata.
+    const igual = vehicles.some((o) => o.id !== v.id && o.unitId === v.unitId && o.marca === v.marca && o.modelo === v.modelo);
+    const nome = `${v.marca} ${v.modelo}${igual && v.cor ? ` ${v.cor}` : ''}`;
+    let sucesso = false;
+    const confirmou = await confirm({
+      title: 'Remover este veículo?',
+      message: `${nome} da unidade ${rotuloUnidade(v)} deixa de aparecer na garagem e na busca da portaria. Você pode cadastrá-lo de novo depois.`,
+      confirmLabel: 'Remover veículo',
+      cancelLabel: 'Voltar',
+      loadingLabel: 'Removendo…',
+      destructive: true,
+      onSubmit: async () => {
+        const res = await deleteVehicle(v.id);
+        sucesso = res.success;
+        // Sempre fecha: o erro aparece no cartão da página, com a mensagem fixa.
+        return { ok: true };
+      },
+    });
+    if (!confirmou) return;
+    // Espera o diálogo devolver o foco (ao botão da linha, se ele ainda existir) antes de focar o cartão.
+    await new Promise((r) => setTimeout(r, 0));
+    focarFeedback.current = true;
+    setFeedbackMsg(sucesso ? { type: 'success', text: 'Veículo removido.' } : { type: 'error', text: MSG_ERRO_REMOVER });
+  };
+
   if (!currentUser) return null;
   if (isProvisorio(currentUser)) return <AguardandoValidacao recurso="Os veículos" />;
 
   const isMorador = currentUser.role === 'MORADOR';
   const minhaUnidade = units.find((u) => u.usuarioId === currentUser.id);
-  // Sem ação para o perfil (ex.: Portaria): no celular a célula some, em vez de mostrar "AÇÕES" vazio.
-  const podeRemover = (v: Vehicle) => isAdmin(currentUser.role) || (isMorador && v.unitId === minhaUnidade?.id);
   const ehEquipe = isAdmin(currentUser.role);
   // Quem edita: equipe administrativa e o morador, só na própria unidade e nunca veículo de
   // visitante (o status é da equipe). O banco confere de novo.
   const podeEditar = (v: Vehicle) =>
     ehEquipe || (isMorador && !!minhaUnidade && v.unitId === minhaUnidade.id && v.status !== 'VISITANTE');
+  // Mesma regra do editar: veículo de visitante é da equipe. Sem ação para o perfil (ex.: Portaria):
+  // no celular a célula some, em vez de mostrar "AÇÕES" vazio. O banco confere de novo.
+  const podeRemover = podeEditar;
   const totalOutro = vehicles.filter((v) => v.tipoVeiculo === 'OUTRO').length;
   const mostrarFaixa = ehEquipe && totalOutro > 0 && !faixaFechada;
   const editando = formulario?.modo === 'editar' ? formulario.veiculo : null;
@@ -409,61 +440,73 @@ function VeiculosContent() {
       {/* Tabela de Veículos */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="stack-mobile w-full text-left text-xs">
+          <table className="stack-ate-lg w-full text-left text-xs">
             <thead className="border-b border-slate-200 bg-slate-50/75 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
               <tr>
-                <th className="px-5 py-3.5">Placa</th>
-                <th className="px-5 py-3.5">Tipo</th>
-                <th className="px-5 py-3.5">Veículo / Modelo</th>
-                <th className="px-5 py-3.5">Cor</th>
-                <th className="px-5 py-3.5">Unidade</th>
-                <th className="px-5 py-3.5">Vaga</th>
-                <th className="px-5 py-3.5">Morador Responsável</th>
-                <th className="px-5 py-3.5 text-right no-print">Ações</th>
+                <th className="px-3 py-3.5">Placa</th>
+                <th className="px-3 py-3.5">Tipo</th>
+                <th className="px-3 py-3.5">Veículo / Modelo</th>
+                <th className="px-3 py-3.5">Unidade</th>
+                <th className="px-3 py-3.5">Vaga</th>
+                <th className="px-3 py-3.5">Morador Responsável</th>
+                <th className="w-px whitespace-nowrap px-3 py-3.5 text-right no-print">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredVehicles.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-8 text-center text-slate-500">
-                    {filtroTipo !== 'TODOS' ? 'Nenhum veículo deste tipo encontrado.' : 'Nenhum veículo encontrado correspondente à pesquisa.'}
+                  <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
+                    {isMorador && !searchTerm.trim() && filtroTipo === 'TODOS' ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <p>Sua unidade não tem veículos cadastrados.</p>
+                        <button
+                          type="button"
+                          onClick={abrirCadastro}
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover"
+                        >
+                          <Plus className="h-4 w-4 text-accent" aria-hidden="true" />
+                          Cadastrar veículo
+                        </button>
+                      </div>
+                    ) : filtroTipo !== 'TODOS' ? 'Nenhum veículo deste tipo encontrado.' : 'Nenhum veículo encontrado correspondente à pesquisa.'}
                   </td>
                 </tr>
               ) : (
                 filteredVehicles.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-50/60 transition">
-                    <td data-label="Placa" className="px-5 py-3.5 whitespace-nowrap">
+                    <td data-label="Placa" className="px-3 py-3.5 whitespace-nowrap">
                       <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-mono font-bold text-white border border-slate-700 tracking-wider">
                         {v.placa}
                       </span>
                     </td>
-                    <td data-label="Tipo" className="px-5 py-3.5 whitespace-nowrap">
+                    <td data-label="Tipo" className="px-3 py-3.5 whitespace-nowrap">
                       <TipoVeiculoBadge tipo={v.tipoVeiculo} />
                     </td>
-                    <td data-label="Veículo / Modelo" className="px-5 py-3.5 font-bold text-slate-900">
+                    <td data-label="Veículo / Modelo" className="px-3 py-3.5 font-bold text-slate-900">
                       {v.marca} {v.modelo}
                       {v.status === 'VISITANTE' && (
                         <span className="ml-2 rounded-md bg-pendente-100 px-1.5 py-0.5 text-[12px] text-pendente-800 font-bold">
                           Visitante
                         </span>
                       )}
+                      {/* A cor vira segunda linha: tirar a coluna Cor deixa a tabela caber ao lado do menu. */}
+                      {v.cor && <div className="text-[12px] font-normal text-slate-500">{v.cor}</div>}
                     </td>
-                    <td data-label="Cor" className="px-5 py-3.5 text-slate-600">{v.cor}</td>
-                    <td data-label="Unidade" className="px-5 py-3.5 font-semibold text-primary">
+                    <td data-label="Unidade" className="px-3 py-3.5 font-semibold text-primary">
                       Apto {v.unidade} - Bloco {v.bloco}
                     </td>
-                    <td data-label="Vaga" className="px-5 py-3.5 font-mono text-slate-700 font-bold">
+                    <td data-label="Vaga" className="px-3 py-3.5 font-mono text-slate-700 font-bold">
                       {v.vaga || '—'}
                     </td>
-                    <td data-label="Morador Responsável" className="empilhada px-5 py-3.5">
+                    <td data-label="Morador Responsável" className="empilhada px-3 py-3.5">
                       <div className="font-semibold text-slate-900">{v.proprietarioNome}</div>
                       <div className="text-[12px] text-slate-500 flex items-center gap-1">
                         <Phone className="h-3 w-3 shrink-0" />
                         <span className="whitespace-nowrap">{v.telefoneContato}</span>
                       </div>
                     </td>
-                    <td data-label="Ações" className={`px-5 py-3.5 text-right no-print ${podeRemover(v) || podeEditar(v) ? '' : 'oculta-mobile'}`}>
-                      <div className="flex flex-wrap items-center justify-end gap-1">
+                    <td data-label="Ações" className={`empilhada w-px whitespace-nowrap px-3 py-3.5 text-right no-print ${podeRemover(v) || podeEditar(v) ? '' : 'oculta-mobile'}`}>
+                      <div className="flex flex-wrap items-center justify-start gap-1 sm:flex-nowrap sm:justify-end">
                       {podeEditar(v) && (
                         <button
                           type="button"
@@ -477,16 +520,13 @@ function VeiculosContent() {
                       )}
                       {podeRemover(v) && (
                         <button
-                          onClick={async () => {
-                            if (!(await confirm({ title: `Remover o veículo ${v.placa}?`, message: 'O veículo deixa de aparecer na garagem e na busca da portaria.', confirmLabel: 'Remover', destructive: true }))) return;
-                            const res = await deleteVehicle(v.id);
-                            setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
-                          }}
-                          className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition sm:size-auto sm:p-1.5"
-                          title="Remover veículo"
-                          aria-label={`Remover veículo ${v.placa}`}
+                          type="button"
+                          onClick={() => removerVeiculo(v)}
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold whitespace-nowrap text-red-700 transition hover:bg-red-50 hover:text-red-800 focus-visible:ring-2 focus-visible:ring-red-500/40"
+                          aria-label={`Remover veículo ${v.marca} ${v.modelo}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="size-4 shrink-0" aria-hidden="true" />
+                          <span>Remover</span>
                         </button>
                       )}
                       </div>

@@ -399,6 +399,73 @@ ok(!rv.data?.length && (await linha('QAV0S01')).cor !== 'Roxa', '[0031] morador 
   ok(semAviso.length === 0, '[0031] nenhuma notificação de placa repetida existe (a regra caiu)');
 }
 
+console.log('\n## J4. Morador remove veículo da própria unidade e multa sem valor negativo (issue #51) — exigem as migrações 0035 e 0036');
+{
+  const existe = async (placa) => !!(await admin.from('vehicles').select('id').eq('placa', placa).maybeSingle()).data;
+  const rotulos = async (frag) => (await admin.from('audit_logs').select('acao,usuario_role,detalhes').like('acao', frag)).data ?? [];
+  // Veículos descartáveis (cada teste apaga o dele): R1 da Q-102 (morador2), R2 da Q-101 (morador1), RV visitante da Q-102.
+  const novoVeic = (placa, extra = {}) => admin.from('vehicles').insert(veic(placa, extra));
+  await novoVeic('QAR1E01'); await novoVeic('QAR2E02', { unidade: '101', unit_id: U['101'] });
+  await novoVeic('QAR3E03', { status: 'VISITANTE', vaga: 'Visitante' });
+  // 1) morador remove o PRÓPRIO veículo; outro morador e a regra da unidade
+  const outro = await cM1.from('vehicles').delete().eq('placa', 'QAR1E01').select('id');
+  ok(!outro.data?.length && (await existe('QAR1E01')), '[0036] morador1 (Q-101) NÃO remove veículo da Q-102 (0 linhas)');
+  const cima = await cM2.from('vehicles').delete().eq('placa', 'QAR2E02').select('id');
+  ok(!cima.data?.length && (await existe('QAR2E02')), '[0036] morador2 (Q-102) NÃO remove veículo da Q-101 (0 linhas)');
+  const proprio = await cM2.from('vehicles').delete().eq('placa', 'QAR1E01').select('id');
+  ok(proprio.data?.length === 1 && !(await existe('QAR1E01')), '[0036] morador2 remove o veículo da PRÓPRIA unidade');
+  // 2) histórico gravado pelo banco, em frase legível e sem placa
+  const logs = (await rotulos('Removeu um veículo da unidade 102 (Bloco Q)%')).filter((l) => l.usuario_role === 'MORADOR');
+  ok(logs.length === 1 && logs[0].acao === 'Removeu um veículo da unidade 102 (Bloco Q)' && !/QAR1E01/.test(JSON.stringify(logs[0])), `[0036] remoção grava histórico legível, sem placa em lugar nenhum ("${logs[0]?.acao}")`);
+  ok(descreverAuditoria(logs[0]?.acao ?? '', logs[0]?.detalhes ?? {}).frase === 'Removeu um veículo da unidade 102 (Bloco Q).', '[0036] a tela de Relatórios mostra a frase do histórico');
+  // 3) veículo de VISITANTE da própria unidade: a TELA esconde o botão; o que o BANCO permite é só informado
+  const visit = await cM2.from('vehicles').delete().eq('placa', 'QAR3E03').select('id');
+  ok(true, `[informativo] morador2 apagar VISITANTE da própria unidade por API: banco ${visit.data?.length ? 'PERMITE (a regra é só da tela; lacuna a decidir)' : 'recusa'}`);
+  await admin.from('vehicles').delete().eq('placa', 'QAR3E03');
+  // 4) demais perfis
+  const prov = await cProv.from('vehicles').delete().eq('placa', 'QAP0V04').select('id');
+  ok(!prov.data?.length && (await existe('QAP0V04')), '[0036] morador provisório NÃO remove (bloqueado)');
+  await novoVeic('QAR4E04');
+  const cons = await cCons.from('vehicles').delete().eq('placa', 'QAR4E04').select('id');
+  ok(!cons.data?.length && (await existe('QAR4E04')), '[0036] Conselho lê mas NÃO remove veículo (0 linhas)');
+  ok((await cCons.from('vehicles').select('id').eq('placa', 'QAR4E04')).data?.length === 1, '[0036] Conselho continua lendo o veículo');
+  ok((await cPort.from('vehicles').select('id').eq('placa', 'QAR4E04')).data?.length === 1, '[0036] Portaria continua lendo o veículo');
+  const vis = await anon().from('vehicles').delete().eq('placa', 'QAR4E04').select('id');
+  ok(!vis.data?.length && (await existe('QAR4E04')), '[0036] visitante sem login NÃO remove');
+  const port = await cPort.from('vehicles').delete().eq('placa', 'QAR4E04').select('id');
+  ok(true, `[informativo] Portaria apagar veículo por API: banco ${port.data?.length ? 'PERMITE (policy vehicles_delete inclui PORTARIA; a tela não mostra o botão)' : 'recusa'}`);
+  if (!port.data?.length) await admin.from('vehicles').delete().eq('placa', 'QAR4E04');
+  for (const [nome, c, i] of [['Síndico', cSind, 5], ['Subsíndico', cSub, 6], ['ADM', cAdm, 7]]) {
+    const placa = `QAR${i}E0${i}`;
+    await novoVeic(placa);
+    const r = await c.from('vehicles').delete().eq('placa', placa).select('id');
+    ok(r.data?.length === 1 && !(await existe(placa)), `[0036] ${nome} remove veículo de qualquer unidade`);
+  }
+  const todos = (await rotulos('Removeu um veículo da unidade 102 (Bloco Q)%')).filter((l) => l.usuario_role !== 'MORADOR');
+  ok(todos.length >= 3 && todos.every((l) => !/QAR\dE0\d/.test(JSON.stringify(l))), '[0036] remoções da equipe também entram no histórico, sem placa');
+
+  // 5) multa sem valor negativo (CHECK valor >= 0, 0035)
+  const fine = (n, valor, tipo = 'MULTA') => ({ numero_protocolo: `QA-V${n}`, bloco: 'Q', unidade: '101', unit_id: U['101'], morador_nome: 'QA morador1', data_infracao: hoje, prazo_recurso_data: daqui(10), artigo_regimento: 'Art. 1', descricao_infracao: 'QA', valor, tipo });
+  let n = 0;
+  for (const [nome, c] of [['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm], ['chave de serviço', admin]]) {
+    const neg = await c.from('fines').insert(fine(++n, -50)).select('id');
+    ok(neg.error?.code === '23514' && !neg.data?.length, `[0035] ${nome}: multa com valor -50 recusada pelo banco (${neg.error?.code ?? 'sem erro'})`);
+    const frac = await c.from('fines').insert(fine(++n, -0.01)).select('id');
+    ok(frac.error?.code === '23514', `[0035] ${nome}: valor -0,01 recusado`);
+    const zero = await c.from('fines').insert(fine(++n, 0, 'ADVERTENCIA')).select('id');
+    ok(!zero.error && zero.data?.length === 1, `[0035] ${nome}: advertência com valor 0 aceita`);
+    const pos = await c.from('fines').insert(fine(++n, 350.5)).select('id');
+    ok(!pos.error && pos.data?.length === 1, `[0035] ${nome}: multa de R$ 350,50 aceita`);
+  }
+  // Atualizar para negativo também é recusado (a restrição vale para update).
+  const upd = await cSind.from('fines').update({ valor: -1 }).eq('numero_protocolo', 'QA-V3').select('id');
+  ok(!!upd.error, '[0035] Síndico NÃO altera uma multa para valor negativo');
+  const { data: nulo } = await admin.from('fines').select('numero_protocolo').like('numero_protocolo', 'QA-V%').lt('valor', 0);
+  ok(!nulo?.length, '[0035] nenhuma multa com valor negativo ficou gravada');
+  // Regra de tela (valor 0 em Multa Financeira) vive no formulário; o banco aceita 0 de propósito (advertência).
+  ok(!(await admin.from('fines').insert(fine(++n, 0, 'MULTA'))).error, '[0035] banco aceita valor 0 (a tela exige maior que zero em Multa Financeira)');
+}
+
 console.log('\n## K. Outro bloco com o mesmo número (correção 4)');
 const { data: r101 } = await admin.from('units').insert({ bloco: 'R', numero: '101', proprietario_nome: 'QA R101', proprietario_telefone: '', proprietario_email: '', tipo_ocupacao: 'PROPRIETARIO', moradores: [] }).select().single();
 const idR = await criarUsuario(email('moradorR'), { name: 'QA moradorR', role: 'MORADOR', bloco: 'R', unidade: '101' });
