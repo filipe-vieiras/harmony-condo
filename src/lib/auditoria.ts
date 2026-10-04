@@ -98,6 +98,11 @@ export function descreverAuditoria(acao: string, detalhesBrutos: DetalhesAuditor
     frase = `Reserva de ${espaco}${un ? `, ${un}` : ''}: ${aprovada ? 'aprovada' : 'recusada'}.`;
     const motivo = str(d.motivoRecusa);
     if (!aprovada && motivo) frase += ` Motivo: ${motivo}`;
+  } else if (/^Reserva confirmada automaticamente/.test(acao)) {
+    // Gravado pelo banco (0034) quando o espaço não exige aprovação: sem nome de pessoa.
+    const espaco = str(d.espaco) || 'espaço';
+    const un = rotuloUnidade(d);
+    frase = `Reserva de ${espaco}${un ? `, ${un}` : ''}: confirmada automaticamente (o espaço não exige aprovação).`;
   } else if (/^Emitiu notificação\/multa /.test(acao)) {
     const protocolo = str(d.protocolo) || acao.replace('Emitiu notificação/multa ', '');
     const valor = typeof d.valor === 'number' ? d.valor : d.valor == null || d.valor === '' ? NaN : Number(d.valor);

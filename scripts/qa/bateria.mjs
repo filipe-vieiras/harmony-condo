@@ -126,15 +126,138 @@ ok(!(await cM1.from('notifications').insert({ titulo: 'QA Nova reserva', mensage
 await reserva(cM2, 'Q', '101', 'QA forjada', 'PENDENTE', 8);
 ok(!(await admin.from('reservations').select('id').eq('morador_nome', 'QA forjada')).data.length, 'morador2 NÃO reserva em nome da Q-101');
 await reserva(cM2, 'Q', '102', 'QA autoaprovada', 'APROVADA', 9);
-ok(!(await admin.from('reservations').select('id').eq('morador_nome', 'QA autoaprovada')).data.length, 'morador NÃO cria reserva já aprovada');
+ok(!(await admin.from('reservations').select('id').eq('morador_nome', 'QA autoaprovada').eq('status', 'APROVADA')).data.length, 'morador NÃO cria reserva já aprovada (desde a 0034 o banco ignora o status enviado e grava PENDENTE)');
 ok(!(await reserva(cPort, 'Q', '102', 'QA via portaria', 'PENDENTE', 10)).error, 'Portaria registra pedido em nome de morador');
 await reserva(cPort, 'Q', '102', 'QA portaria aprovada', 'APROVADA', 11);
-ok(!(await admin.from('reservations').select('id').eq('morador_nome', 'QA portaria aprovada')).data.length, 'Portaria NÃO cria reserva já aprovada');
+ok(!(await admin.from('reservations').select('id').eq('morador_nome', 'QA portaria aprovada').eq('status', 'APROVADA')).data.length, 'Portaria NÃO cria reserva já aprovada (espaço que exige aprovação)');
 ok(!(await reserva(cCons, 'Q', '102', 'QA via conselho', 'PENDENTE', 12)).error, 'Conselho registra pedido em nome de morador');
 ok(!(await reserva(cSind, 'Q', '102', 'QA síndico aprovada', 'APROVADA', 13)).error, 'Síndico cria reserva já aprovada');
 const { data: rv1 } = await admin.from('reservations').select('id').eq('morador_nome', 'QA morador1').single();
 ok(!(await cPort.from('reservations').update({ status: 'APROVADA' }).eq('id', rv1.id).select()).data?.length, 'Portaria não aprova (só Síndico/Subsíndico/ADM)');
 ok((await cSub.from('reservations').update({ status: 'APROVADA', avaliado_por: 'QA Subsíndico' }).eq('id', rv1.id).select()).data?.length === 1, 'Subsíndico aprova');
+
+console.log('\n## I2. Reservas: conflito no banco, disponibilidade e aprovação por espaço (issue #49, migrações 0032 a 0034)');
+{
+  const brHoje = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const somaDias = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+  const hojeBR = brHoje();
+  const base = { descricao: 'QA', capacidade_max: 20, horario_funcionamento: '10h-22h', taxa_limpeza: 0, regras: [] };
+  const { data: espA } = await cSind.from('spaces').insert({ ...base, nome: 'QA Salão aprovação' }).select().single();
+  const { data: espB } = await cSind.from('spaces').insert({ ...base, nome: 'QA Quadra livre', exige_aprovacao: false }).select().single();
+  const { data: espI } = await cSind.from('spaces').insert({ ...base, nome: 'QA Espaço inativo', ativo: false }).select().single();
+  ok(espA?.exige_aprovacao === true, 'espaço novo exige aprovação por padrão');
+  const rv = (c, e, bloco, un, nome, dia, status = 'PENDENTE') => c.from('reservations').insert({ espaco_id: e.id, espaco_nome: e.nome, bloco, unidade: un, morador_nome: nome, data: dia, horario_inicio: '12:00', horario_fim: '16:00', convidados_estimados: 5, status }).select().single();
+  const statusDe = async (id) => (await admin.from('reservations').select('status,avaliado_por,data_avaliacao').eq('id', id).single()).data;
+
+  // — Aprovação definida pelo banco —
+  const forcada = await rv(cM1, espA, 'Q', '101', 'QA morador1', daqui(20), 'APROVADA');
+  ok(!forcada.error && forcada.data.status === 'PENDENTE' && !forcada.data.avaliado_por, 'morador NÃO força APROVADA em espaço que exige aprovação (sai PENDENTE, sem avaliador)');
+  const falsaAval = await rv(cM1, espA, 'Q', '101', 'QA morador1', daqui(21), 'APROVADA');
+  ok(falsaAval.data?.status === 'PENDENTE', 'idem em outro dia');
+  const auto = await rv(cM2, espB, 'Q', '102', 'QA morador2', daqui(20), 'PENDENTE');
+  const autoLinha = auto.data && await statusDe(auto.data.id);
+  ok(autoLinha?.status === 'APROVADA' && autoLinha.avaliado_por === 'Aprovação automática' && autoLinha.data_avaliacao, 'espaço sem aprovação: reserva nasce APROVADA com marcador do sistema (mesmo enviando PENDENTE)');
+  ok(auto.data && (await rv(cM2, espB, 'Q', '102', 'QA morador2', daqui(22), 'RECUSADA')).data?.status === 'APROVADA', 'status RECUSADA enviado pelo morador também é ignorado');
+  const forjada = await rv(cM2, espB, 'Q', '101', 'QA forjada49', daqui(23));
+  ok(!!forjada.error, 'morador2 NÃO reserva em nome de outra unidade nem em espaço sem aprovação');
+  // Espaços diferentes no mesmo dia: o pedido da Q-101 em espA (dia 20) e o da Q-102 em espB (dia 20) coexistem.
+  ok(!forcada.error && !auto.error, 'dois espaços diferentes no mesmo dia: ambos aceitos');
+
+  // — Conflito —
+  const confl = await rv(cM2, espA, 'Q', '102', 'QA morador2', daqui(20));
+  ok(!!confl.error && confl.error.code === '23505', `outro morador no mesmo espaço e dia: recusado pelo banco (${confl.error?.code})`);
+  const conflApi = await rv(cM1, espA, 'Q', '101', 'QA morador1', daqui(20));
+  ok(conflApi.error?.code === '23505', 'o mesmo morador também não duplica o dia');
+  const corrida = await Promise.all([rv(cM1, espA, 'Q', '101', 'QA corrida1', daqui(30)), rv(cM2, espA, 'Q', '102', 'QA corrida2', daqui(30)), rv(cPort, espA, 'Q', '102', 'QA corrida3', daqui(30)), rv(cSind, espA, 'Q', '102', 'QA corrida4', daqui(30)), rv(cM1, espA, 'Q', '101', 'QA corrida5', daqui(30))]);
+  ok(corrida.filter((r) => !r.error).length === 1 && (await admin.from('reservations').select('id').eq('espaco_id', espA.id).eq('data', daqui(30))).data.length === 1, `5 pedidos simultâneos: só 1 reserva (${corrida.filter((r) => !r.error).length} aceitos)`);
+  // Recusada e cancelada liberam o dia.
+  ok((await cSub.from('reservations').update({ status: 'RECUSADA', motivo_recusa: 'QA' }).eq('id', forcada.data.id).select()).data?.length === 1, 'Subsíndico recusa o pedido do dia 20');
+  const apos = await rv(cM2, espA, 'Q', '102', 'QA morador2', daqui(20));
+  ok(!apos.error, 'recusada libera o dia: novo pedido aceito');
+  ok((await cAdm.from('reservations').update({ status: 'CANCELADA' }).eq('id', apos.data.id).select()).data?.length === 1, 'ADM cancela');
+  const apos2 = await rv(cM1, espA, 'Q', '101', 'QA morador1', daqui(20));
+  ok(!apos2.error, 'cancelada libera o dia: novo pedido aceito');
+  const reativa = await cSind.from('reservations').update({ status: 'PENDENTE' }).eq('id', apos.data.id).select();
+  ok(reativa.error?.code === '23505', 'reativar a cancelada com o dia já ocupado também é barrado');
+
+  // — Dia passado e espaço inativo —
+  const ontem = await rv(cM1, espA, 'Q', '101', 'QA passado', somaDias(hojeBR, -1));
+  ok(ontem.error?.message === 'reserva_dia_passado', `dia passado (America/Sao_Paulo) recusado no banco (${ontem.error?.message})`);
+  const hojeRv = await rv(cM1, espB, 'Q', '101', 'QA hoje', hojeBR);
+  ok(!hojeRv.error, 'hoje (Brasília) é aceito: sem antecedência mínima');
+  const inativo = await rv(cM1, espI, 'Q', '101', 'QA inativo', daqui(20));
+  ok(inativo.error?.message === 'reserva_espaco_indisponivel', 'espaço inativo recusado no banco');
+
+  // — Configuração: só a equipe altera; vale só para reservas novas —
+  for (const [nome, c] of [['morador', cM1], ['Portaria', cPort], ['Conselho', cCons]]) {
+    const r = await c.from('spaces').update({ exige_aprovacao: false }).eq('id', espA.id).select();
+    ok(!r.data?.length && (await admin.from('spaces').select('exige_aprovacao').eq('id', espA.id).single()).data.exige_aprovacao === true, `${nome} NÃO altera exige_aprovacao`);
+  }
+  await admin.auth.admin.createUser({ email: email('prov49'), password: SENHA, email_confirm: true }).then(async ({ data }) => admin.from('profiles').insert({ id: data.user.id, email: email('prov49'), name: 'QA provisório49', role: 'MORADOR', bloco: 'Q', unidade: '104', cadastro_validado: false }));
+  const cProv = await clientDe(email('prov49'));
+  ok(!(await cProv.from('spaces').update({ exige_aprovacao: false }).eq('id', espA.id).select()).data?.length, 'provisório NÃO altera exige_aprovacao');
+  ok(!!(await rv(cProv, espB, 'Q', '104', 'QA prov49', daqui(40))).error, 'provisório NÃO cria reserva');
+  for (const [nome, c] of [['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm]]) {
+    const novo = nome !== 'ADM';
+    const r = await c.from('spaces').update({ exige_aprovacao: novo }).eq('id', espB.id).select();
+    ok(r.data?.length === 1 && r.data[0].exige_aprovacao === novo, `${nome} altera exige_aprovacao`);
+  }
+  // Agora espB exige aprovação (último valor da ADM = false... conferimos o estado real).
+  await cSind.from('spaces').update({ exige_aprovacao: true }).eq('id', espB.id);
+  ok((await statusDe(auto.data.id)).status === 'APROVADA', 'mudar a configuração NÃO altera reserva já criada');
+  const nova = await rv(cM1, espB, 'Q', '101', 'QA depois da mudança', daqui(25), 'APROVADA');
+  ok(nova.data?.status === 'PENDENTE', 'após ligar a aprovação, o pedido novo nasce PENDENTE');
+  await cSind.from('spaces').update({ exige_aprovacao: false }).eq('id', espB.id);
+  ok((await admin.from('audit_logs').select('id').like('acao', '%aprovação da equipe no espaço QA Quadra livre')).data.length >= 3, 'mudança da configuração fica na trilha de auditoria');
+
+  // — Portaria e Conselho: registram em nome do morador; a regra do espaço vale; Conselho não aprova —
+  const viaPort = await rv(cPort, espB, 'Q', '102', 'QA via portaria49', daqui(26));
+  ok(viaPort.data?.status === 'APROVADA', 'Portaria registra em espaço sem aprovação: sai APROVADA (banco decide)');
+  const viaCons = await rv(cCons, espA, 'Q', '102', 'QA via conselho49', daqui(26), 'APROVADA');
+  ok(viaCons.data?.status === 'PENDENTE', 'Conselho registra em espaço com aprovação: PENDENTE mesmo pedindo APROVADA');
+  ok(!(await cCons.from('reservations').update({ status: 'APROVADA' }).eq('id', viaCons.data.id).select()).data?.length, 'Conselho NÃO aprova');
+  ok(!(await cPort.from('spaces').update({ nome: 'QA Quadra livre' }).eq('id', espB.id).select()).data?.length, 'Portaria NÃO edita espaço');
+
+  // — Notificações geradas pelo banco —
+  const { data: avisosEq } = await admin.from('notifications').select('titulo,mensagem,perfil_alvo,tipo').eq('titulo', 'Reserva confirmada automaticamente').like('mensagem', 'QA Quadra livre%');
+  ok(avisosEq.some((n) => n.mensagem.includes('Este espaço não exige aprovação.') && n.mensagem.includes('(QA morador2)') && n.perfil_alvo === 'SINDICO'), 'auto-aprovada: a equipe recebe aviso informativo');
+  ok(!avisosEq.some((n) => n.mensagem.includes('QA via portaria49')), 'sem aviso à equipe quando a própria equipe registrou em nome do morador');
+  const { data: avisoUn } = await admin.from('notifications').select('titulo,mensagem,unidade_id_alvo').eq('titulo', 'Reserva confirmada!').like('mensagem', '%QA Quadra livre%');
+  ok(avisoUn.some((n) => n.unidade_id_alvo === U['102']), 'a unidade do morador recebe "Reserva confirmada!" (inclusive quando a Portaria registra)');
+  ok((await cM2.from('notifications').select('titulo').eq('titulo', 'Reserva confirmada!')).data.length >= 1, 'o morador lê o aviso de confirmação da própria unidade');
+  const diaBR = daqui(20).split('-').reverse().join('/');
+  ok(!(await cM1.from('notifications').select('mensagem').eq('titulo', 'Reserva confirmada!')).data.some((n) => n.mensagem.includes(diaBR)), 'o aviso de confirmação da Q-102 não aparece para a Q-101');
+  ok((await admin.from('audit_logs').select('id').eq('acao', 'Reserva confirmada automaticamente').eq('modulo', 'RESERVAS')).data.length >= 1, 'auditoria: "Reserva confirmada automaticamente"');
+
+  // — Função de disponibilidade —
+  const janela = [hojeBR, somaDias(hojeBR, 60)];
+  const disp = await cM2.rpc('disponibilidade_reservas', { inicio: janela[0], fim: janela[1] });
+  ok(!disp.error && disp.data.length > 0, `morador vê a disponibilidade (${disp.data?.length} linhas)`);
+  ok(disp.data.every((l) => Object.keys(l).sort().join() === 'data,espaco_id,ocupado' && l.ocupado === true), 'a resposta só tem espaco_id, data e ocupado');
+  const txt = JSON.stringify(disp.data);
+  ok(!/QA|Q-?101|morador|PENDENTE|APROVADA|bloco|unidade/i.test(txt), 'nenhum nome, unidade, bloco ou status na resposta (outro morador)');
+  ok(disp.data.some((l) => l.espaco_id === espA.id && l.data === daqui(20)) && !disp.data.some((l) => l.espaco_id === espA.id && l.data === daqui(22)), 'pedido PENDENTE conta como ocupado; dia sem pedido, não');
+  ok(!(await cM2.from('reservations').select('id').eq('espaco_id', espA.id).eq('data', daqui(21))).data.length, 'a leitura da tabela continua só da própria unidade (política não afrouxada)');
+  ok(disp.data.some((l) => l.espaco_id === espA.id && l.data === daqui(21)), 'o dia ocupado por OUTRA unidade (Q-101, dia 21) aparece na função, só como ocupado');
+  for (const [nome, c] of [['Portaria', cPort], ['Conselho', cCons], ['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm], ['morador1', cM1]]) {
+    const r = await c.rpc('disponibilidade_reservas', { inicio: janela[0], fim: janela[1] });
+    ok(!r.error && r.data.length > 0, `${nome} chama a função de disponibilidade`);
+  }
+  const cSem = await (async () => { await criarUsuario(email('semperfil49')); return clientDe(email('semperfil49')); })();
+  const rProv = await cProv.rpc('disponibilidade_reservas', { inicio: janela[0], fim: janela[1] });
+  ok(!rProv.error && rProv.data.length === 0, 'morador provisório recebe lista vazia');
+  const rSem = await cSem.rpc('disponibilidade_reservas', { inicio: janela[0], fim: janela[1] });
+  ok(!rSem.error && rSem.data.length === 0, 'conta sem perfil recebe lista vazia');
+  const rVis = await anon().rpc('disponibilidade_reservas', { inicio: janela[0], fim: janela[1] });
+  ok(!!rVis.error, `visitante sem login: negado (${rVis.error?.code ?? 'sem erro'})`);
+  const longe = await cM2.rpc('disponibilidade_reservas', { inicio: somaDias(hojeBR, 300), fim: somaDias(hojeBR, 500) });
+  ok(!!longe.error, 'janela além de ~12 meses recusada');
+  const longa = await cM2.rpc('disponibilidade_reservas', { inicio: hojeBR, fim: somaDias(hojeBR, 250) });
+  ok(!!longa.error, 'consulta de mais de 6 meses recusada');
+  const passada = await cM2.rpc('disponibilidade_reservas', { inicio: somaDias(hojeBR, -90), fim: hojeBR });
+  ok(!!passada.error, 'janela muito no passado recusada');
+  ok(!!(await cM2.rpc('disponibilidade_reservas', { inicio: janela[1], fim: janela[0] })).error, 'fim antes do início recusado');
+}
 
 console.log('\n## J. Veículos (correção 3)');
 ok(!(await cM2.from('vehicles').insert({ placa: 'QAM2A22', marca: 'VW', modelo: 'Gol', cor: 'Preto', bloco: 'Q', unidade: '102', vaga: 'Q102', proprietario_nome: 'QA morador2', telefone_contato: '0', unit_id: U['102'] })).error, 'morador2 cadastra o próprio carro');
@@ -676,6 +799,7 @@ console.log('\n## Anular e apagar multa (spec 2026-10-02): regra no banco, por A
   // Frases legíveis para a tela de Relatórios.
   {
     const igual = (obtido, esperado, nome) => ok(obtido === esperado, `${nome}: ${JSON.stringify(obtido)}`);
+    igual(descreverAuditoria('Reserva confirmada automaticamente', { reservationId: 'x', espaco: 'Quadra', unidade: '5', bloco: 'B' }).frase, 'Reserva de Quadra, unidade 5, bloco B: confirmada automaticamente (o espaço não exige aprovação).', 'reserva confirmada pelo banco vira frase');
     igual(descreverAuditoria('Anulou multa NOT-2026/004', { fineId: 'x', protocolo: 'NOT-2026/004', unidade: '101', bloco: 'A', statusAnterior: 'PENDENTE_CIENCIA', motivo: 'Unidade errada' }).frase, 'Multa NOT-2026/004 (unidade 101, bloco A) anulada. Motivo: Unidade errada', 'anulação vira frase');
     igual(descreverAuditoria('Anulou multa NOT-2026/004', { fineId: 'x', protocolo: 'NOT-2026/004', unidade: '101', bloco: 'A', motivo: 'Unidade errada' }).tecnicos.map((t) => t.chave).join(), 'fineId', 'id da multa só em detalhes técnicos');
     ok(/^Multa NOT-2026\/005 \(unidade 7, bloco B, multa de R\$\s350,00, estava em recurso\) apagada\.$/.test(descreverAuditoria('Apagou multa NOT-2026/005', { fineId: 'x', protocolo: 'NOT-2026/005', unidade: '7', bloco: 'B', tipo: 'MULTA', valor: 350, statusAnterior: 'EM_RECURSO' }).frase), 'exclusão vira frase com tipo, valor e estado');

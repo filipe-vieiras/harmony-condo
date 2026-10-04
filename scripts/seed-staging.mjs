@@ -132,15 +132,37 @@ falhar('veículos', (await admin.from('vehicles').insert([
 falhar('veículo visitante', (await admin.from('vehicles').insert(
   { placa: 'STG6F06', marca: 'Renault', modelo: 'Kwid', cor: 'Azul', bloco: 'A', unidade: '101', vaga: 'Visitante', proprietario_nome: 'Visita do 101', telefone_contato: '(11) 93333-3333', unit_id: a101.id, tipo_veiculo: 'CARRO', status: 'VISITANTE' },
 )).error);
-falhar('espaço', (await admin.from('spaces').insert({
-  nome: 'Salão de Festas', descricao: 'Salão para até 50 pessoas', capacidade_max: 50,
-  horario_funcionamento: '10h às 22h', taxa_limpeza: 150, regras: ['Silêncio após as 22h'], ativo: true,
-})).error);
+// Espaços: o Salão exige aprovação da equipe (padrão); a Churrasqueira confirma na hora; a Quadra está em manutenção.
+const { data: espacos, error: espErr } = await admin.from('spaces').insert([
+  { nome: 'Salão de Festas', descricao: 'Salão para até 50 pessoas', capacidade_max: 50, horario_funcionamento: '10h às 22h', taxa_limpeza: 150, regras: ['Silêncio após as 22h'], ativo: true, exige_aprovacao: true },
+  { nome: 'Churrasqueira', descricao: 'Churrasqueira coberta para até 20 pessoas', capacidade_max: 20, horario_funcionamento: '10h às 22h', taxa_limpeza: 0, regras: ['Limpar após o uso'], ativo: true, exige_aprovacao: false },
+  { nome: 'Quadra Poliesportiva', descricao: 'Quadra em manutenção para teste do aviso', capacidade_max: 30, horario_funcionamento: '08h às 20h', taxa_limpeza: 0, regras: [], ativo: false, exige_aprovacao: true },
+]).select();
+falhar('espaços', espErr);
+const salao = espacos.find((e) => e.nome === 'Salão de Festas');
+const churras = espacos.find((e) => e.nome === 'Churrasqueira');
+
+// Reservas em dias diferentes (data de Brasília; a seed roda sem usuário, então o banco não mexe no status).
+// Salão: um pedido aguardando (A-101) e uma aprovada (A-102). Churrasqueira: confirmada automaticamente (A-102)
+// no mesmo dia do pedido do Salão, para o teste de "espaços diferentes no mesmo dia".
+const hojeBR = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+const diaBR = (n) => new Date(Date.parse(hojeBR + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+const reserva = (e, bloco, un, nome, dia, status, extra = {}) => ({
+  espaco_id: e.id, espaco_nome: e.nome, bloco, unidade: un, morador_nome: nome, data: diaBR(dia),
+  horario_inicio: '12:00', horario_fim: '18:00', convidados_estimados: 15, status, ...extra,
+});
+falhar('reservas', (await admin.from('reservations').insert([
+  reserva(salao, 'A', '101', 'Morador Proprietário', 5, 'PENDENTE'),
+  reserva(salao, 'A', '102', 'Morador Inquilino', 9, 'APROVADA', { avaliado_por: 'Síndico Teste (SINDICO)', data_avaliacao: new Date().toISOString() }),
+  reserva(churras, 'A', '102', 'Morador Inquilino', 5, 'APROVADA', { avaliado_por: 'Aprovação automática', data_avaliacao: new Date().toISOString() }),
+  reserva(churras, 'A', '101', 'Morador Proprietário', 12, 'APROVADA', { avaliado_por: 'Aprovação automática', data_avaliacao: new Date().toISOString() }),
+  reserva(salao, 'A', '101', 'Morador Proprietário', 14, 'RECUSADA', { motivo_recusa: 'Data reservada para a assembleia', avaliado_por: 'Síndico Teste (SINDICO)', data_avaliacao: new Date().toISOString() }),
+])).error);
 falhar('aviso', (await admin.from('notices').insert({
   titulo: 'Bem-vindo ao ambiente de testes', conteudo: 'Esta base é de staging. Pode criar, editar e apagar à vontade.',
   categoria: 'COMUNICADO', autor: 'Síndico Teste', fixado: true,
 })).error);
 
-console.log(`Staging recriado: ${usuarios.length} usuários, ${units.length} unidades, 7 veículos, 1 espaço, 1 aviso.`);
+console.log(`Staging recriado: ${usuarios.length} usuários, ${units.length} unidades, 7 veículos, 3 espaços, 5 reservas, 1 aviso.`);
 console.log(`Contas (senha ${SENHA}):`);
 for (const u of usuarios) console.log(`  ${u.role.padEnd(10)} ${u.email}`);
