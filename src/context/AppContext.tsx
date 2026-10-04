@@ -24,7 +24,7 @@ import { isAdmin, SINGLETON_ROLES } from '@/lib/roles';
 import { avaliarVinculo, normalizarEmail, rotuloUnidade } from '@/lib/vinculoUnidade';
 import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
-  fetchVehicles, insertVehicle, deleteVehicleDB, updateVehicleTipoDB,
+  fetchVehicles, insertVehicle, deleteVehicleDB, updateVehicleDB,
   fetchNotices, insertNotice, deleteNoticeDB,
   fetchFines, insertFine, updateFineDB, anularFineDB, deleteFineDB,
   fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB,
@@ -38,6 +38,11 @@ import {
   fetchProfiles,
   fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
+import type { AlteracaoVeiculo } from '@/lib/supabase/db';
+
+/** Resultado de cadastrar/editar veículo; `placaDuplicada` = a placa já existe no condomínio. */
+const MSG_PLACA_DUPLICADA = 'Esta placa já está cadastrada.';
+export type ResultadoSalvarVeiculo = { success: boolean; message: string; veiculo?: Vehicle; placaDuplicada?: boolean };
 import { formatarData } from '@/lib/formatadores';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 
@@ -66,9 +71,9 @@ interface AppContextType {
   deleteUnit: (id: string) => Promise<{ success: boolean; message: string }>;
   sendInviteForUnit: (unitId: string, opcoes?: OpcoesVinculo) => Promise<ResultadoUnidade>;
   vehicles: Vehicle[];
-  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<{ success: boolean; message: string }>;
+  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<ResultadoSalvarVeiculo>;
   deleteVehicle: (id: string) => Promise<{ success: boolean; message: string }>;
-  atualizarTipoVeiculo: (id: string, tipo: Vehicle['tipoVeiculo']) => Promise<{ success: boolean; message: string }>;
+  atualizarVeiculo: (id: string, alteracao: AlteracaoVeiculo) => Promise<ResultadoSalvarVeiculo>;
   notices: Notice[];
   addNotice: (notice: Omit<Notice, 'id' | 'data'>) => Promise<void>;
   deleteNotice: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -648,25 +653,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── VEHICLES ──
 
-  const addVehicle = async (vehicleData: Omit<Vehicle, 'id'>): Promise<{ success: boolean; message: string }> => {
+  const addVehicle = async (vehicleData: Omit<Vehicle, 'id'>): Promise<ResultadoSalvarVeiculo> => {
     // Resolve o unit_id (FK) batendo bloco/unidade contra o cadastro real —
     // é o que a RLS usa pra decidir quem enxerga o veículo depois.
     const matchedUnit = units.find(
       (u) => u.bloco === vehicleData.bloco && u.numero.trim().toLowerCase() === vehicleData.unidade.trim().toLowerCase()
     );
-    const created = await insertVehicle(supabase, { ...vehicleData, unitId: matchedUnit?.id });
-    if (!created) return { success: false, message: 'Erro ao cadastrar o veículo. Tente novamente.' };
+    const r = await insertVehicle(supabase, { ...vehicleData, unitId: matchedUnit?.id });
+    if (!r.veiculo) {
+      return { success: false, message: r.placaDuplicada ? MSG_PLACA_DUPLICADA : 'Erro ao cadastrar o veículo. Tente novamente.', placaDuplicada: r.placaDuplicada };
+    }
 
+    const created = r.veiculo;
     setVehicles((prev) => [created, ...prev]);
-    return { success: true, message: `Veículo ${created.placa} cadastrado com sucesso.` };
+    return { success: true, message: 'Veículo cadastrado.', veiculo: created };
   };
 
-  // A auditoria desta troca é gravada pelo banco (0030), então não há recordAudit aqui.
-  const atualizarTipoVeiculo = async (id: string, tipo: Vehicle['tipoVeiculo']): Promise<{ success: boolean; message: string }> => {
-    const atualizado = await updateVehicleTipoDB(supabase, id, tipo);
-    if (!atualizado) return { success: false, message: 'Não foi possível salvar o tipo. Tente de novo.' };
-    setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, tipoVeiculo: atualizado.tipoVeiculo } : v)));
-    return { success: true, message: 'Tipo do veículo atualizado.' };
+  // A auditoria da edição é gravada pelo banco (0030/0031), então não há recordAudit aqui.
+  const atualizarVeiculo = async (id: string, alteracao: AlteracaoVeiculo): Promise<ResultadoSalvarVeiculo> => {
+    const r = await updateVehicleDB(supabase, id, alteracao);
+    if (!r.veiculo) {
+      return { success: false, message: r.placaDuplicada ? MSG_PLACA_DUPLICADA : 'Não foi possível salvar o veículo. Tente de novo.', placaDuplicada: r.placaDuplicada };
+    }
+    const atualizado = r.veiculo;
+    setVehicles((prev) => prev.map((v) => (v.id === id ? atualizado : v)));
+    return { success: true, message: 'Veículo atualizado.', veiculo: atualizado };
   };
 
   const deleteVehicle = async (id: string): Promise<{ success: boolean; message: string }> => {
@@ -1250,7 +1261,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         vehicles,
         addVehicle,
         deleteVehicle,
-        atualizarTipoVeiculo,
+        atualizarVeiculo,
         notices,
         addNotice,
         deleteNotice,

@@ -145,7 +145,10 @@ export async function fetchVehicles(supabase: SupabaseClient): Promise<Vehicle[]
   return (data ?? []).map(rowToVehicle);
 }
 
-export async function insertVehicle(supabase: SupabaseClient, v: Omit<Vehicle, 'id'>): Promise<Vehicle | null> {
+/** Resultado de gravar um veículo: o veículo salvo, ou o motivo da falha (placa já cadastrada = 23505). */
+export type ResultadoVeiculo = { veiculo: Vehicle } | { veiculo: null; placaDuplicada: boolean };
+
+export async function insertVehicle(supabase: SupabaseClient, v: Omit<Vehicle, 'id'>): Promise<ResultadoVeiculo> {
   const { data, error } = await supabase.from('vehicles').insert({
     placa: v.placa,
     marca: v.marca,
@@ -160,19 +163,32 @@ export async function insertVehicle(supabase: SupabaseClient, v: Omit<Vehicle, '
     status: v.status,
     tipo_veiculo: v.tipoVeiculo,
   }).select().single();
-  if (error) { console.error('insertVehicle:', error); return null; }
-  return rowToVehicle(data);
+  if (error) { console.error('insertVehicle:', error); return { veiculo: null, placaDuplicada: error.code === '23505' }; }
+  return { veiculo: rowToVehicle(data) };
 }
 
+/** Campos que um veículo já cadastrado pode ter alterados (o morador só envia os cinco primeiros). */
+export type AlteracaoVeiculo = Partial<Pick<Vehicle, 'placa' | 'marca' | 'modelo' | 'cor' | 'tipoVeiculo' | 'vaga' | 'status' | 'proprietarioNome' | 'telefoneContato'>>;
+
 /**
- * Troca só o tipo do veículo. Quem pode (equipe administrativa, ou o morador da própria
- * unidade) é decidido pelo banco; um UPDATE bloqueado por RLS não dá erro, só 0 linhas,
- * então confere quantas voltaram.
+ * Atualiza um veículo. Quem pode e quais colunas (equipe: tudo; morador: placa, marca, modelo,
+ * cor e tipo da própria unidade) é decidido pelo banco; um UPDATE bloqueado por RLS não dá erro,
+ * só 0 linhas, então confere quantas voltaram. A placa volta normalizada pelo gatilho.
  */
-export async function updateVehicleTipoDB(supabase: SupabaseClient, id: string, tipo: Vehicle['tipoVeiculo']): Promise<Vehicle | null> {
-  const { data, error } = await supabase.from('vehicles').update({ tipo_veiculo: tipo }).eq('id', id).select();
-  if (error) { console.error('updateVehicleTipoDB:', error); return null; }
-  return data?.[0] ? rowToVehicle(data[0]) : null;
+export async function updateVehicleDB(supabase: SupabaseClient, id: string, v: AlteracaoVeiculo): Promise<ResultadoVeiculo> {
+  const campos: Record<string, unknown> = {};
+  if (v.placa !== undefined) campos.placa = v.placa;
+  if (v.marca !== undefined) campos.marca = v.marca;
+  if (v.modelo !== undefined) campos.modelo = v.modelo;
+  if (v.cor !== undefined) campos.cor = v.cor;
+  if (v.tipoVeiculo !== undefined) campos.tipo_veiculo = v.tipoVeiculo;
+  if (v.vaga !== undefined) campos.vaga = v.vaga;
+  if (v.status !== undefined) campos.status = v.status;
+  if (v.proprietarioNome !== undefined) campos.proprietario_nome = v.proprietarioNome;
+  if (v.telefoneContato !== undefined) campos.telefone_contato = v.telefoneContato;
+  const { data, error } = await supabase.from('vehicles').update(campos).eq('id', id).select();
+  if (error) { console.error('updateVehicleDB:', error); return { veiculo: null, placaDuplicada: error.code === '23505' }; }
+  return data?.[0] ? { veiculo: rowToVehicle(data[0]) } : { veiculo: null, placaDuplicada: false };
 }
 
 export async function deleteVehicleDB(supabase: SupabaseClient, id: string): Promise<boolean> {
