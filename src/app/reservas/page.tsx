@@ -330,7 +330,9 @@ function ReservasContent() {
 
   // ── Número de pessoas e valor de uso (prévia pela função do banco) ──
   const pessoasNum = Number(convidados);
-  const pessoasInformadas = convidados.trim() !== '' && Number.isInteger(pessoasNum) && pessoasNum >= 1;
+  const pessoasVazio = convidados.trim() === '';
+  const pessoasZero = !pessoasVazio && !(pessoasNum >= 1);
+  const pessoasInformadas = !pessoasVazio && Number.isInteger(pessoasNum) && pessoasNum >= 1;
   const acimaDaCapacidade = !!espacoEscolhido && pessoasInformadas && pessoasNum > espacoEscolhido.capacidadeMax;
   const chavePrevia = espacoEscolhido && pessoasInformadas && !acimaDaCapacidade ? `${espacoEscolhido.id}|${pessoasNum}` : null;
   // Debounce de ~400 ms: o valor só é pedido ao banco quando a pessoa para de digitar.
@@ -347,7 +349,8 @@ function ReservasContent() {
   }, [showModal, chavePrevia, recarregarKey]);
   const previaAtual = chavePrevia && previaValor?.chave === chavePrevia ? previaValor : null;
   let textoValor = '';
-  if (!pessoasInformadas) textoValor = 'Informe o número de convidados para ver o valor.';
+  if (pessoasZero) textoValor = 'O número de pessoas precisa ser de pelo menos 1.';
+  else if (!pessoasInformadas) textoValor = 'Informe o número de pessoas para ver o valor.';
   else if (chavePrevia) {
     if (!previaAtual) textoValor = 'Calculando o valor…';
     else if (previaAtual.valor === null) textoValor = 'Não foi possível mostrar o valor agora. Ele é calculado ao enviar.';
@@ -410,7 +413,8 @@ function ReservasContent() {
       return;
     }
     if (!pessoasInformadas) {
-      setReservaFormError('Informe o número de convidados para ver o valor.');
+      setReservaFormError(pessoasZero ? 'O número de pessoas precisa ser de pelo menos 1.' : 'Informe o número de pessoas para ver o valor.');
+      document.getElementById('reserva-convidados')?.focus();
       return;
     }
     if (acimaDaCapacidade) {
@@ -517,6 +521,7 @@ function ReservasContent() {
       {/* Mensagem de Feedback */}
       {feedbackMsg && (
         <div
+          role={feedbackMsg.type === 'success' ? 'status' : 'alert'}
           className={`rounded-2xl p-4 text-xs font-semibold flex items-center justify-between no-print ${
             feedbackMsg.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
@@ -725,7 +730,7 @@ function ReservasContent() {
 
         <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="stack-mobile w-full text-left text-xs">
+            <table className="stack-mobile tabela-agenda w-full text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-50/75 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
                 <tr>
                   <th className="px-4 py-3.5">Espaço Comum</th>
@@ -1055,9 +1060,9 @@ function ReservasContent() {
                     min="1"
                     value={convidados}
                     onChange={(e) => setConvidados(e.target.value)}
-                    aria-invalid={acimaDaCapacidade ? 'true' : undefined}
+                    aria-invalid={acimaDaCapacidade || pessoasZero ? 'true' : undefined}
                     aria-describedby="reserva-convidados-valor"
-                    className={`mt-1 w-full rounded-xl border px-3 py-2 text-base focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0 sm:text-xs ${acimaDaCapacidade ? 'border-red-600' : 'border-slate-200'}`}
+                    className={`mt-1 w-full rounded-xl border px-3 py-2 text-base focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0 sm:text-xs ${acimaDaCapacidade || pessoasZero ? 'border-red-600' : 'border-slate-200'}`}
                   />
                   {/* Valor calculado pelo banco, atualizado enquanto a pessoa digita. Acima da capacidade
                       não mostra valor: só o aviso (com role="alert" depois da tentativa de enviar). */}
@@ -1065,12 +1070,16 @@ function ReservasContent() {
                     {acimaDaCapacidade && espacoEscolhido ? (
                       <p role={tentouEnviar ? 'alert' : undefined} className="flex items-start gap-1.5 text-red-700">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                        <span>Este espaço comporta até {espacoEscolhido.capacidadeMax} convidados. Reduza o número para continuar.</span>
+                        <span>Este espaço comporta até {espacoEscolhido.capacidadeMax} pessoas. Reduza o número para continuar.</span>
                       </p>
-                    ) : espacoEscolhido ? (
-                      <p className={pessoasInformadas && previaAtual?.valor != null ? 'text-slate-900' : 'font-normal text-slate-600'}>{textoValor}</p>
+                    ) : espacoEscolhido && textoValor !== 'Calculando o valor…' ? (
+                      <p className={pessoasInformadas && previaAtual?.valor != null ? 'text-slate-900' : pessoasZero ? 'text-red-700' : 'font-normal text-slate-600'}>{textoValor}</p>
                     ) : null}
                   </div>
+                  {/* Só visual: "calculando" não é anunciado a cada pausa de digitação; o leitor de tela recebe só o resultado. */}
+                  {!acimaDaCapacidade && espacoEscolhido && textoValor === 'Calculando o valor…' && (
+                    <p aria-hidden="true" className="mt-1.5 text-xs font-normal text-slate-600">{textoValor}</p>
+                  )}
                 </div>
 
                 {espacoEscolhido && (
@@ -1079,7 +1088,7 @@ function ReservasContent() {
 
                 {espacoEscolhido && (
                   <p className="text-xs text-slate-700">
-                    Taxa de limpeza: <strong className="text-primary">{espacoEscolhido.taxaLimpeza > 0 ? formatarMoeda(espacoEscolhido.taxaLimpeza) : 'Isento'}</strong>
+                    Taxa de higienização: <strong className="text-primary">{espacoEscolhido.taxaLimpeza > 0 ? formatarMoeda(espacoEscolhido.taxaLimpeza) : 'Isento'}</strong>
                   </p>
                 )}
 
@@ -1232,7 +1241,7 @@ function ReservasContent() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="espaco-taxa" className="block text-xs font-semibold text-slate-700">Taxa de Limpeza (R$)</label>
+                  <label htmlFor="espaco-taxa" className="block text-xs font-semibold text-slate-700">Taxa de Higienização (R$)</label>
                   <input
                     id="espaco-taxa"
                     type="number"
@@ -1341,6 +1350,7 @@ function ReservasContent() {
                       value={spaceFaixaCentavos ? (Number(spaceFaixaCentavos) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
                       // Máscara de moeda: só dígitos, lidos como centavos (150,00 = "15000").
                       onChange={(e) => setSpaceFaixaCentavos(e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9))}
+                      apoio="Digite só os números: 15000 = R$ 150,00."
                       erro={erroFaixaValor}
                     />
                   </div>
@@ -1384,9 +1394,9 @@ function ReservasContent() {
                           </label>
                         ))}
                       </fieldset>
-                      <div aria-live="polite" className="space-y-2">
+                      <div className="space-y-2">
                         {avisos.map((a) => (
-                          <div key={a.nome} className="mt-2 flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 p-3 text-[12px] text-pendente-900">
+                          <div key={a.nome} role="status" className="mt-2 flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 p-3 text-[12px] text-pendente-900">
                             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-pendente-700" aria-hidden="true" />
                             <span>Atenção: o {a.nome} já tem reservas futuras ({a.qtd}). Elas continuam valendo; o bloqueio só impede novos pedidos nos dias em que já houver reserva em um dos dois espaços.</span>
                           </div>
