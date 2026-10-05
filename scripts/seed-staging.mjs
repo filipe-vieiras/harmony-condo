@@ -159,10 +159,13 @@ falhar('veículos', (await admin.from('vehicles').insert([
 falhar('veículo visitante', (await admin.from('vehicles').insert(
   { placa: 'STG6F06', marca: 'Renault', modelo: 'Kwid', cor: 'Azul', bloco: 'A', unidade: '101', vaga: 'Visitante', proprietario_nome: 'Visita do 101', telefone_contato: '(11) 93333-3333', unit_id: a101.id, tipo_veiculo: 'CARRO', status: 'VISITANTE' },
 )).error);
-// Espaços: o Salão exige aprovação da equipe (padrão); a Churrasqueira confirma na hora; a Quadra está em manutenção.
+// Espaços: o Salão exige aprovação da equipe (padrão) e cobra por faixa (grátis até 10 pessoas, acima R$ 150,00);
+// a Churrasqueira confirma na hora e é grátis; a Quadra está em manutenção; a Sala de Jogos confirma na hora, é grátis e
+// NÃO tem bloqueio. Salão e Churrasqueira se bloqueiam (par criado mais abaixo, depois das reservas).
 const { data: espacos, error: espErr } = await admin.from('spaces').insert([
-  { nome: 'Salão de Festas', descricao: 'Salão para até 50 pessoas', capacidade_max: 50, horario_funcionamento: '10h às 22h', taxa_limpeza: 150, regras: ['Silêncio após as 22h'], ativo: true, exige_aprovacao: true },
+  { nome: 'Salão de Festas', descricao: 'Salão para até 50 pessoas', capacidade_max: 50, horario_funcionamento: '10h às 22h', taxa_limpeza: 150, regras: ['Silêncio após as 22h'], ativo: true, exige_aprovacao: true, faixa_gratis_ate: 10, faixa_valor: 150 },
   { nome: 'Churrasqueira', descricao: 'Churrasqueira coberta para até 20 pessoas', capacidade_max: 20, horario_funcionamento: '10h às 22h', taxa_limpeza: 0, regras: ['Limpar após o uso'], ativo: true, exige_aprovacao: false },
+  { nome: 'Sala de Jogos', descricao: 'Sala com mesa de sinuca e pebolim para até 15 pessoas', capacidade_max: 15, horario_funcionamento: '10h às 22h', taxa_limpeza: 0, regras: ['Desligar as luzes ao sair'], ativo: true, exige_aprovacao: false },
   { nome: 'Quadra Poliesportiva', descricao: 'Quadra em manutenção para teste do aviso', capacidade_max: 30, horario_funcionamento: '08h às 20h', taxa_limpeza: 0, regras: [], ativo: false, exige_aprovacao: true },
 ]).select();
 falhar('espaços', espErr);
@@ -185,12 +188,19 @@ falhar('reservas', (await admin.from('reservations').insert([
   reserva(churras, 'A', '101', 'Morador Proprietário', 12, 'APROVADA', { avaliado_por: 'Aprovação automática', data_avaliacao: new Date().toISOString() }),
   reserva(salao, 'A', '101', 'Morador Proprietário', 14, 'RECUSADA', { motivo_recusa: 'Data reservada para a assembleia', avaliado_por: 'Síndico Teste (SINDICO)', data_avaliacao: new Date().toISOString() }),
 ])).error);
+// Bloqueio simétrico Salão <-> Churrasqueira (0038). O par é guardado ORDENADO (espaco_a < espaco_b, comparação "C").
+// Vem DEPOIS das reservas de propósito: o Salão e a Churrasqueira já têm reservas no mesmo dia (dia 5), e criar o
+// bloqueio não mexe nelas; só novos pedidos são barrados.
+{
+  const [ea, eb] = salao.id < churras.id ? [salao.id, churras.id] : [churras.id, salao.id];
+  falhar('bloqueio Salão e Churrasqueira', (await admin.from('space_blocks').insert({ espaco_a: ea, espaco_b: eb })).error);
+}
 falhar('aviso', (await admin.from('notices').insert({
   titulo: 'Bem-vindo ao ambiente de testes', conteudo: 'Esta base é de staging. Pode criar, editar e apagar à vontade.',
   categoria: 'COMUNICADO', autor: 'Síndico Teste', fixado: true,
 })).error);
 
-console.log(`Staging recriado: ${usuarios.length} usuários, ${units.length} unidades, 7 veículos, 3 espaços, 5 reservas, 1 aviso.`);
+console.log(`Staging recriado: ${usuarios.length} usuários, ${units.length} unidades, 7 veículos, 4 espaços (Salão com faixa, Salão e Churrasqueira se bloqueiam), 5 reservas, 1 aviso.`);
 console.log(`Contas (senha ${SENHA}):`);
 for (const u of usuarios) console.log(`  ${u.role.padEnd(10)} ${u.email}`);
 console.log('  (convite pendente de cargo: Portaria Dois -> novo.porteiro@staging.test, link na fila de Usuários)');

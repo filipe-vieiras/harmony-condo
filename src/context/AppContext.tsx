@@ -31,6 +31,7 @@ import {
   fetchFines, insertFine, updateFineDB, anularFineDB, deleteFineDB,
   fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB,
   fetchReservations, insertReservation, updateReservationDB, fetchDisponibilidade,
+  fetchSpaceBlocks, definirBloqueiosEspacoDB, fetchValorReserva,
   fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
   fetchDocuments, insertDocument, updateDocumentDB, deleteDocumentDB,
   fetchAuditLogs, insertAuditLog,
@@ -45,7 +46,8 @@ import type { AlteracaoVeiculo, ErroReserva } from '@/lib/supabase/db';
 /** Resultado de cadastrar/editar veículo; `placaDuplicada` = a placa já existe no condomínio. */
 const MSG_PLACA_DUPLICADA = 'Esta placa já está cadastrada.';
 export type ResultadoSalvarVeiculo = { success: boolean; message: string; veiculo?: Vehicle; placaDuplicada?: boolean };
-import { formatarData } from '@/lib/formatadores';
+import { formatarData, formatarMoeda } from '@/lib/formatadores';
+import { fraseValorParaEquipe } from '@/lib/valorEspaco';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 
 /**
@@ -96,6 +98,12 @@ export type ResultadoTransferirCargo =
     };
 
 /** Faixa no Início sobre cargo: "perdeu" (acabou de passar o cargo) ou "pendente" (convite aguardando aceite). */
+/** Resultado de salvar um espaço: o espaço pode ter sido salvo e os bloqueios (segunda etapa) não. */
+export interface ResultadoEspaco {
+  success: boolean;
+  bloqueiosFalharam: boolean;
+}
+
 export interface AvisoCargo {
   tipo: 'perdeu' | 'pendente';
   id: string;
@@ -127,8 +135,15 @@ interface AppContextType {
   /** Só ADM (a regra real é a do banco). */
   deleteFine: (fineId: string) => Promise<{ success: boolean; message: string }>;
   spaces: CommonSpace[];
-  addSpace: (space: Omit<CommonSpace, 'id'>) => Promise<void>;
-  updateSpace: (id: string, space: Partial<Omit<CommonSpace, 'id'>>) => Promise<void>;
+  /**
+   * Pares de bloqueio entre espaços (0038). Só a gestão lê (RLS): para os demais perfis fica vazio.
+   * `bloqueiosDoEspaco` devolve os ids dos espaços com par com este, olhando dos dois lados.
+   */
+  bloqueiosDoEspaco: (espacoId: string) => string[];
+  /** `bloqueios`: ids dos outros espaços que o novo bloqueia; gravados depois do espaço, em uma transação do banco. */
+  addSpace: (space: Omit<CommonSpace, 'id'>, bloqueios?: string[]) => Promise<ResultadoEspaco>;
+  /** `bloqueios` omitido = não mexe nos bloqueios; lista (mesmo vazia) = substitui. */
+  updateSpace: (id: string, space: Partial<Omit<CommonSpace, 'id'>>, bloqueios?: string[]) => Promise<ResultadoEspaco>;
   deleteSpace: (id: string) => Promise<{ success: boolean; message: string }>;
   documents: DocumentLink[];
   addDocument: (doc: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => Promise<{ success: boolean; message: string }>;
@@ -165,7 +180,9 @@ interface AppContextType {
     moradorNome?: string;
     bloco?: string;
     unidade?: string;
-  }) => Promise<{ success: boolean; message: string; erro?: ErroReserva; status?: ReservationStatus }>;
+  }) => Promise<{ success: boolean; message: string; erro?: ErroReserva; status?: ReservationStatus; valorUso?: number }>;
+  /** Valor de uso para N pessoas, pela função do banco (a mesma do gatilho). null = falhou. */
+  buscarValorReserva: (espacoId: string, pessoas: number) => Promise<number | null>;
   /** Dias ocupados por espaço (função do banco, sem nome nem unidade). null = falhou. */
   buscarDisponibilidade: (inicio: string, fim: string) => Promise<{ espacoId: string; data: string }[] | null>;
   judgeReservation: (reservationId: string, aprovado: boolean, motivoRecusa?: string) => Promise<void>;
@@ -213,6 +230,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [fines, setFines] = useState<FineNotice[]>([]);
   const [spaces, setSpaces] = useState<CommonSpace[]>([]);
+  const [spaceBlocks, setSpaceBlocks] = useState<{ a: string; b: string }[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [documents, setDocuments] = useState<DocumentLink[]>([]);
@@ -258,7 +276,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Carrega todos os dados do banco quando o usuário está logado
   const loadAllData = useCallback(async () => {
-    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users, autos, aberto, transf] = await Promise.all([
+    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users, autos, aberto, transf, blocos] = await Promise.all([
       fetchUnits(supabase),
       fetchVehicles(supabase),
       fetchNotices(supabase),
@@ -275,12 +293,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchAutocadastros(supabase),
       fetchAutocadastroAberto(supabase),
       fetchCargoTransferencias(supabase),
+      fetchSpaceBlocks(supabase),
     ]);
     setUnits(u);
     setVehicles(v);
     setNotices(n);
     setFines(f);
     setSpaces(s);
+    setSpaceBlocks(blocos);
     setReservations(r);
     setNotifications(notifs);
     setDocuments(docs);
@@ -908,24 +928,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── SPACES ──
 
-  const addSpace = async (spaceData: Omit<CommonSpace, 'id'>) => {
+  const bloqueiosDoEspaco = (espacoId: string) =>
+    spaceBlocks.flatMap((p) => (p.a === espacoId ? [p.b] : p.b === espacoId ? [p.a] : []));
+
+  const recarregarBloqueios = async () => setSpaceBlocks(await fetchSpaceBlocks(supabase));
+
+  const addSpace = async (spaceData: Omit<CommonSpace, 'id'>, bloqueios?: string[]): Promise<ResultadoEspaco> => {
     const created = await insertSpace(supabase, spaceData);
-    if (created) {
-      setSpaces((prev) => [...prev, created]);
-      await recordAudit(`Cadastrou novo espaço comum: ${created.nome}`, 'ESPACOS', {
-        id: created.id,
-        nome: created.nome,
-        taxaLimpeza: created.taxaLimpeza,
-      });
+    if (!created) return { success: false, bloqueiosFalharam: false };
+    setSpaces((prev) => [...prev, created]);
+    await recordAudit(`Cadastrou novo espaço comum: ${created.nome}`, 'ESPACOS', {
+      id: created.id,
+      nome: created.nome,
+      taxaLimpeza: created.taxaLimpeza,
+    });
+    // O espaço já existe; os bloqueios vão numa segunda etapa. Se ela falhar a tela avisa e o
+    // síndico repete pela edição: o espaço nunca fica com um bloqueio pela metade.
+    if (bloqueios && bloqueios.length > 0) {
+      const gravou = await definirBloqueiosEspacoDB(supabase, created.id, bloqueios);
+      await recarregarBloqueios();
+      void fetchAuditLogs(supabase).then(setAuditLogs);
+      if (!gravou) return { success: true, bloqueiosFalharam: true };
     }
+    return { success: true, bloqueiosFalharam: false };
   };
 
-  const updateSpace = async (id: string, spaceData: Partial<Omit<CommonSpace, 'id'>>) => {
+  const updateSpace = async (id: string, spaceData: Partial<Omit<CommonSpace, 'id'>>, bloqueios?: string[]): Promise<ResultadoEspaco> => {
     const updated = await updateSpaceDB(supabase, id, spaceData);
-    if (updated) {
-      setSpaces((prev) => prev.map((s) => (s.id === id ? updated : s)));
-      await recordAudit(`Atualizou espaço comum: ${updated.nome}`, 'ESPACOS', { id });
+    if (!updated) return { success: false, bloqueiosFalharam: false };
+    setSpaces((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    await recordAudit(`Atualizou espaço comum: ${updated.nome}`, 'ESPACOS', { id });
+    if (bloqueios) {
+      const gravou = await definirBloqueiosEspacoDB(supabase, id, bloqueios);
+      await recarregarBloqueios();
+      void fetchAuditLogs(supabase).then(setAuditLogs);
+      if (!gravou) return { success: true, bloqueiosFalharam: true };
     }
+    return { success: true, bloqueiosFalharam: false };
   };
 
   const deleteSpace = async (id: string): Promise<{ success: boolean; message: string }> => {
@@ -935,6 +974,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: 'Não foi possível remover o espaço. Tente novamente.' };
     }
     setSpaces((prev) => prev.filter((s) => s.id !== id));
+    // Os pares do espaço apagado somem no banco (cascata); aqui só reflete a tela.
+    setSpaceBlocks((prev) => prev.filter((p) => p.a !== id && p.b !== id));
     // Reservas antigas desse espaço perdem o vínculo (espacoId) no banco, mas
     // mantêm espacoNome — o histórico continua visível, só reflete aqui
     // localmente pra não ficar com um espacoId de um espaço que não existe mais.
@@ -1233,7 +1274,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     espacoId: string; data: string; horarioInicio: string;
     horarioFim: string; convidadosEstimados: number;
     moradorNome?: string; bloco?: string; unidade?: string;
-  }): Promise<{ success: boolean; message: string; erro?: ErroReserva; status?: ReservationStatus }> => {
+  }): Promise<{ success: boolean; message: string; erro?: ErroReserva; status?: ReservationStatus; valorUso?: number }> => {
     const targetSpace = spaces.find((s) => s.id === espacoId);
     if (!targetSpace) return { success: false, message: 'Espaço comum não encontrado.', erro: 'ERRO' };
 
@@ -1259,6 +1300,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (erro === 'DIA_PASSADO') return { success: false, erro, message: 'Esse dia já passou. Escolha uma data a partir de hoje.' };
       if (erro === 'INDISPONIVEL') return { success: false, erro, message: 'Este espaço está indisponível no momento. Escolha outro espaço.' };
+      if (erro === 'BLOQUEADO') {
+        // Sem dizer por quê: o morador não vê qual espaço bloqueou nem quem reservou.
+        setReservations(await fetchReservations(supabase));
+        return { success: false, erro, message: 'Este dia acabou de ficar indisponível. Escolha outro dia.' };
+      }
+      if (erro === 'PESSOAS_INVALIDAS') return { success: false, erro, message: `Informe de 1 a ${targetSpace.capacidadeMax} pessoas.` };
       return { success: false, erro: 'ERRO', message: 'Não foi possível enviar agora. Seus dados continuam aqui, tente de novo.' };
     }
 
@@ -1266,6 +1313,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // A mensagem sai do status que o BANCO devolveu, nunca do que o navegador acha.
     const confirmada = created.status === 'APROVADA';
+    const valor = created.valorUso ?? 0;
     const registradoPelaEquipe = !!moradorNome;
     // Pedido que aguarda decisão: o navegador avisa a equipe, como sempre. Quem decide
     // (Síndico/Subsíndico/ADM) não precisa de aviso do próprio registro. Reserva confirmada
@@ -1273,7 +1321,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!confirmada && !isAdmin(currentUser?.role)) {
       await insertNotification(supabase, {
         titulo: 'Nova Solicitação de Reserva',
-        mensagem: `${created.moradorNome} (Unidade ${created.unidade}) solicitou ${targetSpace.nome} para ${formatarData(data)}. Requer aprovação.`,
+        // O valor vem do que o BANCO gravou na reserva (0039), nunca de conta do navegador.
+        mensagem: `${created.moradorNome} (Unidade ${created.unidade}) solicitou ${targetSpace.nome} para ${formatarData(data)}. Requer aprovação.${valor > 0 ? ` ${fraseValorParaEquipe(targetSpace, valor)}` : ''}`,
         tipo: 'RESERVA',
         perfilAlvo: 'SINDICO',
         linkDestino: '/reservas',
@@ -1281,19 +1330,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     let message: string;
+    // Texto do valor gravado: "Grátis" não é omissão, é decisão do espaço.
+    const aviso = valor > 0
+      ? `Valor desta reserva: ${formatarMoeda(valor)}. A administração lança o valor na sua taxa.`
+      : 'Esta reserva não tem valor de uso.';
     if (registradoPelaEquipe) {
       message = confirmada
-        ? `Reserva confirmada para ${created.moradorNome}, Apto ${created.unidade}.`
-        : `Pedido registrado para ${created.moradorNome}. Aguardando aprovação.`;
+        ? `Reserva confirmada para ${created.moradorNome}, Apto ${created.unidade}.${valor > 0 ? ` ${fraseValorParaEquipe(targetSpace, valor)}` : ''}`
+        : `Pedido registrado para ${created.moradorNome}. Aguardando aprovação.${valor > 0 ? ` ${fraseValorParaEquipe(targetSpace, valor)}` : ''}`;
     } else {
       message = confirmada
-        ? `Reserva confirmada! ${targetSpace.nome}, dia ${formatarData(data)}.`
-        : 'Pedido enviado! A equipe vai analisar e você será avisado da decisão.';
+        ? `Reserva confirmada! ${aviso}`
+        : `Pedido enviado! ${aviso} A equipe vai analisar e você será avisado da decisão.`;
     }
-    return { success: true, message, status: created.status };
+    return { success: true, message, status: created.status, valorUso: created.valorUso };
   };
 
   const buscarDisponibilidade = (inicio: string, fim: string) => fetchDisponibilidade(supabase, inicio, fim);
+  const buscarValorReserva = (espacoId: string, pessoas: number) => fetchValorReserva(supabase, espacoId, pessoas);
 
   const judgeReservation = async (reservationId: string, aprovado: boolean, motivoRecusa?: string) => {
     const timestamp = new Date().toISOString();
@@ -1485,6 +1539,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         annulFine,
         deleteFine,
         spaces,
+        bloqueiosDoEspaco,
         addSpace,
         updateSpace,
         deleteSpace,
@@ -1514,6 +1569,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         reservations,
         requestReservation,
         buscarDisponibilidade,
+        buscarValorReserva,
         judgeReservation,
         notifications: visibleNotifications,
         unreadNotificationCount,

@@ -372,13 +372,8 @@ export async function deleteFineDB(supabase: SupabaseClient, id: string): Promis
 // SPACES
 // ──────────────────────────────────────────────
 
-export async function fetchSpaces(supabase: SupabaseClient): Promise<CommonSpace[]> {
-  const { data, error } = await supabase
-    .from('spaces')
-    .select('*')
-    .order('nome', { ascending: true });
-  if (error) { console.error('fetchSpaces:', error); return []; }
-  return (data ?? []).map((r: Record<string, unknown>) => ({
+function rowToSpace(r: Record<string, unknown>): CommonSpace {
+  return {
     id: r.id as string,
     nome: r.nome as string,
     descricao: r.descricao as string,
@@ -389,7 +384,18 @@ export async function fetchSpaces(supabase: SupabaseClient): Promise<CommonSpace
     imagemUrl: (r.imagem_url as string) ?? '',
     ativo: (r.ativo as boolean) ?? true,
     exigeAprovacao: (r.exige_aprovacao as boolean) ?? true,
-  }));
+    faixaGratisAte: r.faixa_gratis_ate == null ? null : Number(r.faixa_gratis_ate),
+    faixaValor: r.faixa_valor == null ? null : Number(r.faixa_valor),
+  };
+}
+
+export async function fetchSpaces(supabase: SupabaseClient): Promise<CommonSpace[]> {
+  const { data, error } = await supabase
+    .from('spaces')
+    .select('*')
+    .order('nome', { ascending: true });
+  if (error) { console.error('fetchSpaces:', error); return []; }
+  return (data ?? []).map(rowToSpace);
 }
 
 export async function insertSpace(
@@ -406,20 +412,11 @@ export async function insertSpace(
     imagem_url: space.imagemUrl,
     ativo: space.ativo ?? true,
     exige_aprovacao: space.exigeAprovacao,
+    faixa_gratis_ate: space.faixaGratisAte ?? null,
+    faixa_valor: space.faixaValor ?? null,
   }).select().single();
   if (error) { console.error('insertSpace:', error); return null; }
-  return {
-    id: data.id,
-    nome: data.nome,
-    descricao: data.descricao,
-    capacidadeMax: data.capacidade_max,
-    horarioFuncionamento: data.horario_funcionamento,
-    taxaLimpeza: Number(data.taxa_limpeza),
-    regras: data.regras ?? [],
-    imagemUrl: data.imagem_url ?? '',
-    ativo: data.ativo ?? true,
-    exigeAprovacao: data.exige_aprovacao ?? true,
-  };
+  return rowToSpace(data);
 }
 
 export async function updateSpaceDB(
@@ -437,21 +434,30 @@ export async function updateSpaceDB(
   if (space.imagemUrl !== undefined) payload.imagem_url = space.imagemUrl;
   if (space.ativo !== undefined) payload.ativo = space.ativo;
   if (space.exigeAprovacao !== undefined) payload.exige_aprovacao = space.exigeAprovacao;
+  // null é um valor de verdade aqui (volta a "grátis"); undefined = não mexe.
+  if (space.faixaGratisAte !== undefined) payload.faixa_gratis_ate = space.faixaGratisAte;
+  if (space.faixaValor !== undefined) payload.faixa_valor = space.faixaValor;
 
   const { data, error } = await supabase.from('spaces').update(payload).eq('id', id).select().single();
   if (error) { console.error('updateSpaceDB:', error); return null; }
-  return {
-    id: data.id,
-    nome: data.nome,
-    descricao: data.descricao,
-    capacidadeMax: data.capacidade_max,
-    horarioFuncionamento: data.horario_funcionamento,
-    taxaLimpeza: Number(data.taxa_limpeza),
-    regras: data.regras ?? [],
-    imagemUrl: data.imagem_url ?? '',
-    ativo: data.ativo ?? true,
-    exigeAprovacao: data.exige_aprovacao ?? true,
-  };
+  return rowToSpace(data);
+}
+
+/** Pares de bloqueio entre espaços (0038). Só a gestão lê: para os demais perfis volta vazio. */
+export async function fetchSpaceBlocks(supabase: SupabaseClient): Promise<{ a: string; b: string }[]> {
+  const { data, error } = await supabase.from('space_blocks').select('espaco_a, espaco_b');
+  if (error) { console.error('fetchSpaceBlocks:', error); return []; }
+  return (data ?? []).map((r: { espaco_a: string; espaco_b: string }) => ({ a: r.espaco_a, b: r.espaco_b }));
+}
+
+/**
+ * Grava, numa transação do banco, a lista COMPLETA de espaços que `espacoId` bloqueia. O par é
+ * simétrico e ordenado pelo banco: marcar ou desmarcar aqui vale também para o outro lado.
+ */
+export async function definirBloqueiosEspacoDB(supabase: SupabaseClient, espacoId: string, outrosIds: string[]): Promise<boolean> {
+  const { error } = await supabase.rpc('definir_bloqueios_espaco', { p_espaco_id: espacoId, p_outros: outrosIds });
+  if (error) { console.error('definirBloqueiosEspacoDB:', error); return false; }
+  return true;
 }
 
 export async function deleteSpaceDB(
@@ -481,6 +487,8 @@ function rowToReservation(r: Record<string, unknown>): Reservation {
     horarioInicio: r.horario_inicio as string,
     horarioFim: r.horario_fim as string,
     convidadosEstimados: r.convidados_estimados as number,
+    valorUso: r.valor_uso == null ? undefined : Number(r.valor_uso),
+    taxaHigienizacao: r.taxa_higienizacao == null ? undefined : Number(r.taxa_higienizacao),
     status: r.status as Reservation['status'],
     motivoRecusa: (r.motivo_recusa as string) ?? undefined,
     dataSolicitacao: (r.created_at as string).split('T')[0],
@@ -498,8 +506,8 @@ export async function fetchReservations(supabase: SupabaseClient): Promise<Reser
   return (data ?? []).map(rowToReservation);
 }
 
-/** Por que o banco recusou a reserva (mensagens curtas das migrações 0032 e 0034). */
-export type ErroReserva = 'CONFLITO' | 'DIA_PASSADO' | 'INDISPONIVEL' | 'ERRO';
+/** Por que o banco recusou a reserva (mensagens curtas das migrações 0032, 0034, 0038 e 0039). */
+export type ErroReserva = 'CONFLITO' | 'DIA_PASSADO' | 'INDISPONIVEL' | 'BLOQUEADO' | 'PESSOAS_INVALIDAS' | 'ERRO';
 
 export async function insertReservation(
   supabase: SupabaseClient,
@@ -525,6 +533,9 @@ export async function insertReservation(
     if (error.code === '23505') return { reserva: null, erro: 'CONFLITO' };
     if (error.message === 'reserva_dia_passado') return { reserva: null, erro: 'DIA_PASSADO' };
     if (error.message === 'reserva_espaco_indisponivel') return { reserva: null, erro: 'INDISPONIVEL' };
+    // Espaço que bloqueia (ou é bloqueado por) outro que já tem pedido no dia (0038).
+    if (error.message === 'reserva_dia_indisponivel') return { reserva: null, erro: 'BLOQUEADO' };
+    if (error.message === 'reserva_pessoas_invalidas') return { reserva: null, erro: 'PESSOAS_INVALIDAS' };
     return { reserva: null, erro: 'ERRO' };
   }
   return { reserva: rowToReservation(data) };
@@ -543,6 +554,19 @@ export async function fetchDisponibilidade(
   const { data, error } = await supabase.rpc('disponibilidade_reservas', { inicio, fim });
   if (error) { console.error('fetchDisponibilidade:', error); return null; }
   return ((data ?? []) as { espaco_id: string; data: string }[]).map((l) => ({ espacoId: l.espaco_id, data: l.data }));
+}
+
+/**
+ * Valor de uso de uma reserva com `pessoas` pessoas no espaço, pela MESMA função que o gatilho de
+ * criação usa (0039): a prévia da tela nunca calcula sozinha. Nulo quando a consulta falha.
+ */
+export async function fetchValorReserva(supabase: SupabaseClient, espacoId: string, pessoas: number): Promise<number | null> {
+  const { data, error } = await supabase.rpc('valor_reserva', { p_espaco_id: espacoId, p_pessoas: pessoas });
+  if (error || data === null || data === undefined) {
+    if (error) console.error('fetchValorReserva:', error);
+    return null;
+  }
+  return Number(data);
 }
 
 export async function updateReservationDB(supabase: SupabaseClient, id: string, payload: Record<string, unknown>): Promise<Reservation | null> {

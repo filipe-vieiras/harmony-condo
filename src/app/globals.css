@@ -265,6 +265,20 @@ select:not([multiple]):not([size]):disabled {
   .print-page-break {
     page-break-after: always;
   }
+
+  /* Agenda de reservas: com a coluna Valor a tabela passou de ~1000px. Na folha encolhe e quebra linha. */
+  table.tabela-agenda {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto;
+    font-size: 10px !important;
+  }
+  table.tabela-agenda th,
+  table.tabela-agenda td {
+    padding: 0.25rem 0.375rem !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
 }
 
 .print-only {
