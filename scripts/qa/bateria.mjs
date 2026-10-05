@@ -2,6 +2,7 @@
 import { formatarData, formatarMoeda, formatarHorario, formatarIntervalo, pluralizar, situacaoDoPrazo, textoDoPrazo } from '../../src/lib/formatadores.ts';
 import { descreverAuditoria } from '../../src/lib/auditoria.ts';
 import { avaliarVinculo } from '../../src/lib/vinculoUnidade.ts';
+import { rodarTransferirCargo } from './transferir-cargo.mjs';
 import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, ALVO } from './lib.mjs';
 
 const email = (n) => `${n}@${DOMINIO}`;
@@ -873,6 +874,8 @@ console.log('\n## Anular e apagar multa (spec 2026-10-02): regra no banco, por A
     igual(descreverAuditoria('Apagou multa NOT-2026/006', { protocolo: 'NOT-2026/006', unidade: '7', bloco: 'B', tipo: 'ADVERTENCIA', valor: 0, statusAnterior: 'PENDENTE_CIENCIA' }).frase, 'Multa NOT-2026/006 (unidade 7, bloco B, advertência, estava aguardando ciência) apagada.', 'exclusão de advertência não mostra valor');
   }
 }
+
+await rodarTransferirCargo({ unidadeSemMorador: U['104'] });
 
 await limparQA();
 resumo();

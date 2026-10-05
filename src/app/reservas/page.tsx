@@ -382,7 +382,7 @@ function ReservasContent() {
               Reserva de Espaços Comuns
             </h1>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-600">
             Veja os dias livres e reserve. Cada espaço informa se o pedido precisa da aprovação da equipe.
           </p>
         </div>
@@ -473,7 +473,7 @@ function ReservasContent() {
                     Capacidade: até {spc.capacidadeMax} pessoas
                   </div>
                   {!isAtivo && (
-                    <div className="absolute top-2 left-2 rounded-lg bg-pendente-600 px-2.5 py-1 text-[12px] font-bold text-white shadow-md">
+                    <div className="absolute top-2 left-2 rounded-lg bg-pendente-700 px-2.5 py-1 text-[12px] font-bold text-white shadow-md">
                       Em Manutenção / Inativo
                     </div>
                   )}
@@ -603,7 +603,7 @@ function ReservasContent() {
           <h2 className="text-base font-bold text-slate-900">
             {isStaff ? 'Cronograma e Histórico de Solicitações' : 'Minhas solicitações'}
           </h2>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-600">
             Total: {pluralizar(reservations.length, 'solicitação', 'solicitações')}
           </span>
         </div>
@@ -671,7 +671,7 @@ function ReservasContent() {
                             </span>
                           )}
                           {/* Pendente ainda não tem parecer; "Solicitado em" não é parecer. */}
-                          {r.status === 'PENDENTE' && <span className="text-slate-400">—</span>}
+                          {r.status === 'PENDENTE' && <span className="text-slate-500">—</span>}
                         </td>
                         {isAdmin(currentUser?.role) && (
                           <td data-label="Aprovação do Síndico" className={`px-4 py-3.5 text-right no-print md:whitespace-nowrap ${r.status === 'PENDENTE' ? 'max-md:flex-col' : 'oculta-mobile'}`}>
@@ -679,7 +679,7 @@ function ReservasContent() {
                               <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:justify-end md:gap-1.5">
                                 <button
                                   onClick={() => decidir(r.id, true)}
-                                  className="flex min-h-11 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold md:min-h-0 md:w-auto text-white transition hover:bg-emerald-700"
+                                  className="flex min-h-11 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-bold md:min-h-0 md:w-auto text-white transition hover:bg-emerald-800"
                                   title="Aprovar reserva"
                                 >
                                   <Check className="h-3 w-3" />
@@ -763,7 +763,7 @@ function ReservasContent() {
                                 <button
                                   type="button"
                                   onClick={() => decidir(r.id, true)}
-                                  className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-xs font-bold text-white transition hover:bg-emerald-700"
+                                  className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-700 px-2.5 text-xs font-bold text-white transition hover:bg-emerald-800"
                                 >
                                   <Check className="h-3 w-3" />
                                   <span>Aprovar</span>

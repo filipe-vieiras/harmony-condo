@@ -27,6 +27,8 @@ export default function DefinirSenhaPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
+  // Convite de transferência de cargo: o cargo passa a valer aqui, logo depois da senha (ver /api/usuarios/transferir-cargo/aceitar).
+  const [avisoCargo, setAvisoCargo] = useState<{ texto: string; problema: boolean } | null>(null);
 
   useEffect(() => {
     // O link de convite/redefinição chega com o token no fragmento da URL
@@ -114,11 +116,28 @@ export default function DefinirSenhaPage() {
       return;
     }
 
+    // Quem veio de um convite de transferência de cargo assume o cargo agora (a rota só age sobre a própria sessão;
+    // sem pendência, não faz nada). A sessão ainda existe: o signOut vem depois.
+    let espera = 2000;
+    try {
+      const r = await fetch('/api/usuarios/transferir-cargo/aceitar', { method: 'POST' });
+      const corpo = await r.json().catch(() => ({}));
+      if (r.ok && corpo.aplicada) {
+        setAvisoCargo({ texto: 'Seu novo cargo já está ativo. Entre com a senha que você acabou de criar.', problema: false });
+        espera = 3500;
+      } else if (!r.ok && corpo.falhou) {
+        setAvisoCargo({ texto: corpo.error ?? 'O cargo não foi ativado. Quem pediu foi avisado.', problema: true });
+        espera = 6000;
+      }
+    } catch {
+      // Sem rede nesse instante: a senha já foi salva; o cargo pode ser ativado pedindo um novo link.
+    }
+
     setSucesso(true);
     await supabase.auth.signOut();
     setTimeout(() => {
       router.push('/login?senhaCriada=1');
-    }, 2000);
+    }, espera);
   };
 
   return (
@@ -155,6 +174,11 @@ export default function DefinirSenhaPage() {
                 <CheckCircle2 className="h-6 w-6" />
               </div>
               <p className="text-sm font-semibold text-slate-900">Senha criada com sucesso!</p>
+              {avisoCargo && (
+                <p role={avisoCargo.problema ? 'alert' : 'status'} className={`text-xs font-semibold ${avisoCargo.problema ? 'text-red-700' : 'text-emerald-700'}`}>
+                  {avisoCargo.texto}
+                </p>
+              )}
               <p className="text-xs text-slate-500">Redirecionando para a tela de login...</p>
             </div>
           ) : tokenPendente ? (

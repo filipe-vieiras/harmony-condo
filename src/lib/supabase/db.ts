@@ -16,6 +16,7 @@ import type {
   Autocadastro,
   DiretorioUnidade,
 } from '@/types';
+import type { CargoTransferencia } from '@/lib/cargos';
 
 // ──────────────────────────────────────────────
 // PROFILES (usuários do sistema)
@@ -568,6 +569,7 @@ function rowToNotification(r: Record<string, unknown>): InAppNotification {
     unidadeIdAlvo: (r.unidade_id_alvo as string) ?? undefined,
     perfilAlvo: (r.perfil_alvo as InAppNotification['perfilAlvo']) ?? undefined,
     linkDestino: (r.link_destino as string) ?? undefined,
+    usuarioIdAlvo: (r.usuario_id_alvo as string) ?? undefined,
   };
 }
 
@@ -743,6 +745,7 @@ function rowToPendingInvite(r: Record<string, unknown>): PendingInvite {
     criadoEm: r.criado_em as string,
     enviadoEm: (r.enviado_em as string) ?? undefined,
     linkAcesso: (r.link_acesso as string) ?? undefined,
+    transferenciaId: (r.transferencia_id as string) ?? undefined,
   };
 }
 
@@ -794,6 +797,34 @@ export async function deletePendingInviteDB(supabase: SupabaseClient, id: string
   const { data, error } = await supabase.from('pending_invites').delete().eq('id', id).select('id');
   if (error) console.error('deletePendingInviteDB:', error);
   return !error && (data?.length ?? 0) > 0;
+}
+
+// ──────────────────────────────────────────────
+// TRANSFERÊNCIAS DE CARGO (só leitura: quem grava são as funções do banco)
+// ──────────────────────────────────────────────
+
+/** Pendentes e concluídas nos últimos 30 dias que a RLS deixa este usuário ver (equipe: todas; os demais: as próprias). */
+export async function fetchCargoTransferencias(supabase: SupabaseClient): Promise<CargoTransferencia[]> {
+  const desde = new Date(Date.now() - 30 * 864e5).toISOString();
+  const { data, error } = await supabase
+    .from('cargo_transferencias')
+    .select('*')
+    .or(`status.eq.PENDENTE,and(status.eq.CONCLUIDA,criado_em.gte.${desde})`)
+    .order('criado_em', { ascending: false })
+    .limit(30);
+  if (error) { console.error('fetchCargoTransferencias:', error); return []; }
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    cargo: r.cargo as CargoTransferencia['cargo'],
+    origemId: (r.origem_id as string) ?? undefined,
+    origemNome: r.origem_nome as string,
+    destinoId: (r.destino_id as string) ?? undefined,
+    destinoNome: r.destino_nome as string,
+    destinoTipo: r.destino_tipo as CargoTransferencia['destinoTipo'],
+    status: r.status as CargoTransferencia['status'],
+    criadoEm: r.criado_em as string,
+    concluidoEm: (r.concluido_em as string) ?? undefined,
+  }));
 }
 
 // ──────────────────────────────────────────────

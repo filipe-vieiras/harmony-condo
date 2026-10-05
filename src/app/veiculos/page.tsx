@@ -316,7 +316,7 @@ function VeiculosContent() {
               Cadastro e Controle de Veículos
             </h1>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-600">
             Mapeamento de placas autorizadas, vagas de garagem e identificação pela portaria.
           </p>
         </div>

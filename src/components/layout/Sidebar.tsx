@@ -176,7 +176,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
                 </div>
 
                 {item.badgeCount && item.badgeCount > 0 ? (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[12px] font-bold text-white">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[12px] font-bold text-white">
                     {item.badgeCount}
                   </span>
                 ) : item.badge ? (

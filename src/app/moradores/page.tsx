@@ -325,7 +325,7 @@ function MoradoresContent() {
               Cadastro de Moradores & Unidades
             </h1>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-600">
             Gerenciamento de apartamentos, proprietários, dependentes e vagas de garagem.
           </p>
         </div>
@@ -460,7 +460,7 @@ function MoradoresContent() {
                       onClick={() => handleOpenEdit(u)}
                       title="Editar Unidade"
                       aria-label={`Editar Unidade ${u.numero}`}
-                      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-accent-50 hover:text-accent transition sm:size-auto sm:p-1"
+                      className="flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-accent-50 hover:text-accent-strong transition sm:size-auto sm:p-1"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>

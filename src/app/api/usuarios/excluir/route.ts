@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   const { data: callerProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, name')
     .eq('id', user.id)
     .single();
 
@@ -32,6 +32,33 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  // Ninguém exclui o Síndico pelo app (nem o ADM): o condomínio não pode ficar sem Síndico por engano.
+  // A saída do cargo é "Transferir cargo" (issue #53); depois de rebaixado, ele é uma conta comum.
+  const { data: alvo } = await admin.from('profiles').select('role').eq('id', userId).maybeSingle();
+  if (alvo?.role === 'SINDICO') {
+    return NextResponse.json({ error: 'O Síndico não pode ser excluído por aqui. Para sair do cargo, transfira-o.' }, { status: 403 });
+  }
+
+  // Transferência de cargo pendente que envolve essa conta (origem ou destino) perde o sentido: cancela
+  // junto, com o convite dela, para a tela não ficar com um convite fantasma.
+  const { data: pendentes } = await admin
+    .from('cargo_transferencias')
+    .select('id, cargo, destino_nome')
+    .eq('status', 'PENDENTE')
+    .or(`origem_id.eq.${userId},destino_id.eq.${userId}`);
+  for (const t of pendentes ?? []) {
+    await admin.from('cargo_transferencias').update({ status: 'CANCELADA', concluido_em: new Date().toISOString(), invite_id: null }).eq('id', t.id);
+    await admin.from('pending_invites').delete().eq('transferencia_id', t.id);
+    await admin.from('audit_logs').insert({
+      usuario_id: user.id,
+      usuario_nome: callerProfile.name,
+      usuario_role: callerProfile.role,
+      acao: `Cancelou a transferência do cargo para ${t.destino_nome} (a conta envolvida foi excluída)`,
+      modulo: 'SISTEMA',
+      detalhes: { transferenciaId: t.id, cargo: t.cargo, resultado: 'CANCELADA', executorId: user.id },
+    });
+  }
 
   // Um autocadastro ainda pendente dessa conta deixaria de fazer sentido (e
   // continuaria aparecendo como "aguardando" na lista de unidades).

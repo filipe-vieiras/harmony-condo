@@ -21,7 +21,8 @@ import {
   Autocadastro,
 } from '@/types';
 import type { AutocadastroDados } from '@/lib/autocadastro';
-import { isAdmin, SINGLETON_ROLES } from '@/lib/roles';
+import { isAdmin, SINGLETON_ROLES, ROLE_LABELS_CURTO } from '@/lib/roles';
+import { CARGO_ROTULO, type CargoTransferencia, type CargoTransferivel } from '@/lib/cargos';
 import { avaliarVinculo, normalizarEmail, rotuloUnidade } from '@/lib/vinculoUnidade';
 import {
   fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
@@ -36,7 +37,7 @@ import {
   fetchPendingInvites, insertPendingInvite, updatePendingInviteDB, deletePendingInviteDB,
   fetchZelador, updateZeladorDB,
   fetchPortalAdministradora, updatePortalAdministradoraDB,
-  fetchProfiles,
+  fetchProfiles, fetchCargoTransferencias,
   fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
 import type { AlteracaoVeiculo, ErroReserva } from '@/lib/supabase/db';
@@ -61,6 +62,44 @@ export type ResultadoUnidade = {
 /** Confirmação do síndico para ligar a unidade a uma conta que já existe. */
 export interface OpcoesVinculo {
   vincularContaId?: string;
+}
+
+/** Pedido de transferência de cargo (a rota de servidor e o banco validam tudo de novo). */
+export type TransferirCargoInput = {
+  cargo: CargoTransferivel;
+  origemId: string;
+  destino: { tipo: 'EXISTENTE'; id: string } | { tipo: 'NOVO'; nome: string; email: string; telefone?: string };
+};
+
+export type ResultadoTransferirCargo =
+  | {
+      success: true;
+      tipo: 'EXISTENTE' | 'NOVO';
+      cargo: CargoTransferivel;
+      origemNome: string;
+      destinoNome: string;
+      /** Para destino novo: link de acesso a copiar/enviar. */
+      link?: string;
+      origemProvisorio?: boolean;
+      origemNovoPerfil?: Role;
+    }
+  | {
+      success: false;
+      /** 'rede' = não chegou ao servidor; os demais vêm da função do banco. */
+      codigo: string;
+      message: string;
+      titularAtual?: string;
+      destinoNome?: string;
+      transferenciaId?: string;
+      contaId?: string;
+      contaNome?: string;
+    };
+
+/** Faixa no Início sobre cargo: "perdeu" (acabou de passar o cargo) ou "pendente" (convite aguardando aceite). */
+export interface AvisoCargo {
+  tipo: 'perdeu' | 'pendente';
+  id: string;
+  texto: string;
 }
 
 interface AppContextType {
@@ -105,6 +144,14 @@ interface AppContextType {
   cancelPendingInvite: (id: string) => Promise<{ success: boolean; message: string }>;
   sendPendingInvites: (ids: string[]) => Promise<{ success: boolean; message: string }>;
   deleteSystemUser: (userId: string) => Promise<{ success: boolean; message: string }>;
+  /** Transferências de cargo pendentes e concluídas recentes (a RLS filtra por quem pode ver). */
+  transferenciasCargo: CargoTransferencia[];
+  transferirCargo: (input: TransferirCargoInput) => Promise<ResultadoTransferirCargo>;
+  cancelarTransferenciaCargo: (transferenciaId: string) => Promise<{ success: boolean; message: string }>;
+  avisoCargo: AvisoCargo | null;
+  dispensarAvisoCargo: () => void;
+  /** Relê perfil e dados (usado quando o servidor diz que o cargo mudou enquanto a pessoa preenchia). */
+  recarregarDados: () => Promise<void>;
   generatePasswordResetLink: (userId: string) => Promise<{ success: boolean; message: string; link?: string }>;
   auditLogs: AuditLog[];
   fetchAuditLogsData: (modulo?: string) => Promise<void>;
@@ -175,6 +222,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [systemUsers, setSystemUsers] = useState<User[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [autocadastros, setAutocadastros] = useState<Autocadastro[]>([]);
+  const [transferenciasCargo, setTransferenciasCargo] = useState<CargoTransferencia[]>([]);
+  const [avisosDispensados, setAvisosDispensados] = useState<string[]>([]);
   const [autocadastroAberto, setAutocadastroAbertoState] = useState(false);
 
   // Carrega o perfil do usuário autenticado
@@ -183,10 +232,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .from('profiles')
       .select('*')
       .eq('id', authUserId)
-      .single();
+      // maybeSingle: perfil ausente (sessão de conta já apagada, conta recém-criada) vem como
+      // "sem linha", não como erro 406 PGRST116 no console. O resultado para o app é o mesmo.
+      .maybeSingle();
 
     if (error || !data) {
-      console.error('Perfil não encontrado:', error);
+      if (error) console.error('Erro ao carregar o perfil:', error);
+      else console.warn('Perfil não encontrado para a sessão atual.');
       setCurrentUser(null);
       return;
     }
@@ -206,7 +258,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Carrega todos os dados do banco quando o usuário está logado
   const loadAllData = useCallback(async () => {
-    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users, autos, aberto] = await Promise.all([
+    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users, autos, aberto, transf] = await Promise.all([
       fetchUnits(supabase),
       fetchVehicles(supabase),
       fetchNotices(supabase),
@@ -222,6 +274,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchProfiles(supabase),
       fetchAutocadastros(supabase),
       fetchAutocadastroAberto(supabase),
+      fetchCargoTransferencias(supabase),
     ]);
     setUnits(u);
     setVehicles(v);
@@ -238,6 +291,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSystemUsers(users);
     setAutocadastros(autos);
     setAutocadastroAbertoState(aberto);
+    setTransferenciasCargo(transf);
   }, [supabase]);
 
   // Escuta mudanças de sessão (login/logout)
@@ -261,6 +315,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       loadAllData();
     }
   }, [currentUser, loadAllData]);
+
+  // O cargo pode mudar por outra pessoa (ex.: o ADM passa o Síndico para alguém). A segurança de verdade é
+  // do servidor e do banco, que leem `profiles` a cada chamada; aqui só deixamos a tela alcançar o banco:
+  // ao voltar para a aba e a cada 20 s, relê o perfil e, se o cargo mudou, recarrega o usuário (e os dados).
+  const meuId = currentUser?.id;
+  const meuPerfil = currentUser?.role;
+  const meuValidado = currentUser?.cadastroValidado;
+  useEffect(() => {
+    if (!meuId) return;
+    let ativo = true;
+    const checar = async () => {
+      const { data } = await supabase.from('profiles').select('role, cadastro_validado').eq('id', meuId).maybeSingle();
+      if (!ativo || !data) return;
+      if (data.role !== meuPerfil || (data.cadastro_validado ?? true) !== (meuValidado ?? true)) await loadUserProfile(meuId);
+    };
+    const aoVoltar = () => { if (document.visibilityState === 'visible') void checar(); };
+    const timer = setInterval(() => void checar(), 20000);
+    document.addEventListener('visibilitychange', aoVoltar);
+    window.addEventListener('focus', aoVoltar);
+    return () => {
+      ativo = false;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', aoVoltar);
+      window.removeEventListener('focus', aoVoltar);
+    };
+  }, [supabase, meuId, meuPerfil, meuValidado, loadUserProfile]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -922,7 +1002,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const createStaffInvite = async (data: { nome: string; email: string; role: Role }): Promise<{ success: boolean; message: string }> => {
     if (SINGLETON_ROLES.includes(data.role)) {
       const jaExisteAtivo = systemUsers.some((u) => u.role === data.role);
-      const jaExistePendente = pendingInvites.some((i) => i.role === data.role && i.status === 'PENDENTE');
+      // Convite de transferência de cargo (já com link) também ocupa a vaga até ser aceito ou cancelado.
+      const jaExistePendente = pendingInvites.some((i) => i.role === data.role && (i.status === 'PENDENTE' || !!i.transferenciaId));
       if (jaExisteAtivo || jaExistePendente) {
         return { success: false, message: `Já existe um usuário ${jaExistePendente ? 'com convite pendente' : 'ativo'} com o perfil ${data.role}.` };
       }
@@ -1011,9 +1092,111 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUnits((prev) => prev.map((u) => (u.usuarioId === userId ? { ...u, usuarioId: undefined, statusConvite: 'NAO_ENVIADO' } : u)));
 
     await recordAudit(`Excluiu o acesso de ${target?.name ?? userId} (${target?.role ?? '?'})`, 'SISTEMA', { userId });
+    // A exclusão cancela, no servidor, transferência de cargo pendente que envolvia essa conta.
+    const [invites, transf] = await Promise.all([fetchPendingInvites(supabase), fetchCargoTransferencias(supabase)]);
+    setPendingInvites(invites);
+    setTransferenciasCargo(transf);
 
     return { success: true, message: `Acesso de ${target?.name ?? 'usuário'} excluído com sucesso.` };
   };
+
+  // Transferir cargo: a rota de servidor chama a função do banco (atômica). Aqui só montamos a resposta
+  // e recarregamos perfil e dados, porque quem executa pode ter acabado de perder o próprio cargo.
+  const recarregarAposCargo = async () => {
+    if (!currentUser) return;
+    await Promise.all([loadUserProfile(currentUser.id), loadAllData()]);
+  };
+
+  const transferirCargo = async (input: TransferirCargoInput): Promise<ResultadoTransferirCargo> => {
+    let response: Response;
+    try {
+      response = await fetch('/api/usuarios/transferir-cargo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+    } catch {
+      return { success: false, codigo: 'rede', message: 'Não deu para concluir. Nada foi alterado. Confira a internet e tente de novo.' };
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.success) {
+      return {
+        success: false,
+        codigo: body.codigo ?? 'erro',
+        message: body.error ?? 'Não deu para concluir. Nada foi alterado. Tente de novo.',
+        titularAtual: body.titularAtual,
+        destinoNome: body.destinoNome,
+        transferenciaId: body.transferenciaId,
+        contaId: body.contaId,
+        contaNome: body.contaNome,
+      };
+    }
+    await recarregarAposCargo();
+    return {
+      success: true,
+      tipo: body.tipo,
+      cargo: body.cargo,
+      origemNome: body.origemNome,
+      destinoNome: body.destinoNome,
+      link: body.link,
+      origemProvisorio: body.origemProvisorio,
+      origemNovoPerfil: body.origemNovoPerfil,
+    };
+  };
+
+  const cancelarTransferenciaCargo = async (transferenciaId: string): Promise<{ success: boolean; message: string }> => {
+    let response: Response;
+    try {
+      response = await fetch('/api/usuarios/transferir-cargo/cancelar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transferenciaId }),
+      });
+    } catch {
+      return { success: false, message: 'Não deu para cancelar. Confira a internet e tente de novo.' };
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: body.error ?? 'Não deu para cancelar. Tente de novo.' };
+    await recarregarAposCargo();
+    return { success: true, message: `Transferência para ${body.destinoNome ?? 'a pessoa'} cancelada. Nada mudou de cargo.` };
+  };
+
+  // Faixas do Início. "Perdeu": o histórico (a RLS deixa a própria pessoa ler as suas) diz que ela passou o cargo e
+  // hoje não o tem mais. "Pendente": ela é a titular de um cargo com convite aguardando aceite.
+  useEffect(() => {
+    try {
+      const guardado = window.localStorage.getItem('harmony.avisosCargoDispensados');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lê o armazenamento do navegador só depois de montar
+      if (guardado) setAvisosDispensados(JSON.parse(guardado) as string[]);
+    } catch { /* sem armazenamento: a faixa só reaparece na próxima visita */ }
+  }, []);
+
+  const dispensarAvisoCargo = () => {
+    if (!avisoCargo || avisoCargo.tipo !== 'perdeu') return;
+    const proximos = [...avisosDispensados, avisoCargo.id].slice(-20);
+    setAvisosDispensados(proximos);
+    try { window.localStorage.setItem('harmony.avisosCargoDispensados', JSON.stringify(proximos)); } catch { /* idem */ }
+  };
+
+  const avisoCargo: AvisoCargo | null = (() => {
+    if (!currentUser) return null;
+    const pendente = transferenciasCargo.find((t) => t.status === 'PENDENTE' && t.origemId === currentUser.id);
+    if (pendente) {
+      return { tipo: 'pendente', id: pendente.id, texto: `Você tem uma transferência de cargo pendente para ${pendente.destinoNome}.` };
+    }
+    const perdeu = transferenciasCargo.find(
+      (t) => t.status === 'CONCLUIDA' && t.origemId === currentUser.id && t.cargo !== currentUser.role &&
+        !avisosDispensados.includes(t.id),
+    );
+    if (perdeu) {
+      return {
+        tipo: 'perdeu',
+        id: perdeu.id,
+        texto: `Você passou o cargo de ${CARGO_ROTULO[perdeu.cargo]} para ${perdeu.destinoNome}. Agora seu acesso é de ${ROLE_LABELS_CURTO[currentUser.role]}.`,
+      };
+    }
+    return null;
+  })();
 
   const generatePasswordResetLink = async (userId: string): Promise<{ success: boolean; message: string; link?: string }> => {
     const target = systemUsers.find((u) => u.id === userId);
@@ -1170,6 +1353,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Filtra notificações visíveis pelo perfil do usuário
   const minhaUnidade = units.find((u) => u.usuarioId === currentUser?.id);
   const visibleNotifications = notifications.filter((n) => {
+    // Aviso para uma pessoa só (troca de cargo): nem a equipe vê o dos outros.
+    if (n.usuarioIdAlvo) return n.usuarioIdAlvo === currentUser?.id;
     if (isAdmin(currentUser?.role)) return true;
     if (n.perfilAlvo && n.perfilAlvo !== currentUser?.role) return false;
     // Alvo de unidade só pela FK — o texto "101" não diz o bloco (A-101 x B-101).
@@ -1317,6 +1502,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cancelPendingInvite,
         sendPendingInvites,
         deleteSystemUser,
+        transferenciasCargo,
+        transferirCargo,
+        cancelarTransferenciaCargo,
+        avisoCargo,
+        dispensarAvisoCargo,
+        recarregarDados: recarregarAposCargo,
         generatePasswordResetLink,
         auditLogs,
         fetchAuditLogsData,

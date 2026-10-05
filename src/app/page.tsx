@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 import { isAdmin, isProvisorio } from '@/lib/roles';
 import { PainelProvisorio } from '@/components/autocadastro/PainelProvisorio';
+import { FaixaCargo } from '@/components/usuarios/FaixaCargo';
 import {
   Users,
   Car,
@@ -66,7 +67,7 @@ function DashboardContent() {
   const [searchPlate, setSearchPlate] = useState('');
 
   if (!currentUser) return <DashboardSkeleton />;
-  if (isProvisorio(currentUser)) return <PainelProvisorio />;
+  if (isProvisorio(currentUser)) return <div className="flex flex-col gap-6"><FaixaCargo /><PainelProvisorio /></div>;
 
   // Filtros de acordo com o papel ativo
   const pendingReservations = reservations.filter((r) => r.status === 'PENDENTE');
@@ -166,7 +167,8 @@ function DashboardContent() {
   return (
     // flex-col em vez de space-y para a Portaria poder subir a busca (order) no celular.
     <div className="flex flex-col gap-6">
-      
+      <FaixaCargo />
+
       {/* Banner de Boas-Vindas */}
       <div className="rounded-3xl bg-gradient-to-r from-primary via-primary-hover to-secondary p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
         <div className="absolute right-0 top-0 h-full w-1/3 opacity-10 pointer-events-none flex items-center justify-end pr-6">
@@ -421,7 +423,7 @@ function DashboardContent() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => judgeReservation(r.id, true)}
-                    className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                    className="flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-800"
                   >
                     <Check className="h-3.5 w-3.5" />
                     <span>Aprovar</span>
@@ -498,7 +500,7 @@ function DashboardContent() {
                 <p className="mt-1 text-xs text-slate-600 line-clamp-2">{notice.conteudo}</p>
 
                 {notice.anexoNome && (
-                  <div className="mt-3 flex items-center gap-1.5 text-xs text-accent font-medium">
+                  <div className="mt-3 flex items-center gap-1.5 text-xs text-accent-strong font-medium">
                     <FileText className="h-3.5 w-3.5" />
                     <span>Anexo: {notice.anexoNome}</span>
                   </div>

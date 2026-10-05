@@ -228,6 +228,7 @@ export interface InAppNotification {
   unidadeAlvo?: string; // se especificado, apenas a unidade vê
   unidadeIdAlvo?: string; // mesma finalidade, mas por FK — usar quando disponível (evita divergência de texto)
   perfilAlvo?: Role;    // se especificado, apenas o perfil vê
+  usuarioIdAlvo?: string; // se especificado, só essa pessoa vê (aviso de troca de cargo)
   linkDestino?: string;
 }
 
@@ -259,6 +260,8 @@ export interface PendingInvite {
   enviadoEm?: string;
   /** Link de definição de senha gerado para o Síndico copiar e enviar manualmente. */
   linkAcesso?: string;
+  /** Convite de transferência de cargo: o cargo (`role`) só vale quando a pessoa aceitar. */
+  transferenciaId?: string;
 }
 
 /** Dados de contato do zelador atual — cadastro estruturado, sem login no sistema. */

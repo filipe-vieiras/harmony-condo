@@ -118,7 +118,7 @@ function MuralContent() {
               Mural de Comunicação Interna
             </h1>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-600">
             Avisos oficiais, convocações de assembleias e manutenções programadas.
           </p>
         </div>

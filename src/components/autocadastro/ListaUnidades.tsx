@@ -38,7 +38,7 @@ export function ListaUnidades() {
           <Users className="h-6 w-6 text-accent" />
           <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Lista de Unidades</h1>
         </div>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-600">
           Confira quem está cadastrado em cada apartamento. Se algo estiver errado, avise o síndico.
         </p>
       </div>
