@@ -145,6 +145,10 @@ export function descreverAuditoria(acao: string, detalhesBrutos: DetalhesAuditor
     // Gravado pelo banco (0030); a acao já é a frase completa, sem placa. Os valores de/para
     // (CARRO/MOTO/OUTRO) ficam só nos detalhes técnicos.
     frase = `${acao}.`;
+  } else if (/^(Transferiu o cargo de |Iniciou a transferência do cargo de |Cancelou a transferência do cargo |A transferência do cargo de |Aceitou o convite e assumiu o cargo de )/.test(acao)) {
+    // Gravado pelo banco (0037, funções de transferir cargo); a acao já é a frase completa, só com nomes
+    // (sem e-mail nem telefone). Cargos, resultado e ids ficam nos detalhes técnicos.
+    frase = `${acao}.`;
   }
 
   if (frase) return { frase, detalhes: [], tecnicos: [...tecnicos, ...entradas.filter(([k]) => k === 'de' || k === 'para').map(([chave, v]) => ({ chave, valor: texto(v) }))] };

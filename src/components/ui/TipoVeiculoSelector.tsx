@@ -29,7 +29,15 @@ export function TipoVeiculoSelector({ value, onChange, erro, name, idBase }: Pro
   const erroId = `${idBase}-erro`;
 
   return (
-    <fieldset className="min-w-0">
+    // role="radiogroup" no fieldset: é o papel que aceita aria-invalid e aria-required (o radio sozinho
+    // não aceita). O leitor de tela anuncia o grupo como inválido e obrigatório, e lê o erro pela descrição.
+    <fieldset
+      role="radiogroup"
+      aria-required="true"
+      aria-invalid={erro ? true : undefined}
+      aria-describedby={erro ? erroId : undefined}
+      className="min-w-0"
+    >
       <legend className="text-xs font-semibold text-slate-700">
         Tipo do veículo <span className="font-normal text-slate-500">(obrigatório)</span>
       </legend>

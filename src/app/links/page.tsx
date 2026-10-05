@@ -151,7 +151,7 @@ function LinksContent() {
                 Links Importantes & Documentos Oficiais
               </h1>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-600">
               Convenção, Regimento Interno, Atas de Assembleia e Telefones Úteis para a comunidade.
             </p>
           </div>

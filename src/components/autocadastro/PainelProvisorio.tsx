@@ -11,7 +11,7 @@ import { AutocadastroForm, type UnidadeOpcao } from '@/components/autocadastro/A
 import type { AutocadastroDados } from '@/lib/autocadastro';
 
 export function PainelProvisorio() {
-  const { currentUser, meuAutocadastro, corrigirMeuAutocadastro } = useApp();
+  const { currentUser, meuAutocadastro, corrigirMeuAutocadastro, transferenciasCargo } = useApp();
   const [unidades, setUnidades] = useState<UnidadeOpcao[]>([]);
   const [editando, setEditando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -27,6 +27,9 @@ export function PainelProvisorio() {
   }, []);
 
   if (!currentUser) return null;
+
+  // Quem passou um cargo e ficou sem unidade não está "aguardando validação": o acesso é de Morador, só falta ligar a unidade.
+  const passouCargo = !meuAutocadastro && transferenciasCargo.some((t) => t.status === 'CONCLUIDA' && t.origemId === currentUser.id);
 
   const unidade = meuAutocadastro ? unidades.find((u) => u.id === meuAutocadastro.unitId) : undefined;
   const rotuloUnidade = unidade ? `Apto ${unidade.numero} — Bloco ${unidade.bloco}` : '…';
@@ -47,6 +50,17 @@ export function PainelProvisorio() {
         <p className="mt-1 text-sm text-cyan-100">Bem-vindo(a) ao portal do condomínio.</p>
       </div>
 
+      {passouCargo ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <Users className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
+          <div>
+            <p className="text-sm font-bold text-slate-900">Seu acesso agora é de Morador</p>
+            <p className="mt-1 text-xs text-slate-700">
+              Você ainda não tem uma unidade ligada ao seu acesso. Peça ao síndico para ligar sua unidade. Enquanto isso você acompanha o mural e a lista de unidades.
+            </p>
+          </div>
+        </div>
+      ) : (
       <div className="flex items-start gap-3 rounded-2xl border border-pendente-200 bg-pendente-50 p-5">
         <Hourglass className="mt-0.5 h-5 w-5 shrink-0 text-pendente-700" />
         <div>
@@ -56,6 +70,7 @@ export function PainelProvisorio() {
           </p>
         </div>
       </div>
+      )}
 
       {aviso && (
         <div className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-900">
@@ -101,7 +116,7 @@ export function PainelProvisorio() {
             </div>
           </dl>
         </div>
-      ) : (
+      ) : passouCargo ? null : (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 text-xs text-slate-600 shadow-xs">
           Não encontramos o seu envio. Fale com o síndico do condomínio.
         </div>

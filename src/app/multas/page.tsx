@@ -218,7 +218,7 @@ function MultasContent() {
               {currentUser.role === 'MORADOR' ? 'Minhas Notificações & Multas' : 'Gestão de Notificações & Multas'}
             </h1>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-600">
             {currentUser.role === 'MORADOR'
               ? 'Visualize infrações atribuídas à sua unidade, confirme ciência formal ou interponha recurso online.'
               : 'Emissão de advertências, registro com fotos probatórias e julgamento de recursos administrativos.'}

@@ -35,3 +35,13 @@ export const ROLE_LABELS: Record<Role, string> = {
   CONSELHO: 'Conselho Fiscal',
   MORADOR: 'Morador',
 };
+
+/** Rótulos curtos para selos e frases ("Síndico Ana"). O mapa acima segue como está nas demais telas. */
+export const ROLE_LABELS_CURTO: Record<Role, string> = {
+  SINDICO: 'Síndico',
+  SUBSINDICO: 'Subsíndico',
+  CONSELHO: 'Conselho',
+  PORTARIA: 'Portaria',
+  ADM: 'Administradora',
+  MORADOR: 'Morador',
+};

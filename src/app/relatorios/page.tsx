@@ -132,7 +132,7 @@ function RelatoriosContent() {
               Relatórios Executivos & Auditoria Fiscal
             </h1>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-600">
             Métricas consolidadas, conformidade disciplinar e registro imutável de atividades operacionais.
           </p>
         </div>
@@ -180,7 +180,7 @@ function RelatoriosContent() {
           className={`pb-3 px-4 text-xs font-semibold border-b-2 transition flex items-center gap-2 ${
             activeTab === 'AUDITORIA'
               ? 'border-accent text-primary'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              : 'border-transparent text-slate-600 hover:text-slate-800'
           }`}
         >
           <ShieldAlert className="h-4 w-4" />
@@ -210,7 +210,7 @@ function RelatoriosContent() {
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Recursos Julgados</span>
-              <p className="mt-2 text-2xl font-bold text-emerald-600">
+              <p className="mt-2 text-2xl font-bold text-emerald-700">
                 {totalRecursosDeferidos} / {totalRecursos}
               </p>
               <p className="mt-0.5 text-xs text-slate-500">Recursos acolhidos pelo Síndico</p>
@@ -218,7 +218,7 @@ function RelatoriosContent() {
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reservas Aprovadas</span>
-              <p className="mt-2 text-2xl font-bold text-accent">{totalReservasAprovadas}</p>
+              <p className="mt-2 text-2xl font-bold text-accent-strong">{totalReservasAprovadas}</p>
               <p className="mt-0.5 text-xs text-slate-500">Aprovadas pela administração</p>
             </div>
           </div>

@@ -43,7 +43,7 @@ const falhar = (etapa, error) => {
 // Ordem respeita as FKs (filhos antes de units). id "nunca igual" = todas as linhas.
 const TABELAS = [
   'autocadastros', 'reservations', 'fines', 'vehicles', 'spaces', 'documents', 'document_links',
-  'notices', 'notifications', 'audit_logs', 'pending_invites', 'units',
+  'notices', 'notifications', 'audit_logs', 'cargo_transferencias', 'pending_invites', 'units',
 ];
 for (const t of TABELAS) {
   const { error } = await admin.from(t).delete().not('id', 'is', null);
@@ -99,6 +99,14 @@ const usuarios = [
   { email: 'conselho@staging.test', name: 'Conselho Teste', role: 'CONSELHO' },
   { email: 'morador@staging.test', name: 'Morador Proprietário', role: 'MORADOR', bloco: 'A', unidade: '101', telefone: '(11) 91111-1111' },
   { email: 'inquilino@staging.test', name: 'Morador Inquilino', role: 'MORADOR', bloco: 'A', unidade: '102', telefone: '(11) 92222-2222' },
+  // Transferir cargo (issue #53): segundos titulares (Conselho e Portaria admitem vários) e candidatos a assumir.
+  // conselho2 mora em B-102: ao perder o cargo vira Morador VALIDADO. Os demais, sem unidade, viram provisórios.
+  { email: 'conselho2@staging.test', name: 'Conselho Dois', role: 'CONSELHO', bloco: 'B', unidade: '102', telefone: '(11) 93333-0002' },
+  { email: 'portaria2@staging.test', name: 'Portaria Dois', role: 'PORTARIA' },
+  { email: 'candidato1@staging.test', name: 'Candidato Um', role: 'MORADOR', bloco: 'B', unidade: '101', telefone: '(11) 94444-0001' },
+  { email: 'candidato2@staging.test', name: 'Candidato Dois', role: 'MORADOR' },
+  // Provisório (autocadastro aguardando validação): a tela NÃO o oferece como destino de cargo.
+  { email: 'provisorio@staging.test', name: 'Morador Provisório', role: 'MORADOR', validado: false },
 ];
 for (const u of usuarios) {
   const { data, error } = await admin.auth.admin.createUser({ email: u.email, password: SENHA, email_confirm: true });
@@ -106,6 +114,7 @@ for (const u of usuarios) {
   const { error: pErr } = await admin.from('profiles').insert({
     id: data.user.id, email: u.email, name: u.name, role: u.role,
     bloco: u.bloco ?? null, unidade: u.unidade ?? null, telefone: u.telefone ?? null,
+    cadastro_validado: u.validado ?? true,
   });
   falhar(`perfil ${u.email}`, pErr);
   if (u.bloco) {
@@ -114,6 +123,24 @@ for (const u of usuarios) {
       .eq('id', unitDe(u.bloco, u.unidade).id);
     falhar(`vincular ${u.email}`, lErr);
   }
+}
+
+// ── 3b) Um destino NOVO por convite: transferência pendente da Portaria Dois para uma pessoa que ainda não tem conta ──
+// O cargo só vale quando ela aceitar o convite (definir a senha pelo link). Serve para testar "Cancelar transferência".
+{
+  const { data: ex } = await admin.from('profiles').select('id').eq('email', 'adm@staging.test').single();
+  const { data: orig } = await admin.from('profiles').select('id').eq('email', 'portaria2@staging.test').single();
+  const origem = process.env.SITE_URL ?? 'http://localhost:3000';
+  const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
+    type: 'invite', email: 'novo.porteiro@staging.test', options: { data: { name: 'Novo Porteiro' }, redirectTo: `${origem}/definir-senha` },
+  });
+  falhar('link do convite de cargo', linkErr);
+  const url = `${origem}/definir-senha?token_hash=${link.properties.hashed_token}&type=${link.properties.verification_type}`;
+  const { data: res, error: rpcErr } = await admin.rpc('iniciar_transferencia_cargo', {
+    p_executor: ex.id, p_cargo: 'PORTARIA', p_origem: orig.id, p_destino_id: link.user.id,
+    p_nome: 'Novo Porteiro', p_email: 'novo.porteiro@staging.test', p_telefone: '(11) 95555-0001', p_link: url,
+  });
+  falhar('transferência pendente do seed', rpcErr ?? (res?.ok ? null : new Error(res?.codigo)));
 }
 
 // ── 4) Veículos, espaço e aviso ──
@@ -166,3 +193,4 @@ falhar('aviso', (await admin.from('notices').insert({
 console.log(`Staging recriado: ${usuarios.length} usuários, ${units.length} unidades, 7 veículos, 3 espaços, 5 reservas, 1 aviso.`);
 console.log(`Contas (senha ${SENHA}):`);
 for (const u of usuarios) console.log(`  ${u.role.padEnd(10)} ${u.email}`);
+console.log('  (convite pendente de cargo: Portaria Dois -> novo.porteiro@staging.test, link na fila de Usuários)');

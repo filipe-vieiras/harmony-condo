@@ -77,6 +77,13 @@ export const resumo = () => console.log(`\n==> ${falhas === 0 ? 'TUDO OK' : falh
 
 export async function limparQA() {
   const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const idsQA = users.filter((x) => x.email?.endsWith('@' + DOMINIO)).map((x) => x.id);
+  if (idsQA.length) {
+    // Transferir cargo (issue #53): registros e avisos por usuário saem antes das contas (as FKs só zerariam a referência).
+    for (const col of ['origem_id', 'destino_id', 'executor_id']) await admin.from('cargo_transferencias').delete().in(col, idsQA);
+    await admin.from('notifications').delete().in('usuario_id_alvo', idsQA);
+  }
+  await admin.from('pending_invites').delete().not('transferencia_id', 'is', null).like('email', `%@${DOMINIO}`);
   for (const u of users.filter((x) => x.email?.endsWith('@' + DOMINIO))) {
     await admin.from('profiles').delete().eq('id', u.id);
     await admin.auth.admin.deleteUser(u.id);
@@ -94,6 +101,6 @@ export async function limparQA() {
   await admin.from('spaces').delete().like('nome', 'QA%');
   await admin.from('pending_invites').delete().like('email', `%@${DOMINIO}`);
   // Inclui o que os gatilhos de anular/apagar multa gravaram (acao "Anulou multa QA-..." e a exclusão feita sem usuário logado).
-  await admin.from('audit_logs').delete().or('usuario_nome.like.QA%,acao.like.QA%,detalhes->>espaco.like.QA%,acao.like.Anulou multa QA-%,acao.like.Apagou multa QA-%,acao.like.Alterou o tipo de um veículo da unidade 10%Q%,acao.like.Alterou um veículo da unidade 10%Q%,acao.like.Removeu um veículo da unidade 10%Q%');
+  await admin.from('audit_logs').delete().or('usuario_nome.like.QA%,acao.like.QA%,detalhes->>espaco.like.QA%,acao.like.Anulou multa QA-%,acao.like.Apagou multa QA-%,acao.like.Alterou o tipo de um veículo da unidade 10%Q%,acao.like.Alterou um veículo da unidade 10%Q%,acao.like.Removeu um veículo da unidade 10%Q%,acao.like.Transferiu o cargo de%QA %,acao.like.Iniciou a transferência do cargo%QA %,acao.like.Cancelou a transferência do cargo%QA %,acao.like.Aceitou o convite e assumiu%QA %,acao.like.A transferência do cargo de%QA %');
   if (ids.length) await admin.from('units').delete().in('id', ids);
 }

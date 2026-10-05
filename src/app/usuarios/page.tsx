@@ -1,12 +1,16 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { Role } from '@/types';
-import { isAdmin, ROLE_LABELS, SINGLETON_ROLES } from '@/lib/roles';
+import { isAdmin, ROLE_LABELS, ROLE_LABELS_CURTO, SINGLETON_ROLES } from '@/lib/roles';
+import { CARGO_ROTULO, type CargoTransferivel } from '@/lib/cargos';
+import { CargosSecao } from '@/components/usuarios/CargosSecao';
+import { TransferirCargoModal } from '@/components/usuarios/TransferirCargoModal';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
 import {
@@ -23,6 +27,11 @@ import {
   Clock,
   KeyRound,
   MessageCircle,
+  ShieldCheck,
+  Scale,
+  DoorOpen,
+  Briefcase,
+  Home,
 } from 'lucide-react';
 
 export default function UsuariosPage() {
@@ -35,6 +44,25 @@ export default function UsuariosPage() {
 
 const STAFF_ROLES: Role[] = ['SINDICO', 'SUBSINDICO', 'ADM', 'PORTARIA', 'CONSELHO'];
 
+// Selos de cargo na lista (ícone + texto, só tokens do tema). Nunca só cor.
+const SELOS: Record<Role, { cls: string; icon: React.ReactNode }> = {
+  SINDICO: { cls: 'bg-primary/10 text-primary', icon: <ShieldCheck className="h-3 w-3" aria-hidden="true" /> },
+  SUBSINDICO: { cls: 'bg-accent-50 text-accent-800', icon: <ShieldCheck className="h-3 w-3" aria-hidden="true" /> },
+  CONSELHO: { cls: 'bg-slate-100 text-slate-700', icon: <Scale className="h-3 w-3" aria-hidden="true" /> },
+  PORTARIA: { cls: 'bg-slate-100 text-slate-700', icon: <DoorOpen className="h-3 w-3" aria-hidden="true" /> },
+  ADM: { cls: 'bg-slate-100 text-slate-700', icon: <Briefcase className="h-3 w-3" aria-hidden="true" /> },
+  MORADOR: { cls: 'bg-slate-100 text-slate-700', icon: <Home className="h-3 w-3" aria-hidden="true" /> },
+};
+
+function SeloCargo({ role, sufixo }: { role: Role; sufixo?: string }) {
+  const s = SELOS[role];
+  return (
+    <Badge className={s.cls} icon={s.icon}>
+      {ROLE_LABELS_CURTO[role]}{sufixo ?? ''}
+    </Badge>
+  );
+}
+
 function UsuariosContent() {
   const {
     currentUser,
@@ -45,8 +73,14 @@ function UsuariosContent() {
     sendPendingInvites,
     deleteSystemUser,
     generatePasswordResetLink,
+    transferenciasCargo,
+    cancelarTransferenciaCargo,
+    avisoCargo,
   } = useApp();
   const { confirm } = useDialog();
+  const router = useRouter();
+  // Assistente "Transferir cargo" (issue #53).
+  const [transferir, setTransferir] = useState<{ cargo: CargoTransferivel; origemId?: string } | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [nome, setNome] = useState('');
@@ -59,7 +93,7 @@ function UsuariosContent() {
   // Link recém-gerado (redefinição ou convite): fica na tela até a pessoa fechar. Só
   // copiar para a área de transferência não basta, porque no iOS a cópia costuma
   // falhar depois de uma chamada assíncrona e o link anterior já foi cancelado.
-  const [linkPanel, setLinkPanel] = useState<{ nome: string; link: string } | null>(null);
+  const [linkPanel, setLinkPanel] = useState<{ nome: string; link: string; assunto?: string } | null>(null);
   const [copiaFalhou, setCopiaFalhou] = useState(false);
   const [copiouPainel, setCopiouPainel] = useState(false);
   const linkPanelRef = useRef<HTMLDivElement>(null);
@@ -72,7 +106,14 @@ function UsuariosContent() {
   useEscapeToClose(showModal, () => setShowModal(false));
   useModalFocus(showModal);
 
+  // Quem acabou de passar o cargo perde a tela de equipe: em vez de "Área Restrita", vai ao Início, onde a faixa explica.
+  const perdeuOCargo = !!currentUser && !isAdmin(currentUser.role) && avisoCargo?.tipo === 'perdeu';
+  useEffect(() => {
+    if (perdeuOCargo) router.replace('/');
+  }, [perdeuOCargo, router]);
+
   if (!currentUser) return null;
+  if (perdeuOCargo) return null;
 
   if (!isAdmin(currentUser.role)) {
     return (
@@ -90,7 +131,9 @@ function UsuariosContent() {
 
   const isRoleTaken = (r: Role) =>
     SINGLETON_ROLES.includes(r) &&
-    (systemUsers.some((u) => u.role === r) || pendingInvites.some((i) => i.role === r && i.status === 'PENDENTE'));
+    (systemUsers.some((u) => u.role === r) ||
+      // Convite de transferência de cargo (já com link) também segura a vaga até ser aceito ou cancelado.
+      pendingInvites.some((i) => i.role === r && (i.status === 'PENDENTE' || !!i.transferenciaId)));
 
   const handleOpenModal = () => {
     setNome('');
@@ -131,10 +174,10 @@ function UsuariosContent() {
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
   };
 
-  const mostrarLink = (nome: string, link: string) => {
+  const mostrarLink = (nome: string, link: string, assunto?: string) => {
     setCopiaFalhou(false);
     setCopiouPainel(false);
-    setLinkPanel({ nome, link });
+    setLinkPanel({ nome, link, assunto });
   };
 
   const copiarDoPainel = async () => {
@@ -153,12 +196,12 @@ function UsuariosContent() {
     }
   };
 
-  const handleCopyLink = async (id: string, link?: string, nome?: string) => {
+  const handleCopyLink = async (id: string, link?: string, nome?: string, assunto?: string) => {
     if (!link) {
       setFeedbackMsg({ type: 'error', text: 'Link de acesso não encontrado. Gere novamente.' });
       return;
     }
-    mostrarLink(nome ?? 'o convite', link);
+    mostrarLink(nome ?? 'o convite', link, assunto);
     try {
       await navigator.clipboard.writeText(link);
       setCopiedId(id);
@@ -166,6 +209,34 @@ function UsuariosContent() {
     } catch {
       setCopiaFalhou(true); // o painel mostra o link e pede para selecionar e copiar
     }
+  };
+
+  // ── Transferir cargo ──
+  const foco = (cargo: CargoTransferivel) =>
+    setTimeout(() => document.getElementById(`cargo-card-${cargo}`)?.focus(), 80);
+
+  const conviteDaTransferencia = (transferenciaId: string) => pendingInvites.find((i) => i.transferenciaId === transferenciaId);
+
+  const handleCopiarLinkTransferencia = (transferenciaId: string) => {
+    const t = transferenciasCargo.find((x) => x.id === transferenciaId);
+    const convite = conviteDaTransferencia(transferenciaId);
+    handleCopyLink(`transf-${transferenciaId}`, convite?.linkAcesso, t?.destinoNome, t ? `Você foi convidado como ${CARGO_ROTULO[t.cargo]} do Harmony Residence.` : undefined);
+  };
+
+  const handleCancelarTransferencia = async (transferenciaId: string) => {
+    const t = transferenciasCargo.find((x) => x.id === transferenciaId);
+    if (!t) return;
+    const confirmou = await confirm({
+      title: `Cancelar a transferência para ${t.destinoNome}?`,
+      message: `${t.origemNome} continua no cargo de ${CARGO_ROTULO[t.cargo]}. O convite de ${t.destinoNome} deixa de valer.`,
+      confirmLabel: 'Cancelar transferência',
+      cancelLabel: 'Voltar',
+      destructive: true,
+    });
+    if (!confirmou) return;
+    const res = await cancelarTransferenciaCargo(transferenciaId);
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+    foco(t.cargo);
   };
 
   const handleDeleteUser = async (userId: string, nome: string) => {
@@ -303,7 +374,7 @@ function UsuariosContent() {
               <span>{copiouPainel ? 'Copiado!' : 'Copiar'}</span>
             </button>
             <a
-              href={`https://wa.me/?text=${encodeURIComponent(`Olá! Este é o seu link de acesso ao portal do condomínio: ${linkPanel.link}`)}`}
+              href={`https://wa.me/?text=${encodeURIComponent(`${linkPanel.assunto ? `${linkPanel.assunto} ` : 'Olá! '}Este é o seu link de acesso ao portal do condomínio: ${linkPanel.link}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:bg-slate-50"
@@ -320,6 +391,14 @@ function UsuariosContent() {
           <p className="mt-2 text-xs text-slate-600">Cada link vale uma vez só; gerar outro cancela este.</p>
         </div>
       )}
+
+      {/* Cargos: só ADM e Síndico (a seção nem existe para o Subsíndico) */}
+      <CargosSecao
+        onTransferir={(cargo, origemId) => setTransferir({ cargo, origemId })}
+        onIndicarSubsindico={() => { handleOpenModal(); setRole('SUBSINDICO'); }}
+        onCopiarLink={handleCopiarLinkTransferencia}
+        onCancelar={handleCancelarTransferencia}
+      />
 
       {/* Equipe Atual */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
@@ -350,9 +429,14 @@ function UsuariosContent() {
                     <td data-label="Nome" className="px-4 py-3 font-semibold text-slate-900">{u.name}</td>
                     <td data-label="E-mail" className="px-4 py-3 text-slate-600">{u.email}</td>
                     <td data-label="Perfil" className="px-4 py-3">
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-700">
-                        {ROLE_LABELS[u.role]}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <SeloCargo role={u.role} />
+                        {transferenciasCargo.some((t) => t.status === 'PENDENTE' && t.destinoId === u.id) && (
+                          <Badge className="bg-pendente-50 text-pendente-800" icon={<Clock className="h-3 w-3" aria-hidden="true" />}>
+                            Cargo pendente
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td data-label="Unidade" className="px-4 py-3 text-slate-500">
                       {u.unidade ? `Apto ${u.unidade}-${u.bloco}` : '—'}
@@ -377,7 +461,11 @@ function UsuariosContent() {
                             </>
                           )}
                         </button>
-                        {u.id !== currentUser.id && (
+                        {u.role === 'SINDICO' && u.id !== currentUser.id && (
+                          // Ninguém exclui o Síndico pelo app (o servidor também recusa): a saída é transferir o cargo.
+                          <span className="text-[12px] text-slate-600">Para sair do cargo, transfira-o.</span>
+                        )}
+                        {u.id !== currentUser.id && u.role !== 'SINDICO' && (
                           <button
                             onClick={() => handleDeleteUser(u.id, u.name)}
                             title="Excluir acesso"
@@ -468,9 +556,7 @@ function UsuariosContent() {
                       </td>
                       <td data-label="E-mail" className="px-4 py-3 text-slate-600">{i.email}</td>
                       <td data-label="Perfil" className="px-4 py-3 whitespace-nowrap">
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[12px] font-bold text-slate-700 whitespace-nowrap">
-                          {ROLE_LABELS[i.role]}
-                        </span>
+                        <SeloCargo role={i.role} sufixo={i.transferenciaId ? ' (ao aceitar)' : undefined} />
                       </td>
                       <td data-label="Status" className="px-4 py-3 whitespace-nowrap">
                         <Badge className={`${st.bg} ${st.text}`} icon={st.icon} title={i.erroMensagem}>
@@ -499,6 +585,14 @@ function UsuariosContent() {
                               )}
                             </button>
                           )}
+                          {i.transferenciaId && (currentUser.role === 'ADM' || currentUser.role === 'SINDICO') && (
+                            <button
+                              onClick={() => handleCancelarTransferencia(i.transferenciaId!)}
+                              className="flex min-h-11 items-center whitespace-nowrap rounded-lg px-2 py-1.5 text-[12px] font-bold text-red-700 hover:bg-red-50 transition sm:min-h-0"
+                            >
+                              Cancelar transferência
+                            </button>
+                          )}
                           {i.status !== 'ENVIADO' && (
                             <button
                               onClick={() => handleCancelInvite(i.id, i.nome, i.status === 'ERRO')}
@@ -519,6 +613,27 @@ function UsuariosContent() {
           </table>
         </div>
       </div>
+
+      {transferir && (
+        <TransferirCargoModal
+          cargo={transferir.cargo}
+          origemInicialId={transferir.origemId}
+          onClose={() => { const c = transferir.cargo; setTransferir(null); foco(c); }}
+          onVerConvite={() => { const c = transferir.cargo; setTransferir(null); foco(c); }}
+          onConcluido={(r) => {
+            const c = transferir.cargo;
+            setTransferir(null);
+            if (r.tipo === 'NOVO' && r.link) {
+              setFeedbackMsg({ type: 'success', text: `Convite enviado a ${r.destinoNome}. ${r.origemNome} continua no cargo de ${CARGO_ROTULO[c]} até ${r.destinoNome} aceitar.` });
+              mostrarLink(r.destinoNome, r.link, `Você foi convidado como ${CARGO_ROTULO[c]} do Harmony Residence.`);
+            } else {
+              const novo = r.origemNovoPerfil ? ROLE_LABELS_CURTO[r.origemNovoPerfil] : 'Morador';
+              setFeedbackMsg({ type: 'success', text: `Pronto. ${r.destinoNome} agora é ${CARGO_ROTULO[c]}. ${r.origemNome} passa a ser ${novo}.` });
+            }
+            foco(c);
+          }}
+        />
+      )}
 
       {/* Modal de Novo Usuário da Equipe */}
       {showModal && (

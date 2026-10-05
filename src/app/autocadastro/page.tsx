@@ -227,7 +227,7 @@ function AutocadastroContent() {
             <ClipboardCheck className="h-6 w-6 text-accent" />
             <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Autocadastro de Moradores</h1>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-600">
             Os moradores se cadastram pelo link; você confere a lista e valida cada unidade.
           </p>
         </div>
@@ -284,7 +284,7 @@ function AutocadastroContent() {
               aria-checked={autocadastroAberto}
               aria-label="Formulário de autocadastro aberto"
               onClick={handleToggle}
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-[''] ${autocadastroAberto ? 'bg-emerald-500' : 'bg-slate-300'}`}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-[''] ${autocadastroAberto ? 'bg-emerald-600' : 'bg-slate-300'}`}
             >
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${autocadastroAberto ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
@@ -401,7 +401,7 @@ function AutocadastroContent() {
               type="button"
               disabled={selecionados.length === 0 || processando}
               onClick={() => decidir(selecionados, 'VALIDAR')}
-              className="min-h-11 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40 sm:min-h-0"
+              className="min-h-11 rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-40 sm:min-h-0"
             >
               {processando ? 'Processando...' : `Validar selecionados (${selecionados.length})`}
             </button>
@@ -489,7 +489,7 @@ function AutocadastroContent() {
                         ) : l.responsavel ? (
                           <span className="font-semibold text-slate-900">{l.responsavel}</span>
                         ) : (
-                          <span className="italic text-slate-400">—</span>
+                          <span className="italic text-slate-500">—</span>
                         )}
                       </td>
                       <td className="oculta-mobile px-4 py-3">
@@ -516,7 +516,7 @@ function AutocadastroContent() {
                                 type="button"
                                 disabled={processando}
                                 onClick={() => decidir([p.id], 'VALIDAR')}
-                                className="min-h-11 max-sm:flex-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[12px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50 sm:min-h-0"
+                                className="min-h-11 max-sm:flex-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-[12px] font-bold text-white hover:bg-emerald-800 disabled:opacity-50 sm:min-h-0"
                               >
                                 Validar
                               </button>
@@ -533,7 +533,7 @@ function AutocadastroContent() {
                         ) : l.situacao === 'VALIDADO' ? (
                           <Link href="/moradores" className="inline-flex min-h-11 items-center text-[12px] font-semibold text-accent-strong hover:underline sm:min-h-0">Editar em Moradores</Link>
                         ) : (
-                          <span className="text-[12px] text-slate-400">Nenhum envio</span>
+                          <span className="text-[12px] text-slate-500">Nenhum envio</span>
                         )}
                       </td>
                     </tr>
