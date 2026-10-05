@@ -260,6 +260,249 @@ console.log('\n## I2. Reservas: conflito no banco, disponibilidade e aprovação
   ok(!!(await cM2.rpc('disponibilidade_reservas', { inicio: janela[1], fim: janela[0] })).error, 'fim antes do início recusado');
 }
 
+console.log('\n## I3. Bloqueio entre espaços (issue #81 fase 1, migração 0038)');
+{
+  const base = { descricao: 'QA', capacidade_max: 20, horario_funcionamento: '10h-22h', taxa_limpeza: 0, regras: [] };
+  const mk = async (nome, extra = {}) => (await cSind.from('spaces').insert({ ...base, nome, ...extra }).select().single()).data;
+  const eA = await mk('QA Bloq A'), eB = await mk('QA Bloq B'), eC = await mk('QA Bloq C'), eD = await mk('QA Bloq D (sem par)');
+  const rv = (c, e, bloco, un, nome, dia, status = 'PENDENTE') => c.from('reservations').insert({ espaco_id: e.id, espaco_nome: e.nome, bloco, unidade: un, morador_nome: nome, data: dia, horario_inicio: '12:00', horario_fim: '16:00', convidados_estimados: 5, status }).select().single();
+  const pares = async () => (await admin.from('space_blocks').select('espaco_a,espaco_b').in('espaco_a', [eA.id, eB.id, eC.id, eD.id])).data;
+  const temPar = async (x, y) => (await pares()).some((p) => (p.espaco_a === x.id && p.espaco_b === y.id) || (p.espaco_a === y.id && p.espaco_b === x.id));
+  const BLOQ = 'reserva_dia_indisponivel';
+  await admin.auth.admin.createUser({ email: email('prov81'), password: SENHA, email_confirm: true }).then(async ({ data }) => admin.from('profiles').insert({ id: data.user.id, email: email('prov81'), name: 'QA provisório81', role: 'MORADOR', bloco: 'Q', unidade: '104', cadastro_validado: false }));
+  const cProv81 = await clientDe(email('prov81'));
+
+  // — Configuração: só a equipe, os dois lados de uma vez —
+  for (const [nome, c] of [['morador', cM1], ['Portaria', cPort], ['Conselho', cCons], ['provisório', cProv81], ['visitante', anon()]]) {
+    const r = await c.rpc('definir_bloqueios_espaco', { p_espaco_id: eA.id, p_outros: [eB.id] });
+    ok(!!r.error && !(await temPar(eA, eB)), `${nome} NÃO chama definir_bloqueios_espaco`);
+    const ins = await c.from('space_blocks').insert({ espaco_a: eA.id < eB.id ? eA.id : eB.id, espaco_b: eA.id < eB.id ? eB.id : eA.id });
+    ok(!!ins.error && !(await temPar(eA, eB)), `${nome} NÃO grava par direto na tabela`);
+    ok(!((await c.from('space_blocks').select('*')).data?.length), `${nome} NÃO lê os pares`);
+  }
+  const insAdmDireto = await cSind.from('space_blocks').insert({ espaco_a: eA.id < eB.id ? eA.id : eB.id, espaco_b: eA.id < eB.id ? eB.id : eA.id });
+  ok(!!insAdmDireto.error, 'nem o Síndico grava par direto: só pela função (uma transação)');
+  const r1 = await cSind.rpc('definir_bloqueios_espaco', { p_espaco_id: eA.id, p_outros: [eB.id] });
+  ok(!r1.error && (await temPar(eA, eB)), `Síndico marca o par A-B pela função ${r1.error?.message ?? ''}`);
+  const lidos = await cSub.from('space_blocks').select('*');
+  ok(lidos.data?.length >= 1, 'Subsíndico lê os pares');
+  ok((await cAdm.from('space_blocks').select('*')).data?.length >= 1, 'ADM lê os pares');
+  const pA = (await pares())[0];
+  ok(pA.espaco_a < pA.espaco_b, 'o par fica gravado ordenado (espaco_a < espaco_b)');
+  // Simetria: o par aparece olhando de B e some quando desmarca de B.
+  const olhandoDeB = (await cSind.from('space_blocks').select('espaco_a,espaco_b').or(`espaco_a.eq.${eB.id},espaco_b.eq.${eB.id}`)).data;
+  ok(olhandoDeB.length === 1, 'o bloqueio marcado em A aparece também do lado de B');
+  const r2 = await cSub.rpc('definir_bloqueios_espaco', { p_espaco_id: eB.id, p_outros: [] });
+  ok(!r2.error && !(await temPar(eA, eB)), 'desmarcar em B remove o bloqueio dos dois lados');
+  ok(!(await cAdm.rpc('definir_bloqueios_espaco', { p_espaco_id: eB.id, p_outros: [eA.id] })).error && (await temPar(eA, eB)), 'ADM marca de B para A: vale para A também, sem duplicar');
+  ok(!(await cSind.rpc('definir_bloqueios_espaco', { p_espaco_id: eA.id, p_outros: [eB.id, eB.id] })).error && (await pares()).length === 1, 'marcar o mesmo espaço duas vezes não duplica');
+  // O banco recusa par duplicado, invertido e o espaço consigo mesmo (mesmo por quem ignora a função).
+  const [x, y] = eA.id < eB.id ? [eA.id, eB.id] : [eB.id, eA.id];
+  ok(!!(await admin.from('space_blocks').insert({ espaco_a: x, espaco_b: y })).error, 'par duplicado recusado pelo banco');
+  ok(!!(await admin.from('space_blocks').insert({ espaco_a: y, espaco_b: x })).error, 'par invertido (B,A) recusado pelo banco');
+  ok(!!(await admin.from('space_blocks').insert({ espaco_a: eC.id, espaco_b: eC.id })).error, 'espaço bloqueando a si mesmo recusado pelo banco');
+  ok(!!(await cSind.rpc('definir_bloqueios_espaco', { p_espaco_id: eA.id, p_outros: [eA.id] })).error, 'a função recusa o espaço na própria lista');
+  ok(!!(await cSind.rpc('definir_bloqueios_espaco', { p_espaco_id: eA.id, p_outros: ['nao-existe'] })).error && (await temPar(eA, eB)), 'a função recusa espaço inexistente e a transação não apaga o par antigo');
+  ok((await admin.from('audit_logs').select('id').like('acao', 'Passou a bloquear QA Bloq B no espaço QA Bloq A')).data.length >= 1 && (await admin.from('audit_logs').select('id').like('acao', 'Deixou de bloquear QA Bloq A no espaço QA Bloq B')).data.length >= 1, 'a mudança de bloqueio fica no histórico com frase legível');
+  ok(!/Q-?10|morador|@/i.test(JSON.stringify((await admin.from('audit_logs').select('acao,detalhes').like('acao', '%bloquear QA Bloq%')).data)), 'o histórico do bloqueio não traz dado pessoal');
+
+  // — Efeito nas reservas: A–B bloqueados; C só bloqueia se tiver par com B (cadeia) —
+  ok(!(await cSind.rpc('definir_bloqueios_espaco', { p_espaco_id: eB.id, p_outros: [eA.id, eC.id] })).error, 'B passa a bloquear A e C (A–B e B–C)');
+  const dia = daqui(50);
+  const a1 = await rv(cM1, eA, 'Q', '101', 'QA morador1', dia);
+  ok(!a1.error, 'Q-101 reserva A no dia D (PENDENTE)');
+  const mesmaUn = await rv(cM1, eB, 'Q', '101', 'QA morador1', dia);
+  ok(mesmaUn.error?.message === BLOQ, `a MESMA unidade não reserva B no dia da reserva de A (${mesmaUn.error?.message})`);
+  const outraUn = await rv(cM2, eB, 'Q', '102', 'QA morador2', dia);
+  ok(outraUn.error?.message === BLOQ, 'outra unidade não reserva B no dia da reserva pendente de A');
+  for (const [nome, c] of [['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm], ['Portaria', cPort], ['Conselho', cCons]]) {
+    const r = await rv(c, eB, 'Q', '102', `QA ${nome} bloqueio`, dia);
+    ok(r.error?.message === BLOQ, `${nome} registrando em nome de morador também é barrado (sem exceção)`);
+  }
+  const adminAprovada = await rv(cSind, eB, 'Q', '102', 'QA síndico aprovada', dia, 'APROVADA');
+  ok(adminAprovada.error?.message === BLOQ, 'Síndico lançando já APROVADA também é barrado');
+  ok(!(await rv(cM2, eB, 'Q', '102', 'QA morador2', daqui(51))).error, 'em outro dia, B passa');
+  // Sem cadeia: A–B e B–C. A reservado em D (pela Q-101) NÃO impede C em D (pela Q-102).
+  const semCadeia = await rv(cM2, eC, 'Q', '102', 'QA morador2', dia);
+  ok(!semCadeia.error, 'SEM cadeia: com A–B e B–C, reservar A em D permite reservar C em D');
+  ok((await rv(cPort, eB, 'Q', '102', 'QA via portaria', dia)).error?.message === BLOQ, '...mas B fica barrado por A e por C no mesmo dia');
+  // Espaço sem par nunca é afetado.
+  ok(!(await rv(cM2, eD, 'Q', '102', 'QA morador2', dia)).error, 'espaço sem par não é afetado');
+
+  // — PENDENTE e APROVADA bloqueiam; RECUSADA e CANCELADA liberam —
+  const dia2 = daqui(53);
+  const ap = await rv(cSind, eA, 'Q', '101', 'QA aprovada A', dia2, 'APROVADA');
+  ok(ap.data?.status === 'APROVADA' && (await rv(cM2, eB, 'Q', '102', 'QA morador2', dia2)).error?.message === BLOQ, 'reserva APROVADA em A também bloqueia B');
+  ok((await cSind.from('reservations').update({ status: 'CANCELADA' }).eq('id', ap.data.id).select()).data?.length === 1, 'Síndico cancela A');
+  const bLibera = await rv(cM2, eB, 'Q', '102', 'QA morador2', dia2);
+  ok(!bLibera.error, 'cancelada libera: B passa a ser reservável no dia');
+  ok((await cSub.from('reservations').update({ status: 'RECUSADA', motivo_recusa: 'QA' }).eq('id', bLibera.data.id).select()).data?.length === 1, 'Subsíndico recusa B');
+  const aDeNovo = await rv(cM1, eA, 'Q', '101', 'QA morador1', dia2);
+  ok(!aDeNovo.error, 'recusada libera: A passa a ser reservável no dia');
+  const reativa = await cSind.from('reservations').update({ status: 'PENDENTE' }).eq('id', bLibera.data.id).select();
+  ok(reativa.error?.message === BLOQ, 'reativar a recusada de B com A ocupando o dia é barrado');
+  // Aprovar um pedido que já existia não dispara a checagem (a ocupação não muda).
+  ok((await cSind.from('reservations').update({ status: 'APROVADA', avaliado_por: 'QA' }).eq('id', aDeNovo.data.id).select()).data?.length === 1, 'aprovar a PENDENTE de A (já existente) continua funcionando');
+
+  // — Reservas existentes continuam valendo ao criar o bloqueio —
+  const dia3 = daqui(54);
+  await cSind.rpc('definir_bloqueios_espaco', { p_espaco_id: eA.id, p_outros: [] });
+  await cSind.rpc('definir_bloqueios_espaco', { p_espaco_id: eB.id, p_outros: [] });
+  const exA = await rv(cM1, eA, 'Q', '101', 'QA existente A', dia3);
+  const exB = await rv(cM2, eB, 'Q', '102', 'QA existente B', dia3);
+  ok(!exA.error && !exB.error, 'sem bloqueio, A e B no mesmo dia coexistem');
+  ok(!(await cSind.rpc('definir_bloqueios_espaco', { p_espaco_id: eA.id, p_outros: [eB.id, eC.id] })).error, 'cria o bloqueio A–B e A–C com reservas já existentes');
+  const exDepois = (await admin.from('reservations').select('id,status').in('id', [exA.data.id, exB.data.id])).data;
+  ok(exDepois.length === 2 && exDepois.every((r) => r.status === 'PENDENTE'), 'as reservas já existentes continuam intactas (nada recusado nem apagado)');
+  ok((await rv(cPort, eC, 'Q', '102', 'QA novo C', dia3)).error?.message === BLOQ, 'mas pedido NOVO no dia delas é barrado');
+
+  // — Disponibilidade: o dia fica ocupado sem revelar motivo —
+  const hojeBR = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const janela = [hojeBR, new Date(Date.parse(hojeBR + 'T12:00:00Z') + 60 * 864e5).toISOString().slice(0, 10)];
+  const dia4 = daqui(55);
+  const soA = await rv(cM1, eA, 'Q', '101', 'QA só A', dia4);
+  const dispM2 = await cM2.rpc('disponibilidade_reservas', { inicio: janela[0], fim: janela[1] });
+  const linhaB = dispM2.data.find((l) => l.espaco_id === eB.id && l.data === dia4);
+  const linhaDOcupado = dispM2.data.find((l) => l.espaco_id === eA.id && l.data === dia4);
+  ok(!soA.error && !!linhaB && linhaB.ocupado === true, 'a função marca B como ocupado no dia da reserva de A (outro morador)');
+  ok(Object.keys(linhaB).sort().join() === 'data,espaco_id,ocupado' && JSON.stringify(linhaB).length === JSON.stringify({ ...linhaDOcupado, espaco_id: linhaB.espaco_id }).length, 'a linha de dia bloqueado tem o mesmo formato da de um dia ocupado no próprio espaço');
+  ok(dispM2.data.every((l) => Object.keys(l).sort().join() === 'data,espaco_id,ocupado') && !/QA|Q-?101|PENDENTE|APROVADA|bloco|unidade|motivo|bloque/i.test(JSON.stringify(dispM2.data)), 'resposta sem nome, unidade, status nem motivo de bloqueio');
+  ok(!dispM2.data.some((l) => l.espaco_id === eD.id && l.data === dia4), 'espaço sem par não aparece ocupado');
+  for (const [nome, c] of [['provisório', cProv81]]) ok((await c.rpc('disponibilidade_reservas', { inicio: janela[0], fim: janela[1] })).data?.length === 0, `${nome} segue recebendo lista vazia`);
+  ok(!!(await anon().rpc('disponibilidade_reservas', { inicio: janela[0], fim: janela[1] })).error, 'visitante segue negado');
+
+  // — Concorrência: duas reservas simultâneas de espaços que se bloqueiam geram UMA só —
+  const rodadas = [];
+  for (const n of [60, 61, 62, 63, 64]) {
+    const d = daqui(n);
+    const r = await Promise.all([rv(cM1, eA, 'Q', '101', `QA corrida A ${n}`, d), rv(cM2, eB, 'Q', '102', `QA corrida B ${n}`, d)]);
+    const aceitas = r.filter((x) => !x.error).length;
+    const noBanco = (await admin.from('reservations').select('id').in('espaco_id', [eA.id, eB.id]).eq('data', d)).data.length;
+    rodadas.push([aceitas, noBanco, r.find((x) => x.error)?.error?.message]);
+  }
+  ok(rodadas.every(([a, n]) => a === 1 && n === 1), `5 rodadas de 2 pedidos simultâneos (A e B, moradores diferentes): sempre 1 reserva (${JSON.stringify(rodadas.map((r) => r[0]))})`);
+  ok(rodadas.every(([, , msg]) => msg === BLOQ), 'o perdedor da corrida recebe o código reserva_dia_indisponivel');
+  const d6 = daqui(65);
+  const mista = await Promise.all([rv(cM1, eA, 'Q', '101', 'QA corrida 1', d6), rv(cM2, eB, 'Q', '102', 'QA corrida 2', d6), rv(cPort, eC, 'Q', '102', 'QA corrida 3', d6), rv(cSind, eB, 'Q', '102', 'QA corrida 4', d6), rv(cM1, eA, 'Q', '101', 'QA corrida 5', d6), rv(cM2, eB, 'Q', '102', 'QA corrida 6', d6)]);
+  const noDia = (await admin.from('reservations').select('espaco_id').in('espaco_id', [eA.id, eB.id, eC.id]).eq('data', d6)).data;
+  ok(mista.filter((x) => !x.error).length === noDia.length && new Set(noDia.map((r) => r.espaco_id)).size === noDia.length && !(noDia.some((r) => r.espaco_id === eA.id) && noDia.some((r) => r.espaco_id === eB.id)), `6 pedidos simultâneos (A, B e C): nunca A e B juntos (${noDia.length} reserva(s) no dia)`);
+
+  // — Apagar limpa pares; desativar mantém —
+  ok(!(await cSind.from('spaces').update({ ativo: false }).eq('id', eC.id).select()).error && (await temPar(eA, eC)), 'desativar um espaço mantém seus pares');
+  ok(!(await cSind.from('spaces').update({ ativo: true }).eq('id', eC.id).select()).error && (await temPar(eA, eC)), 'reativar mantém a regra');
+  const delB = await cSind.from('spaces').delete().eq('id', eB.id).select();
+  ok(delB.data?.length === 1 && !(await temPar(eA, eB)), `apagar o espaço B apaga os pares dele (${delB.error?.message ?? 'ok'})`);
+  ok((await temPar(eA, eC)) && (await admin.from('reservations').select('espaco_id').eq('id', exB.data.id).single()).data.espaco_id === null, 'o par A–C continua; a reserva do B apagado fica com espaco_id nulo (histórico preservado)');
+}
+
+console.log('\n## I4. Valor de uso por faixa de pessoas (issue #81 fase 2, migração 0039)');
+{
+  const base = { descricao: 'QA', capacidade_max: 30, horario_funcionamento: '10h-22h', taxa_limpeza: 80, regras: [] };
+  const { data: sGr } = await cSind.from('spaces').insert({ ...base, nome: 'QA Valor grátis' }).select().single();
+  const { data: sFx } = await cSind.from('spaces').insert({ ...base, nome: 'QA Valor faixa' }).select().single();
+  const { data: sZero } = await cSind.from('spaces').insert({ ...base, nome: 'QA Valor zero', exige_aprovacao: false }).select().single();
+  ok(sGr?.faixa_gratis_ate === null && sGr?.faixa_valor === null, 'espaço novo (e os já existentes) é grátis para qualquer número de pessoas');
+  await admin.auth.admin.createUser({ email: email('prov81b'), password: SENHA, email_confirm: true }).then(async ({ data }) => admin.from('profiles').insert({ id: data.user.id, email: email('prov81b'), name: 'QA provisório81b', role: 'MORADOR', bloco: 'Q', unidade: '104', cadastro_validado: false }));
+  const cProvB = await clientDe(email('prov81b'));
+  const lerSp = async (id) => (await admin.from('spaces').select('faixa_gratis_ate,faixa_valor,taxa_limpeza,capacidade_max').eq('id', id).single()).data;
+
+  // — Só a equipe edita a faixa —
+  for (const [nome, c] of [['morador', cM1], ['Portaria', cPort], ['Conselho', cCons], ['provisório', cProvB], ['visitante', anon()]]) {
+    const r = await c.from('spaces').update({ faixa_gratis_ate: 10, faixa_valor: 150 }).eq('id', sFx.id).select();
+    ok(!r.data?.length && (await lerSp(sFx.id)).faixa_valor === null, `${nome} NÃO altera a faixa do espaço`);
+  }
+  for (const [nome, c] of [['Subsíndico', cSub], ['ADM', cAdm], ['Síndico', cSind]]) {
+    const r = await c.from('spaces').update({ faixa_gratis_ate: 10, faixa_valor: 150 }).eq('id', sFx.id).select();
+    ok(r.data?.length === 1 && Number(r.data[0].faixa_valor) === 150, `${nome} define "grátis até 10 e R$ 150"`);
+  }
+  // — Validações do banco —
+  const tenta = async (patch) => (await cSind.from('spaces').update(patch).eq('id', sGr.id).select()).error;
+  ok(!!(await tenta({ faixa_gratis_ate: 10 })), 'só o limite, sem valor: recusado');
+  ok(!!(await tenta({ faixa_valor: 150 })), 'só o valor, sem limite: recusado');
+  ok(!!(await tenta({ faixa_gratis_ate: 10, faixa_valor: 0 })), 'valor zero recusado');
+  ok(!!(await tenta({ faixa_gratis_ate: 10, faixa_valor: -5 })), 'valor negativo recusado');
+  ok(!!(await tenta({ faixa_gratis_ate: -1, faixa_valor: 50 })), 'limite negativo recusado');
+  ok(!!(await tenta({ faixa_gratis_ate: 30, faixa_valor: 50 })), 'limite igual à capacidade recusado');
+  ok(!!(await tenta({ faixa_gratis_ate: 45, faixa_valor: 50 })), 'limite maior que a capacidade recusado');
+  ok(!(await tenta({ faixa_gratis_ate: 29, faixa_valor: 50 })), 'limite logo abaixo da capacidade aceito');
+  ok(!(await tenta({ faixa_gratis_ate: null, faixa_valor: null })), 'voltar a "grátis" (limite e valor nulos) aceito');
+  ok(!!(await cSind.from('spaces').update({ capacidade_max: 10 }).eq('id', sFx.id).select()).error && (await lerSp(sFx.id)).capacidade_max === 30, 'reduzir a capacidade para o limite grátis ou menos é recusado');
+  ok(!(await cSind.from('spaces').update({ faixa_gratis_ate: 0, faixa_valor: 90 }).eq('id', sZero.id).select()).error, 'limite 0 (cobra de todos) aceito');
+
+  // — Função única da regra —
+  const vr = async (c, e, n) => (await c.rpc('valor_reserva', { p_espaco_id: e.id, p_pessoas: n })).data;
+  ok(Number(await vr(cM1, sFx, 10)) === 0, 'valor_reserva: 10 pessoas na faixa "até 10" = 0 (até X é inclusivo)');
+  ok(Number(await vr(cM1, sFx, 11)) === 150, 'valor_reserva: 11 pessoas = R$ 150 (valor fixo)');
+  ok(Number(await vr(cM1, sFx, 30)) === 150, 'valor_reserva: 30 pessoas = R$ 150 (não é por pessoa)');
+  ok(Number(await vr(cM1, sGr, 30)) === 0, 'valor_reserva: espaço grátis = 0 para qualquer número');
+  ok(Number(await vr(cM1, sZero, 1)) === 90, 'valor_reserva: X = 0 cobra de todos (1 pessoa = R$ 90)');
+  ok((await vr(cM1, { id: 'nao-existe' }, 5)) === null, 'valor_reserva: espaço inexistente = nulo');
+  ok(!!(await anon().rpc('valor_reserva', { p_espaco_id: sFx.id, p_pessoas: 5 })).error, 'visitante NÃO chama valor_reserva');
+  const cSemPerf = await (async () => { await criarUsuario(email('semperfil81')); return clientDe(email('semperfil81')); })();
+  ok((await cSemPerf.rpc('valor_reserva', { p_espaco_id: sFx.id, p_pessoas: 20 })).data === null, 'conta sem perfil recebe nulo');
+
+  // — Gravado pelo banco; o que o cliente manda é ignorado —
+  const rvp = (c, e, bloco, un, nome, dia, pessoas, extra = {}) => c.from('reservations').insert({ espaco_id: e.id, espaco_nome: e.nome, bloco, unidade: un, morador_nome: nome, data: dia, horario_inicio: '12:00', horario_fim: '16:00', convidados_estimados: pessoas, status: 'PENDENTE', ...extra }).select().single();
+  const g10 = await rvp(cM1, sFx, 'Q', '101', 'QA morador1', daqui(70), 10);
+  const g11 = await rvp(cM2, sFx, 'Q', '102', 'QA morador2', daqui(71), 11);
+  ok(Number(g10.data?.valor_uso) === 0 && Number(g10.data?.taxa_higienizacao) === 80, '10 pessoas grava valor 0 e a higienização do espaço (R$ 80)');
+  ok(Number(g11.data?.valor_uso) === 150 && g11.data?.convidados_estimados === 11, '11 pessoas grava R$ 150 e o número de pessoas');
+  ok(Number((await rvp(cM1, sGr, 'Q', '101', 'QA morador1', daqui(70), 30)).data?.valor_uso) === 0, 'espaço sem faixa grava 0 para 30 pessoas');
+  for (const [nome, c, bl, un, dia] of [['morador', cM1, 'Q', '101', 72], ['Portaria', cPort, 'Q', '102', 73], ['Conselho', cCons, 'Q', '102', 74], ['Síndico', cSind, 'Q', '102', 75], ['ADM', cAdm, 'Q', '102', 76]]) {
+    const r = await rvp(c, sFx, bl, un, `QA forja ${nome}`, daqui(dia), 12, { valor_uso: 0, taxa_higienizacao: 999 });
+    ok(!r.error && Number(r.data.valor_uso) === 150 && Number(r.data.taxa_higienizacao) === 80, `${nome} manda valor_uso 0 e taxa 999: o banco ignora e grava 150 e 80`);
+  }
+  const forjaAlta = await rvp(cM2, sGr, 'Q', '102', 'QA forja alta', daqui(77), 5, { valor_uso: 5000 });
+  ok(Number(forjaAlta.data?.valor_uso) === 0, 'valor inflado enviado em espaço grátis também é ignorado');
+  // Pessoas inválidas (declarar 0 escaparia da faixa paga).
+  for (const n of [0, -3, 31]) ok(!!(await rvp(cM2, sFx, 'Q', '102', 'QA invalida', daqui(78), n)).error, `${n} pessoas recusado no banco (entre 1 e a capacidade)`);
+  const z = await rvp(cPort, sZero, 'Q', '102', 'QA via portaria zero', daqui(79), 1);
+  ok(Number(z.data?.valor_uso) === 90 && z.data?.status === 'APROVADA', 'X = 0: a reserva de 1 pessoa grava R$ 90 (e confirma na hora neste espaço)');
+
+  // — Leitura: quem já lê a reserva vê o valor —
+  ok(Number((await cM1.from('reservations').select('valor_uso').eq('id', g10.data.id).single()).data?.valor_uso) === 0, 'o morador lê o valor da reserva da própria unidade');
+  ok(!(await cM1.from('reservations').select('valor_uso').eq('id', g11.data.id)).data?.length, 'o morador NÃO lê o valor da reserva de outra unidade');
+  for (const [nome, c] of [['Portaria', cPort], ['Conselho', cCons]]) ok(Number((await c.from('reservations').select('valor_uso').eq('id', g11.data.id).single()).data?.valor_uso) === 150, `${nome} lê o valor das reservas (já lê as reservas)`);
+
+  // — Imutável depois de criada —
+  const lerRv = async (id) => (await admin.from('reservations').select('valor_uso,taxa_higienizacao,convidados_estimados,data,espaco_id,status').eq('id', id).single()).data;
+  const antes = await lerRv(g11.data.id);
+  for (const [campo, valor] of [['valor_uso', 0], ['taxa_higienizacao', 0], ['convidados_estimados', 1], ['data', daqui(90)], ['espaco_id', sGr.id]]) {
+    for (const [nome, c] of [['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm]]) {
+      const r = await c.from('reservations').update({ [campo]: valor }).eq('id', g11.data.id).select();
+      if (!r.error && r.data?.length) ok(false, `${nome} alterou ${campo}`);
+    }
+    ok(JSON.stringify(await lerRv(g11.data.id)) === JSON.stringify(antes), `alterar ${campo} é negado à gestão (reserva intacta)`);
+  }
+  for (const [nome, c] of [['morador', cM2], ['Portaria', cPort], ['Conselho', cCons]]) {
+    await c.from('reservations').update({ valor_uso: 0 }).eq('id', g11.data.id);
+    ok(Number((await lerRv(g11.data.id)).valor_uso) === 150, `${nome} NÃO altera o valor`);
+  }
+  ok((await cSind.from('reservations').update({ status: 'APROVADA', avaliado_por: 'QA' }).eq('id', g11.data.id).select()).data?.length === 1, 'aprovar (mudar status) continua permitido');
+  // — Mudar a tabela não altera reservas antigas —
+  await cSind.from('spaces').update({ faixa_gratis_ate: 20, faixa_valor: 400, taxa_limpeza: 200 }).eq('id', sFx.id);
+  const depois = await lerRv(g11.data.id);
+  ok(Number(depois.valor_uso) === 150 && Number(depois.taxa_higienizacao) === 80, 'mudar a faixa e a higienização do espaço NÃO altera a reserva já criada');
+  const nova = await rvp(cM1, sFx, 'Q', '101', 'QA após mudança', daqui(80), 11);
+  ok(Number(nova.data?.valor_uso) === 0 && Number(nova.data?.taxa_higienizacao) === 200, 'a reserva NOVA já usa a tabela nova (11 pessoas agora é grátis: até 20)');
+  // Apagar o espaço continua funcionando com o valor protegido (espaco_id vira nulo).
+  const { data: sTmp } = await cSind.from('spaces').insert({ ...base, nome: 'QA Valor efêmero', faixa_gratis_ate: 5, faixa_valor: 20 }).select().single();
+  const tmp = await rvp(cM1, sTmp, 'Q', '101', 'QA efêmera', daqui(81), 8);
+  const del = await cSind.from('spaces').delete().eq('id', sTmp.id).select();
+  ok(del.data?.length === 1 && (await lerRv(tmp.data.id)).espaco_id === null && Number((await lerRv(tmp.data.id)).valor_uso) === 20, 'apagar o espaço mantém a reserva com o valor gravado (espaco_id nulo)');
+
+  // — Aviso à equipe traz o valor só quando há —
+  await rvp(cM1, sZero, 'Q', '101', 'QA morador1', daqui(84), 2);
+  const { data: avisos } = await admin.from('notifications').select('mensagem').eq('titulo', 'Reserva confirmada automaticamente').like('mensagem', 'QA Valor zero%');
+  ok(avisos.some((n) => n.mensagem.includes('Valor de uso: R$ 90,00.') && !n.mensagem.includes('acima de')), 'aviso da confirmação automática traz "Valor de uso: R$ 90,00." (X = 0: sem "acima de")');
+  const { data: sAuto } = await cSind.from('spaces').insert({ ...base, nome: 'QA Valor auto', exige_aprovacao: false, faixa_gratis_ate: 10, faixa_valor: 1234.5 }).select().single();
+  await rvp(cM1, sAuto, 'Q', '101', 'QA morador1', daqui(82), 25);
+  await rvp(cM2, sAuto, 'Q', '102', 'QA morador2', daqui(83), 4);
+  const { data: av2 } = await admin.from('notifications').select('mensagem').eq('titulo', 'Reserva confirmada automaticamente').like('mensagem', 'QA Valor auto%');
+  ok(av2.some((n) => n.mensagem.includes('Valor de uso: R$ 1.234,50 (acima de 10 pessoas).')), 'aviso com valor com milhar e faixa: "R$ 1.234,50 (acima de 10 pessoas)."');
+  ok(av2.some((n) => n.mensagem.includes('(QA morador2)') && !n.mensagem.includes('Valor de uso')), 'reserva grátis: aviso sem a frase do valor (texto igual ao de hoje)');
+}
+
 console.log('\n## J. Veículos (correção 3)');
 ok(!(await cM2.from('vehicles').insert({ placa: 'QAM2A22', marca: 'VW', modelo: 'Gol', cor: 'Preto', bloco: 'Q', unidade: '102', vaga: 'Q102', proprietario_nome: 'QA morador2', telefone_contato: '0', unit_id: U['102'] })).error, 'morador2 cadastra o próprio carro');
 await cM2.from('vehicles').insert({ placa: 'QAX9X99', marca: 'X', modelo: 'X', cor: 'X', bloco: 'Q', unidade: '101', vaga: 'x', proprietario_nome: 'x', telefone_contato: '0', unit_id: U['101'] });

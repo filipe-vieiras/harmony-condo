@@ -18,23 +18,30 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 'clas
   apoio?: ReactNode;
   /** Classes extras do input (ex.: fonte mono da placa). */
   classeInput?: string;
+  /** Texto fixo à esquerda dentro do campo (ex.: "R$"); o campo ganha folga para ele. */
+  prefixo?: string;
 }
 
 /** Rótulo + campo + ajuda + erro do formulário de veículo, para não repetir classes e ARIA. */
-export function CampoVeiculo({ id, label, erro, apoio, classeInput = '', ...input }: Props) {
+export function CampoVeiculo({ id, label, erro, apoio, classeInput = '', prefixo, ...input }: Props) {
   const apoioId = `${id}-apoio`;
   const erroId = `${id}-erro`;
   const descritoPor = [apoio ? apoioId : '', erro ? erroId : ''].filter(Boolean).join(' ') || undefined;
   return (
     <div>
       <label htmlFor={id} className="block text-xs font-semibold text-slate-700">{label}</label>
-      <input
-        {...input}
-        id={id}
-        aria-invalid={erro ? 'true' : undefined}
-        aria-describedby={descritoPor}
-        className={`${classeCampoVeiculo(erro)} ${classeInput}`}
-      />
+      <div className="relative">
+        {prefixo && (
+          <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1 flex min-h-11 items-center text-base font-semibold text-slate-600 sm:text-xs">{prefixo}</span>
+        )}
+        <input
+          {...input}
+          id={id}
+          aria-invalid={erro ? 'true' : undefined}
+          aria-describedby={descritoPor}
+          className={`${classeCampoVeiculo(erro)} ${prefixo ? 'pl-10' : ''} ${classeInput}`}
+        />
+      </div>
       {apoio && <div id={apoioId} className="mt-1 text-[12px] text-slate-500">{apoio}</div>}
       {erro && (
         <p id={erroId} role="alert" className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-red-700">

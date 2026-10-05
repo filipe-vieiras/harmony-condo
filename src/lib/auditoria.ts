@@ -134,6 +134,9 @@ export function descreverAuditoria(acao: string, detalhesBrutos: DetalhesAuditor
     const estado = STATUS_DA_MULTA[str(d.statusAnterior)];
     const partes = [un, tipo, estado ? `estava ${estado}` : ''].filter(Boolean).join(', ');
     frase = `${multa(d)}${partes ? ` (${partes})` : ''} apagada.`;
+  } else if (/^(Passou a bloquear|Deixou de bloquear) /.test(acao)) {
+    // Gravado pelo banco (0038); a acao já é a frase completa e não traz dado pessoal.
+    frase = `${acao}.`;
   } else if (/^Alterou um veículo da unidade /.test(acao)) {
     // Gravado pelo banco (0031); a acao já é a frase completa (quais campos mudaram), sem placa.
     // O de-para (placa antiga e nova, marca, cor...) fica em `alteracoes`, nos detalhes técnicos.

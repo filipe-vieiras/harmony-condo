@@ -183,6 +183,13 @@ export interface CommonSpace {
   ativo?: boolean;
   /** Se true, o pedido nasce PENDENTE e a equipe decide; se false, o banco já grava APROVADA (0034). */
   exigeAprovacao: boolean;
+  /**
+   * Cobrança por faixa (0039). Os dois nulos = grátis para qualquer número de pessoas.
+   * Preenchidos: grátis até `faixaGratisAte` pessoas (inclusive) e, acima disso, `faixaValor` fixo.
+   * `faixaGratisAte` 0 = cobra de todos. O cálculo de verdade é do banco (valor_reserva).
+   */
+  faixaGratisAte?: number | null;
+  faixaValor?: number | null;
 }
 
 export type ReservationStatus = 'PENDENTE' | 'APROVADA' | 'RECUSADA' | 'CANCELADA';
@@ -198,7 +205,12 @@ export interface Reservation {
   data: string; // YYYY-MM-DD
   horarioInicio: string;
   horarioFim: string;
+  /** Número de pessoas declarado (a coluna se chama convidados_estimados). */
   convidadosEstimados: number;
+  /** Valor de uso gravado pelo banco na criação (0039). Undefined = reserva anterior à regra. */
+  valorUso?: number;
+  /** Taxa de higienização do momento do pedido (0039). Undefined = reserva anterior à regra. */
+  taxaHigienizacao?: number;
   status: ReservationStatus;
   motivoRecusa?: string;
   dataSolicitacao: string;

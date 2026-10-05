@@ -12,6 +12,8 @@ import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidac
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
 import { ReservasCalendario } from '@/components/reservas/ReservasCalendario';
+import { CampoVeiculo } from '@/components/ui/CampoVeiculo';
+import { previaDaFaixa, textoValorModal, valorDaReserva, valorUsoDoEspaco } from '@/lib/valorEspaco';
 import { dataLonga, hojeBrasilia, somarDias } from '@/lib/datasReservas';
 import {
   CalendarDays,
@@ -69,9 +71,11 @@ function ReservasContent() {
     addSpace,
     updateSpace,
     deleteSpace,
+    bloqueiosDoEspaco,
     reservations, 
     requestReservation, 
     buscarDisponibilidade,
+    buscarValorReserva,
     judgeReservation 
   } = useApp();
   const { confirm, askReason } = useDialog();
@@ -82,7 +86,13 @@ function ReservasContent() {
   const [dataReserva, setDataReserva] = useState('');
   const [horarioInicio, setHorarioInicio] = useState('12:00');
   const [horarioFim, setHorarioFim] = useState('18:00');
-  const [convidados, setConvidados] = useState(15);
+  // Texto do campo (não número): apagar para digitar outro valor não pode virar "0" no meio do caminho.
+  const [convidados, setConvidados] = useState('15');
+  const [tentouEnviar, setTentouEnviar] = useState(false);
+  // Valor devolvido pelo banco para (espaço, pessoas); `chave` impede mostrar o valor de outra conta.
+  const [previaValor, setPreviaValor] = useState<{ chave: string; valor: number | null } | null>(null);
+  const buscarValorRef = useRef(buscarValorReserva);
+  useEffect(() => { buscarValorRef.current = buscarValorReserva; });
   const [termoAceito, setTermoAceito] = useState(false);
   const [reservaMoradorNome, setReservaMoradorNome] = useState('');
   const [reservaBloco, setReservaBloco] = useState('A');
@@ -110,6 +120,15 @@ function ReservasContent() {
   const [spaceImagemUrl, setSpaceImagemUrl] = useState('');
   const [spaceAtivo, setSpaceAtivo] = useState(true);
   const [spaceExigeAprovacao, setSpaceExigeAprovacao] = useState(true);
+  // Valor de uso por faixa e bloqueios entre espaços (issue #81). Os valores digitados de cada opção
+  // ficam guardados ao trocar de rádio, mas só os da opção marcada vão para o banco.
+  const [spaceValorModo, setSpaceValorModo] = useState<'GRATIS' | 'FAIXA'>('GRATIS');
+  const [spaceFaixaAte, setSpaceFaixaAte] = useState('');
+  const [spaceFaixaCentavos, setSpaceFaixaCentavos] = useState('');
+  const [spaceBloqueios, setSpaceBloqueios] = useState<string[]>([]);
+  const [spaceBloqueiosOriginais, setSpaceBloqueiosOriginais] = useState<string[]>([]);
+  const [tentouSalvarEspaco, setTentouSalvarEspaco] = useState(false);
+  const [espacoFormError, setEspacoFormError] = useState<string | null>(null);
 
   const isSindico = isAdmin(currentUser?.role);
   // Equipe sem unidade própria (Síndico/ADM/Portaria) precisa informar de qual
@@ -169,6 +188,13 @@ function ReservasContent() {
     setSpaceImagemUrl('');
     setSpaceAtivo(true);
     setSpaceExigeAprovacao(true);
+    setSpaceValorModo('GRATIS');
+    setSpaceFaixaAte('');
+    setSpaceFaixaCentavos('');
+    setSpaceBloqueios([]);
+    setSpaceBloqueiosOriginais([]);
+    setTentouSalvarEspaco(false);
+    setEspacoFormError(null);
     setShowSpaceModal(true);
   };
 
@@ -183,41 +209,74 @@ function ReservasContent() {
     setSpaceImagemUrl(s.imagemUrl);
     setSpaceAtivo(s.ativo !== false);
     setSpaceExigeAprovacao(s.exigeAprovacao !== false);
+    const comFaixa = s.faixaGratisAte != null && s.faixaValor != null;
+    setSpaceValorModo(comFaixa ? 'FAIXA' : 'GRATIS');
+    setSpaceFaixaAte(comFaixa ? String(s.faixaGratisAte) : '');
+    setSpaceFaixaCentavos(comFaixa ? String(Math.round((s.faixaValor ?? 0) * 100)) : '');
+    // O bloqueio vindo do outro lado aparece marcado do mesmo jeito: o par é um só.
+    const atuais = bloqueiosDoEspaco(s.id);
+    setSpaceBloqueios(atuais);
+    setSpaceBloqueiosOriginais(atuais);
+    setTentouSalvarEspaco(false);
+    setEspacoFormError(null);
     setShowSpaceModal(true);
   };
+
+  // Validação da faixa (a regra de verdade é do banco: spaces_faixa_check, 0039).
+  const capacidadeNum = Number(spaceCapacidadeMax);
+  const faixaAteNum = spaceFaixaAte.trim() === '' ? null : Number(spaceFaixaAte);
+  const faixaValorNum = Number(spaceFaixaCentavos || '0') / 100;
+  const erroFaixaAte = spaceValorModo !== 'FAIXA' ? ''
+    : faixaAteNum === null
+      ? (tentouSalvarEspaco ? 'Informe quantas pessoas entram sem pagar. Use 0 se o valor vale para todos.' : '')
+      : faixaAteNum >= capacidadeNum
+        ? `O limite grátis precisa ser menor que a capacidade máxima (${capacidadeNum} pessoas). Para ser sempre grátis, escolha a primeira opção.`
+        : '';
+  const erroFaixaValor = spaceValorModo === 'FAIXA' && tentouSalvarEspaco && !(faixaValorNum > 0) ? 'Informe o valor em reais, maior que zero.' : '';
+  const faixaInvalida = spaceValorModo === 'FAIXA' && (faixaAteNum === null || faixaAteNum >= capacidadeNum || !(faixaValorNum > 0));
+  const previaFaixa = previaDaFaixa(spaceValorModo, faixaAteNum, faixaValorNum > 0 ? faixaValorNum : null);
 
   const handleSaveSpace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!spaceNome) return;
+    setEspacoFormError(null);
+    if (faixaInvalida) {
+      setTentouSalvarEspaco(true);
+      // Leva o foco ao primeiro campo com erro (leitor de tela e teclado).
+      setTimeout(() => document.querySelector<HTMLElement>('#espaco-modal [aria-invalid="true"]')?.focus(), 0);
+      return;
+    }
 
     const regrasList = spaceRegras.split('\n').map((r) => r.trim()).filter(Boolean);
+    const dados = {
+      nome: spaceNome,
+      descricao: spaceDescricao,
+      capacidadeMax: Number(spaceCapacidadeMax),
+      horarioFuncionamento: spaceHorario,
+      taxaLimpeza: Number(spaceTaxaLimpeza),
+      regras: regrasList,
+      imagemUrl: spaceImagemUrl || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80',
+      ativo: spaceAtivo,
+      exigeAprovacao: spaceExigeAprovacao,
+      // Só os valores da opção marcada vão para o banco (null = grátis para qualquer número de pessoas).
+      faixaGratisAte: spaceValorModo === 'FAIXA' ? faixaAteNum : null,
+      faixaValor: spaceValorModo === 'FAIXA' ? faixaValorNum : null,
+    };
+    const bloqueiosMudaram = spaceBloqueios.length !== spaceBloqueiosOriginais.length
+      || spaceBloqueios.some((id) => !spaceBloqueiosOriginais.includes(id));
 
-    if (editingSpaceId) {
-      await updateSpace(editingSpaceId, {
-        nome: spaceNome,
-        descricao: spaceDescricao,
-        capacidadeMax: Number(spaceCapacidadeMax),
-        horarioFuncionamento: spaceHorario,
-        taxaLimpeza: Number(spaceTaxaLimpeza),
-        regras: regrasList,
-        imagemUrl: spaceImagemUrl || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80',
-        ativo: spaceAtivo,
-        exigeAprovacao: spaceExigeAprovacao,
-      });
-      setFeedbackMsg({ type: 'success', text: `Espaço "${spaceNome}" atualizado com sucesso!` });
+    const res = editingSpaceId
+      ? await updateSpace(editingSpaceId, dados, bloqueiosMudaram ? spaceBloqueios : undefined)
+      : await addSpace(dados, spaceBloqueios);
+    if (!res.success) {
+      setEspacoFormError('Não foi possível salvar o espaço agora. Seus dados continuam aqui, tente de novo.');
+      return;
+    }
+    if (res.bloqueiosFalharam) {
+      // O espaço já foi salvo; só o bloqueio ficou de fora. Nada fica "meio configurado".
+      setFeedbackMsg({ type: 'error', text: `Espaço "${spaceNome}" salvo, mas não foi possível gravar os bloqueios. Abra o espaço de novo e salve para repetir.` });
     } else {
-      await addSpace({
-        nome: spaceNome,
-        descricao: spaceDescricao,
-        capacidadeMax: Number(spaceCapacidadeMax),
-        horarioFuncionamento: spaceHorario,
-        taxaLimpeza: Number(spaceTaxaLimpeza),
-        regras: regrasList,
-        imagemUrl: spaceImagemUrl || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80',
-        ativo: spaceAtivo,
-        exigeAprovacao: spaceExigeAprovacao,
-      });
-      setFeedbackMsg({ type: 'success', text: `Espaço "${spaceNome}" cadastrado com sucesso!` });
+      setFeedbackMsg({ type: 'success', text: `Espaço "${spaceNome}" ${editingSpaceId ? 'atualizado' : 'cadastrado'} com sucesso!` });
     }
     setShowSpaceModal(false);
   };
@@ -269,9 +328,36 @@ function ReservasContent() {
     ? reservations.filter((r) => r.data === dataReserva && (r.status === 'PENDENTE' || r.status === 'APROVADA'))
     : [];
 
+  // ── Número de pessoas e valor de uso (prévia pela função do banco) ──
+  const pessoasNum = Number(convidados);
+  const pessoasInformadas = convidados.trim() !== '' && Number.isInteger(pessoasNum) && pessoasNum >= 1;
+  const acimaDaCapacidade = !!espacoEscolhido && pessoasInformadas && pessoasNum > espacoEscolhido.capacidadeMax;
+  const chavePrevia = espacoEscolhido && pessoasInformadas && !acimaDaCapacidade ? `${espacoEscolhido.id}|${pessoasNum}` : null;
+  // Debounce de ~400 ms: o valor só é pedido ao banco quando a pessoa para de digitar.
+  useEffect(() => {
+    if (!showModal || !chavePrevia) return;
+    const [espacoId, pessoas] = chavePrevia.split('|');
+    let cancelado = false;
+    const t = setTimeout(() => {
+      buscarValorRef.current(espacoId, Number(pessoas)).then((valor) => {
+        if (!cancelado) setPreviaValor({ chave: chavePrevia, valor });
+      });
+    }, 400);
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [showModal, chavePrevia, recarregarKey]);
+  const previaAtual = chavePrevia && previaValor?.chave === chavePrevia ? previaValor : null;
+  let textoValor = '';
+  if (!pessoasInformadas) textoValor = 'Informe o número de convidados para ver o valor.';
+  else if (chavePrevia) {
+    if (!previaAtual) textoValor = 'Calculando o valor…';
+    else if (previaAtual.valor === null) textoValor = 'Não foi possível mostrar o valor agora. Ele é calculado ao enviar.';
+    else if (espacoEscolhido) textoValor = textoValorModal(espacoEscolhido, previaAtual.valor);
+  }
+
   const abrirModalReserva = (opcoes: { dia?: string; espacoId?: string }) => {
     setFeedbackMsg(null);
     setReservaFormError(null);
+    setTentouEnviar(false);
     setDataReserva(opcoes.dia ?? '');
     setDataFixa(!!opcoes.dia);
     if (opcoes.espacoId) setSelectedSpaceId(opcoes.espacoId);
@@ -302,6 +388,7 @@ function ReservasContent() {
     e.preventDefault();
     if (enviando) return; // trava contra duplo clique
     setReservaFormError(null);
+    setTentouEnviar(true);
     if (!termoAceito) {
       setReservaFormError('É obrigatório aceitar o regulamento e normas de uso do espaço.');
       return;
@@ -315,15 +402,20 @@ function ReservasContent() {
       return;
     }
     if (!espacoEscolhido) {
-      setReservaFormError('Não há espaço livre neste dia. Escolha outro dia.');
+      setReservaFormError('Nenhum espaço disponível neste dia. Escolha outro dia.');
       return;
     }
     if (horarioFim <= horarioInicio) {
       setReservaFormError('O horário de término precisa ser depois do início.');
       return;
     }
-    if (Number(convidados) > espacoEscolhido.capacidadeMax) {
-      setReservaFormError(`Este espaço comporta até ${espacoEscolhido.capacidadeMax} convidados.`);
+    if (!pessoasInformadas) {
+      setReservaFormError('Informe o número de convidados para ver o valor.');
+      return;
+    }
+    if (acimaDaCapacidade) {
+      // A mensagem completa já está visível junto do campo (com role="alert" a partir daqui).
+      document.getElementById('reserva-convidados')?.focus();
       return;
     }
     if (isStaff && !reservaMoradorNome.trim()) {
@@ -338,7 +430,7 @@ function ReservasContent() {
         data: dataReserva,
         horarioInicio,
         horarioFim,
-        convidadosEstimados: Number(convidados),
+        convidadosEstimados: pessoasNum,
         ...(isStaff ? { moradorNome: reservaMoradorNome.trim(), bloco: reservaBloco, unidade: reservaUnidade.trim() } : {}),
       });
       // Qualquer resposta (sucesso ou conflito) muda a disponibilidade: o calendário consulta de novo.
@@ -524,12 +616,35 @@ function ReservasContent() {
                       <span>Horário permitido:</span>
                       <strong className="text-slate-900">{spc.horarioFuncionamento}</strong>
                     </div>
+                    {/* Valor por faixa de pessoas (não é selo): visível a todos, o morador vê antes de pedir. */}
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="shrink-0">Valor de uso:</span>
+                      <strong className="text-right text-primary">{valorUsoDoEspaco(spc)}</strong>
+                    </div>
                     <div className="flex items-center justify-between">
                       <span>Taxa de higienização:</span>
                       <strong className="text-primary">
                         {spc.taxaLimpeza > 0 ? formatarMoeda(spc.taxaLimpeza) : 'Isento'}
                       </strong>
                     </div>
+                    {/* Só a gestão lê os bloqueios (RLS): o morador nunca vê esta linha nem o motivo de um dia indisponível. */}
+                    {isSindico && (() => {
+                      const nomes = bloqueiosDoEspaco(spc.id)
+                        .map((id) => spaces.find((o) => o.id === id)?.nome)
+                        .filter((n): n is string => !!n)
+                        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+                      if (nomes.length === 0) return null;
+                      return (
+                        <p className="flex items-start gap-1.5 pt-1 text-[12px] text-slate-600">
+                          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          {nomes.length > 2 ? (
+                            <span>Não reservável no mesmo dia que {nomes.length} espaços<br />{nomes.join(', ')}.</span>
+                          ) : (
+                            <span>Não reservável no mesmo dia que: {nomes.join(', ')}.</span>
+                          )}
+                        </p>
+                      );
+                    })()}
                   </div>
 
                   <div className="mt-3 rounded-xl bg-slate-50 p-2.5 text-[12px] text-slate-600 space-y-1">
@@ -616,6 +731,7 @@ function ReservasContent() {
                   <th className="px-4 py-3.5">Espaço Comum</th>
                   <th className="px-4 py-3.5">Data & Turno</th>
                   <th className="px-4 py-3.5">Unidade / Morador</th>
+                  <th className="px-4 py-3.5">Valor</th>
                   <th className="px-4 py-3.5">Status</th>
                   <th className="px-4 py-3.5">Avaliação / Parecer</th>
                   {isAdmin(currentUser?.role) && (
@@ -626,7 +742,7 @@ function ReservasContent() {
               <tbody className="divide-y divide-slate-100">
                 {reservations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
+                    <td colSpan={7} className="px-5 py-8 text-center text-slate-500">
                       Nenhuma reserva registrada até o momento.
                     </td>
                   </tr>
@@ -650,6 +766,10 @@ function ReservasContent() {
                             Apto {r.unidade} - Bloco {r.bloco}
                           </div>
                           <div className="text-[12px] text-slate-500">{r.moradorNome}</div>
+                        </td>
+                        {/* "—" só para reserva anterior à regra (sem valor gravado); "Grátis" é decisão do espaço. */}
+                        <td data-label="Valor" className="px-4 py-3.5 font-semibold text-slate-900 md:whitespace-nowrap">
+                          {valorDaReserva(r.valorUso)}
                         </td>
                         <td data-label="Status" className="px-4 py-3.5 md:whitespace-nowrap">
                           <Badge className={`${st.bg} ${st.text}`}>{st.label}</Badge>
@@ -881,7 +1001,7 @@ function ReservasContent() {
                             <Badge icon={<Check className="h-3 w-3" aria-hidden="true" />} className="bg-emerald-100 text-emerald-800">Livre</Badge>
                           )}
                           {sit === 'OCUPADO' && (
-                            <Badge icon={<Lock className="h-3 w-3" aria-hidden="true" />} className="bg-slate-100 text-slate-700">Ocupado neste dia</Badge>
+                            <Badge icon={<Lock className="h-3 w-3" aria-hidden="true" />} className="bg-slate-100 text-slate-700">Indisponível neste dia</Badge>
                           )}
                           {sit === 'MANUTENCAO' && (
                             <Badge icon={<AlertTriangle className="h-3 w-3" aria-hidden="true" />} className="bg-pendente-100 text-pendente-800">Em manutenção</Badge>
@@ -892,7 +1012,7 @@ function ReservasContent() {
                     })}
                   </div>
                   {dataValida && !verificandoDia && !espacoEscolhido && (
-                    <p className="mt-2 text-xs font-semibold text-slate-700">Nenhum espaço livre neste dia. Escolha outro dia.</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-700">Nenhum espaço disponível neste dia. Escolha outro dia.</p>
                   )}
                 </div>
 
@@ -926,19 +1046,36 @@ function ReservasContent() {
 
                 <div>
                   <label htmlFor="reserva-convidados" className="block text-xs font-semibold text-slate-700">
-                    Estimativa de convidados{espacoEscolhido ? ` (máximo ${espacoEscolhido.capacidadeMax})` : ''}
+                    Número de pessoas{espacoEscolhido ? ` (máximo ${espacoEscolhido.capacidadeMax})` : ''}
                   </label>
                   <input
                     id="reserva-convidados"
                     type="number"
+                    inputMode="numeric"
                     min="1"
-                    max={espacoEscolhido?.capacidadeMax}
-                    required
                     value={convidados}
-                    onChange={(e) => setConvidados(Number(e.target.value))}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                    onChange={(e) => setConvidados(e.target.value)}
+                    aria-invalid={acimaDaCapacidade ? 'true' : undefined}
+                    aria-describedby="reserva-convidados-valor"
+                    className={`mt-1 w-full rounded-xl border px-3 py-2 text-base focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0 sm:text-xs ${acimaDaCapacidade ? 'border-red-600' : 'border-slate-200'}`}
                   />
+                  {/* Valor calculado pelo banco, atualizado enquanto a pessoa digita. Acima da capacidade
+                      não mostra valor: só o aviso (com role="alert" depois da tentativa de enviar). */}
+                  <div id="reserva-convidados-valor" aria-live="polite" aria-atomic="true" className="mt-1.5 text-xs font-semibold">
+                    {acimaDaCapacidade && espacoEscolhido ? (
+                      <p role={tentouEnviar ? 'alert' : undefined} className="flex items-start gap-1.5 text-red-700">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        <span>Este espaço comporta até {espacoEscolhido.capacidadeMax} convidados. Reduza o número para continuar.</span>
+                      </p>
+                    ) : espacoEscolhido ? (
+                      <p className={pessoasInformadas && previaAtual?.valor != null ? 'text-slate-900' : 'font-normal text-slate-600'}>{textoValor}</p>
+                    ) : null}
+                  </div>
                 </div>
+
+                {espacoEscolhido && (
+                  <p className="-mt-2 text-[12px] text-slate-600">O valor é lançado pela administração na sua taxa. O Harmony só mostra o cálculo.</p>
+                )}
 
                 {espacoEscolhido && (
                   <p className="text-xs text-slate-700">
@@ -1022,6 +1159,7 @@ function ReservasContent() {
           <div
             role="dialog"
             aria-modal="true"
+            id="espaco-modal"
             aria-labelledby="espaco-modal-title"
             className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
           >
@@ -1103,8 +1241,10 @@ function ReservasContent() {
                     required
                     value={spaceTaxaLimpeza}
                     onChange={(e) => setSpaceTaxaLimpeza(Number(e.target.value))}
+                    aria-describedby="espaco-taxa-ajuda"
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                   />
+                  <p id="espaco-taxa-ajuda" className="mt-1 text-[12px] text-slate-500">Cobrada à parte, sempre que o espaço é reservado.</p>
                 </div>
               </div>
 
@@ -1159,6 +1299,104 @@ function ReservasContent() {
                 )}
               </div>
 
+              {/* Valor de uso: o Harmony só calcula e mostra; a cobrança é da administradora (o banco calcula, 0039) */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                <h4 className="text-[12px] font-bold uppercase tracking-wider text-slate-600">Valor de uso</h4>
+                <p className="mt-1 text-[12px] text-slate-600">O Harmony só calcula e mostra o valor ao morador. A cobrança é feita pela administradora.</p>
+                <fieldset className="mt-1">
+                  <legend className="sr-only">Como o valor de uso é cobrado</legend>
+                  {([['GRATIS', 'Grátis independente do número de pessoas'], ['FAIXA', 'Grátis até certo número de pessoas e, acima disso, valor fixo']] as const).map(([modo, rotulo]) => (
+                    <label key={modo} className="flex min-h-11 cursor-pointer items-center gap-2.5">
+                      <input
+                        type="radio"
+                        name="espaco-valor-modo"
+                        checked={spaceValorModo === modo}
+                        onChange={() => setSpaceValorModo(modo)}
+                        className="size-5 shrink-0 border-slate-300 text-primary focus:ring-accent-strong"
+                      />
+                      <span className="text-xs font-semibold text-slate-700">{rotulo}</span>
+                    </label>
+                  ))}
+                </fieldset>
+                {spaceValorModo === 'FAIXA' && (
+                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <CampoVeiculo
+                      id="espaco-faixa-ate"
+                      label="Grátis até (pessoas)"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={spaceFaixaAte}
+                      onChange={(e) => setSpaceFaixaAte(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      erro={erroFaixaAte}
+                    />
+                    <CampoVeiculo
+                      id="espaco-faixa-valor"
+                      label="Valor acima disso (R$)"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      prefixo="R$"
+                      placeholder="0,00"
+                      value={spaceFaixaCentavos ? (Number(spaceFaixaCentavos) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                      // Máscara de moeda: só dígitos, lidos como centavos (150,00 = "15000").
+                      onChange={(e) => setSpaceFaixaCentavos(e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9))}
+                      erro={erroFaixaValor}
+                    />
+                  </div>
+                )}
+                <p aria-live="polite" className="mt-2 text-xs font-semibold text-slate-900">{previaFaixa}</p>
+                <p className="mt-1 text-[12px] text-slate-600">A taxa de higienização não entra neste valor.</p>
+              </div>
+
+              {/* Bloqueios: simétricos (marcar de um lado vale para os dois), no mesmo dia, sem cadeia */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                <h4 className="text-[12px] font-bold uppercase tracking-wider text-slate-600">Bloqueios</h4>
+                <p id="espaco-bloqueios-ajuda" className="mt-1 text-[12px] text-slate-600">
+                  Marque os espaços que não podem ser reservados no mesmo dia que este. Vale nos dois sentidos: se você marcar o Salão de Festas aqui, este espaço também fica indisponível quando o Salão for reservado, e o Salão quando este for reservado. Reservas aguardando aprovação também bloqueiam.
+                </p>
+                {(() => {
+                  const outros = spaces.filter((o) => o.id !== editingSpaceId);
+                  if (outros.length === 0) {
+                    return <p className="mt-2 text-[12px] text-slate-600">Não há outros espaços cadastrados. Quando houver, você poderá marcar aqui os que não podem ser usados no mesmo dia.</p>;
+                  }
+                  // Aviso para o que acabou de ser marcado e já tem reservas futuras: elas continuam valendo.
+                  const avisos = spaceBloqueios
+                    .filter((id) => !spaceBloqueiosOriginais.includes(id))
+                    .map((id) => ({
+                      nome: spaces.find((o) => o.id === id)?.nome ?? '',
+                      qtd: reservations.filter((r) => r.espacoId === id && r.data >= hoje && (r.status === 'PENDENTE' || r.status === 'APROVADA')).length,
+                    }))
+                    .filter((a) => a.nome && a.qtd > 0);
+                  return (
+                    <>
+                      <fieldset aria-describedby="espaco-bloqueios-ajuda" className="mt-1">
+                        <legend className="text-xs font-semibold text-slate-700">Espaços que este espaço bloqueia</legend>
+                        {outros.map((o) => (
+                          <label key={o.id} className="flex min-h-11 cursor-pointer items-center gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={spaceBloqueios.includes(o.id)}
+                              onChange={(e) => setSpaceBloqueios((prev) => (e.target.checked ? [...prev, o.id] : prev.filter((id) => id !== o.id)))}
+                              className="size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent-strong"
+                            />
+                            <span className="text-xs font-semibold text-slate-700">{o.nome}{o.ativo === false ? ' (inativo)' : ''}</span>
+                          </label>
+                        ))}
+                      </fieldset>
+                      <div aria-live="polite" className="space-y-2">
+                        {avisos.map((a) => (
+                          <div key={a.nome} className="mt-2 flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 p-3 text-[12px] text-pendente-900">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-pendente-700" aria-hidden="true" />
+                            <span>Atenção: o {a.nome} já tem reservas futuras ({a.qtd}). Elas continuam valendo; o bloqueio só impede novos pedidos nos dias em que já houver reserva em um dos dois espaços.</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
               <label className="flex min-h-11 items-center gap-2 cursor-pointer pt-1">
                 <input
                   type="checkbox"
@@ -1170,6 +1408,13 @@ function ReservasContent() {
                   Espaço disponível para reservas (desmarque se estiver em manutenção)
                 </span>
               </label>
+
+              {espacoFormError && (
+                <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" aria-hidden="true" />
+                  <span>{espacoFormError}</span>
+                </div>
+              )}
 
               <div className="mt-5 flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
