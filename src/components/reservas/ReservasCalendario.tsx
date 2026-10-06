@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Ban, Check, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Clock, Lock } from 'lucide-react';
 import type { CommonSpace, Reservation } from '@/types';
 import {
   DIAS_SEMANA_ABREV,
@@ -16,7 +16,6 @@ import {
   somarDias,
   somarMeses,
 } from '@/lib/datasReservas';
-import { pluralizar } from '@/lib/formatadores';
 
 interface Props {
   spaces: CommonSpace[];
@@ -30,7 +29,14 @@ interface Props {
   recarregarKey: number;
   diaSelecionado: string | null;
   onSelecionarDia: (dia: string) => void;
+  /** Espaço que o calendário mostra (chip escolhido). null = todos os espaços (só a equipe usa). */
+  espacoId: string | null;
+  /** Só a gestão recebe (RLS): serve para dizer "Bloqueado pelo X" ao invés de só "Ocupado". */
+  bloqueiosDoEspaco?: (espacoId: string) => string[];
 }
+
+type Estado = 'livre' | 'ocupado' | 'aguardando' | 'confirmada';
+interface Item { nome: string; pendente: boolean }
 
 const MESES_A_FRENTE = 11; // mês atual + 11 = 12 meses
 
@@ -40,15 +46,15 @@ function titulo(iso: string) {
 }
 
 /**
- * Calendário mensal de reservas, sem biblioteca. Uma marca por dia (não por espaço):
- *  - algum espaço livre: número normal + ponto e "N livres";
- *  - todos ocupados: "Cheio";
- *  - o usuário enxerga uma reserva naquele dia (a equipe, qualquer uma; o morador, as da
- *    própria unidade): "Aguardando" ou "Confirmada".
+ * Calendário mensal de reservas, sem biblioteca. Mostra UM espaço por vez (o chip escolhido):
+ *  - Livre, Ocupado (inclusive por bloqueio de outro espaço, sem dizer o motivo ao morador);
+ *  - Aguardando / Confirmada: há reserva do usuário naquele espaço (a equipe enxerga qualquer uma;
+ *    o morador, as da própria unidade).
+ * Com "Todos" (só a equipe), cada dia traz uma etiqueta por espaço reservado (máximo 3 e "+N").
  * Teclado no padrão ARIA grid: setas, Home/End, PageUp/PageDown, Enter/Espaço.
  * Texto nunca depende só de cor; só o mês visível é consultado.
  */
-export function ReservasCalendario({ spaces, reservations, ehEquipe, buscar, recarregarKey, diaSelecionado, onSelecionarDia }: Props) {
+export function ReservasCalendario({ spaces, reservations, ehEquipe, buscar, recarregarKey, diaSelecionado, onSelecionarDia, espacoId, bloqueiosDoEspaco }: Props) {
   const hoje = hojeBrasilia();
   const minMes = somarMeses(hoje, 0);
   const maxMes = somarMeses(hoje, MESES_A_FRENTE);
@@ -80,25 +86,26 @@ export function ReservasCalendario({ spaces, reservations, ehEquipe, buscar, rec
     return () => { cancelado = true; };
   }, [mes, hoje, recarregarKey, tentativa]);
 
-  const ativos = useMemo(() => spaces.filter((s) => s.ativo !== false), [spaces]);
+  const espaco = useMemo(() => (espacoId ? spaces.find((s) => s.id === espacoId) ?? null : null), [spaces, espacoId]);
+  const modoTodos = !espaco;
 
   // Reservas que o usuário enxerga, por dia, só PENDENTE e APROVADA (as demais liberam o dia).
-  const minhasPorDia = useMemo(() => {
-    const m = new Map<string, { pendentes: number; confirmadas: number }>();
+  const ativasPorDia = useMemo(() => {
+    const m = new Map<string, Reservation[]>();
     for (const r of reservations) {
       if (r.status !== 'PENDENTE' && r.status !== 'APROVADA') continue;
-      const atual = m.get(r.data) ?? { pendentes: 0, confirmadas: 0 };
-      if (r.status === 'PENDENTE') atual.pendentes++; else atual.confirmadas++;
-      m.set(r.data, atual);
+      const lista = m.get(r.data) ?? [];
+      lista.push(r);
+      m.set(r.data, lista);
     }
     return m;
   }, [reservations]);
 
-  const ocupadoNoDia = useCallback((espacoId: string, dia: string) => {
-    if (resultado?.ocupados?.has(`${espacoId}|${dia}`)) return true;
+  const ocupadoNoDia = useCallback((id: string, dia: string) => {
+    if (resultado?.ocupados?.has(`${id}|${dia}`)) return true;
     // Dado local (a própria unidade ou a equipe) é mais novo que a consulta: vale também.
-    return reservations.some((r) => r.espacoId === espacoId && r.data === dia && (r.status === 'PENDENTE' || r.status === 'APROVADA'));
-  }, [resultado, reservations]);
+    return (ativasPorDia.get(dia) ?? []).some((r) => r.espacoId === id);
+  }, [resultado, ativasPorDia]);
 
   // Semanas do mês (domingo a sábado); células de fora do mês ficam vazias.
   const semanas = useMemo(() => {
@@ -112,29 +119,38 @@ export function ReservasCalendario({ spaces, reservations, ehEquipe, buscar, rec
     return linhas;
   }, [mes]);
 
-  const resumoDia = useCallback((dia: string) => {
-    const passado = dia < hoje;
-    const livres = ativos.filter((s) => !ocupadoNoDia(s.id, dia)).length;
-    const minhas = minhasPorDia.get(dia);
-    return { passado, livres, cheio: ativos.length === 0 || livres === 0, minhas };
-  }, [hoje, ativos, ocupadoNoDia, minhasPorDia]);
+  // Situação de um dia para o espaço escolhido.
+  const estadoDoDia = useCallback((dia: string): { estado: Estado; bloqueadoPor?: string } => {
+    if (!espaco) return { estado: 'livre' };
+    const doEspaco = (ativasPorDia.get(dia) ?? []).filter((r) => r.espacoId === espaco.id);
+    if (doEspaco.length > 0) return { estado: doEspaco.some((r) => r.status === 'PENDENTE') ? 'aguardando' : 'confirmada' };
+    if (!ocupadoNoDia(espaco.id, dia)) return { estado: 'livre' };
+    // Ocupado sem reserva própria: bloqueio por outro espaço. O motivo é só da gestão.
+    const parceiros = bloqueiosDoEspaco?.(espaco.id) ?? [];
+    const quem = (ativasPorDia.get(dia) ?? []).find((r) => r.espacoId && parceiros.includes(r.espacoId));
+    return { estado: 'ocupado', bloqueadoPor: quem?.espacoNome };
+  }, [espaco, ativasPorDia, ocupadoNoDia, bloqueiosDoEspaco]);
+
+  // "Todos": uma etiqueta por reserva do dia (só o que o usuário enxerga).
+  const itensDoDia = useCallback((dia: string): Item[] => (
+    (ativasPorDia.get(dia) ?? []).map((r) => ({ nome: r.espacoNome, pendente: r.status === 'PENDENTE' }))
+  ), [ativasPorDia]);
 
   const rotuloDoDia = (dia: string): string => {
     const partes = [dataCurta(dia)];
     if (dia === hoje) partes.push('hoje');
-    const { passado, livres, cheio, minhas } = resumoDia(dia);
-    if (passado) { partes.push('passado', 'indisponível'); return partes.join(', '); }
-    if (!carregando && !erro) {
-      partes.push(cheio ? 'todos os espaços ocupados' : `${livres} ${livres === 1 ? 'espaço livre' : 'espaços livres'}`);
+    if (dia < hoje) { partes.push('passado', 'indisponível'); return partes.join(', '); }
+    if (carregando || erro) return partes.join(', ');
+    if (modoTodos) {
+      const itens = itensDoDia(dia);
+      partes.push(itens.length === 0 ? 'sem reservas' : itens.map((i) => `${i.nome}, ${i.pendente ? 'aguardando aprovação' : 'confirmada'}`).join('; '));
+      return partes.join(', ');
     }
-    if (minhas) {
-      if (ehEquipe) {
-        if (minhas.pendentes) partes.push(`${pluralizar(minhas.pendentes, 'reserva pendente', 'reservas pendentes')}`);
-        if (minhas.confirmadas) partes.push(`${pluralizar(minhas.confirmadas, 'reserva confirmada', 'reservas confirmadas')}`);
-      } else {
-        partes.push(minhas.pendentes ? 'sua reserva aguardando aprovação' : 'sua reserva confirmada');
-      }
-    }
+    const { estado, bloqueadoPor } = estadoDoDia(dia);
+    if (estado === 'livre') partes.push(`${espaco!.nome}: livre`);
+    else if (estado === 'ocupado') partes.push(bloqueadoPor ? `${espaco!.nome}: ocupado, bloqueado por ${bloqueadoPor}` : `${espaco!.nome}: ocupado`);
+    else if (ehEquipe) partes.push(`${espaco!.nome}, reserva ${estado === 'aguardando' ? 'aguardando aprovação' : 'confirmada'}`);
+    else partes.push(`sua reserva ${estado === 'aguardando' ? 'aguardando aprovação' : 'confirmada'}`);
     return partes.join(', ');
   };
 
@@ -196,10 +212,10 @@ export function ReservasCalendario({ spaces, reservations, ehEquipe, buscar, rec
 
   const noMesAtual = mes === minMes;
   const noUltimoMes = mes === maxMes;
-  const anuncio = carregando ? '' : erro ? 'Não foi possível carregar o calendário.' : `${titulo(mes)}.`;
+  const anuncio = carregando ? '' : erro ? 'Não foi possível carregar o calendário.' : `${titulo(mes)}${espaco ? `, ${espaco.nome}` : ', todos os espaços'}.`;
 
   return (
-    <section aria-label="Calendário de reservas" className="no-print rounded-2xl border border-slate-200 bg-white p-2 shadow-xs sm:p-5">
+    <section aria-label={`Calendário de reservas${espaco ? `, ${espaco.nome}` : ', todos os espaços'}`} className="no-print rounded-2xl border border-slate-200 bg-white p-2 shadow-xs sm:p-5">
       {/* Navegação do mês */}
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-lg font-bold text-slate-900 sm:text-xl">{titulo(mes)}</h2>
@@ -255,14 +271,14 @@ export function ReservasCalendario({ spaces, reservations, ehEquipe, buscar, rec
             </div>
             <div className="grid grid-cols-7 gap-0.5 sm:gap-1.5" aria-hidden="true">
               {Array.from({ length: 35 }, (_, i) => (
-                <div key={i} className="min-h-11 rounded-xl bg-slate-100 sm:min-h-[76px]" />
+                <div key={i} className={`min-h-12 rounded-xl bg-slate-100 ${modoTodos ? 'sm:min-h-[96px]' : 'sm:min-h-[76px]'}`} />
               ))}
             </div>
           </div>
         ) : (
           <div
             role="grid"
-            aria-label={`Calendário de reservas, ${rotuloMes(mes)}`}
+            aria-label={`Calendário de reservas${espaco ? `, ${espaco.nome}` : ''}, ${rotuloMes(mes)}`}
             onKeyDown={aoTeclar}
           >
             <div role="row" className="grid grid-cols-7 gap-0.5 pb-1 text-center text-[12px] font-bold text-slate-600 sm:gap-1.5">
@@ -284,7 +300,9 @@ export function ReservasCalendario({ spaces, reservations, ehEquipe, buscar, rec
                       selecionado={dia === diaSelecionado}
                       comFoco={dia === foco}
                       rotulo={rotuloDoDia(dia)}
-                      {...resumoDia(dia)}
+                      passado={dia < hoje}
+                      modoTodos={modoTodos}
+                      {...(modoTodos ? { itens: itensDoDia(dia) } : estadoDoDia(dia))}
                       onAbrir={() => { setFoco(dia); abrirDia(dia); }}
                       onFocar={() => setFoco(dia)}
                     />
@@ -300,9 +318,9 @@ export function ReservasCalendario({ spaces, reservations, ehEquipe, buscar, rec
 
       {/* Legenda: ícone e texto, nunca só cor */}
       <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-3 text-[12px] text-slate-700">
-        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-full bg-accent-strong" />Livre</li>
-        <li className="flex items-center gap-1.5"><Ban aria-hidden="true" className="h-3.5 w-3.5 text-slate-600" />Cheio</li>
-        <li className="flex items-center gap-1.5"><Clock aria-hidden="true" className="h-3.5 w-3.5 text-pendente-800" />Aguardando aprovação</li>
+        {!modoTodos && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-full bg-accent-strong" />Livre</li>}
+        {!modoTodos && <li className="flex items-center gap-1.5"><Lock aria-hidden="true" className="h-3.5 w-3.5 text-slate-600" />Ocupado</li>}
+        <li className="flex items-center gap-1.5"><Clock aria-hidden="true" className="h-3.5 w-3.5 text-pendente-800" />Aguardando</li>
         <li className="flex items-center gap-1.5"><Check aria-hidden="true" className="h-3.5 w-3.5 text-emerald-800" />Confirmada</li>
         <li className="flex items-center gap-1.5"><span aria-hidden="true" className="size-3.5 rounded-md ring-2 ring-primary" />Hoje</li>
       </ul>
@@ -326,45 +344,73 @@ interface CelulaProps {
   comFoco: boolean;
   rotulo: string;
   passado: boolean;
-  livres: number;
-  cheio: boolean;
-  minhas?: { pendentes: number; confirmadas: number };
+  modoTodos: boolean;
+  /** Um espaço: situação do dia. */
+  estado?: Estado;
+  bloqueadoPor?: string;
+  /** Todos: reservas do dia. */
+  itens?: Item[];
   onAbrir: () => void;
   onFocar: () => void;
 }
 
-function CelulaDia({ dia, numero, ehHoje, selecionado, comFoco, rotulo, passado, livres, cheio, minhas, onAbrir, onFocar }: CelulaProps) {
+const MAX_ETIQUETAS = 3;
+
+function CelulaDia({ numero, dia, ehHoje, selecionado, comFoco, rotulo, passado, modoTodos, estado, bloqueadoPor, itens = [], onAbrir, onFocar }: CelulaProps) {
+  const algumPendente = itens.some((i) => i.pendente);
+  // Cor de fundo da célula: só reforça; o texto e o ícone dizem o estado.
+  const situacao: 'livre' | 'ocupado' | 'aguardando' | 'confirmada' = modoTodos
+    ? (itens.length === 0 ? 'livre' : algumPendente ? 'aguardando' : 'confirmada')
+    : (estado ?? 'livre');
+
   let fundo = 'bg-white border-slate-200 text-slate-900 hover:bg-slate-50 cursor-pointer';
   if (passado) fundo = 'bg-transparent border-transparent text-slate-400 cursor-default';
   else if (selecionado) fundo = 'bg-primary border-primary text-white cursor-pointer';
-  else if (cheio && !minhas) fundo = 'bg-slate-100 border-slate-200 text-slate-700 cursor-pointer';
+  else if (situacao === 'ocupado') fundo = 'bg-slate-100 border-slate-200 text-slate-700 cursor-pointer';
+  else if (situacao === 'aguardando') fundo = 'bg-pendente-50 border-pendente-200 text-pendente-800 cursor-pointer hover:bg-pendente-100';
+  else if (situacao === 'confirmada') fundo = 'bg-emerald-50 border-emerald-200 text-emerald-800 cursor-pointer hover:bg-emerald-100';
 
   let marca: React.ReactNode = null;
-  if (!passado) {
-    if (minhas) {
-      marca = minhas.pendentes > 0 ? (
-        <span className="inline-flex items-center gap-1 rounded-full bg-pendente-100 px-1.5 py-0.5 text-[12px] font-bold leading-none text-pendente-800">
-          <Clock aria-hidden="true" className="h-3 w-3" /><span className="hidden sm:inline">Aguardando</span>
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[12px] font-bold leading-none text-emerald-800">
-          <Check aria-hidden="true" className="h-3 w-3" /><span className="hidden sm:inline">Confirmada</span>
-        </span>
-      );
-    } else if (cheio) {
-      marca = (
-        <span className="inline-flex items-center gap-1 text-[12px] font-bold leading-none text-slate-700">
-          <Ban aria-hidden="true" className="h-3.5 w-3.5" /><span className="hidden sm:inline">Cheio</span>
-        </span>
-      );
+  if (!passado && !modoTodos) {
+    if (situacao === 'aguardando') {
+      marca = <MarcaTexto icone={<Clock aria-hidden="true" className="h-3.5 w-3.5" />} texto="Aguardando" />;
+    } else if (situacao === 'confirmada') {
+      marca = <MarcaTexto icone={<Check aria-hidden="true" className="h-3.5 w-3.5" />} texto="Confirmada" />;
+    } else if (situacao === 'ocupado') {
+      marca = <MarcaTexto icone={<Lock aria-hidden="true" className="h-3.5 w-3.5" />} texto={bloqueadoPor ? `Bloqueado: ${bloqueadoPor}` : 'Ocupado'} />;
     } else {
       marca = (
         <span className={`inline-flex items-center gap-1 text-[12px] font-semibold leading-none ${selecionado ? 'text-white' : 'text-accent-strong'}`}>
           <span aria-hidden="true" className={`size-2 rounded-full ${selecionado ? 'bg-white' : 'bg-accent-strong'}`} />
-          <span className="hidden sm:inline">{livres} {livres === 1 ? 'livre' : 'livres'}</span>
+          <span className="hidden sm:inline">Livre</span>
         </span>
       );
     }
+  } else if (!passado && modoTodos && itens.length > 0) {
+    const Icone = algumPendente ? Clock : Check;
+    const visiveis = itens.length > MAX_ETIQUETAS ? itens.slice(0, MAX_ETIQUETAS - 1) : itens;
+    const resto = itens.length - visiveis.length;
+    marca = (
+      <>
+        {/* Celular: sem espaço para nomes; ícone do estado dominante e a quantidade. */}
+        <span className="inline-flex items-center gap-0.5 text-[12px] font-bold leading-none sm:hidden">
+          <Icone aria-hidden="true" className="h-3.5 w-3.5" />
+          {itens.length > 1 && <span>{itens.length}</span>}
+        </span>
+        <span className="hidden w-full flex-col gap-1 sm:flex">
+          {visiveis.map((it, i) => (
+            <span
+              key={i}
+              className={`flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-semibold leading-tight ${it.pendente ? 'bg-pendente-200 text-pendente-800' : 'bg-emerald-200 text-emerald-800'}`}
+            >
+              {it.pendente ? <Clock aria-hidden="true" className="h-3 w-3 shrink-0" /> : <Check aria-hidden="true" className="h-3 w-3 shrink-0" />}
+              <span className="truncate">{it.nome}</span>
+            </span>
+          ))}
+          {resto > 0 && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[12px] font-semibold leading-tight text-slate-700">+{resto}</span>}
+        </span>
+      </>
+    );
   }
 
   return (
@@ -377,11 +423,20 @@ function CelulaDia({ dia, numero, ehHoje, selecionado, comFoco, rotulo, passado,
       aria-selected={selecionado || undefined}
       onFocus={onFocar}
       onClick={passado ? undefined : (e) => { e.currentTarget.focus(); onAbrir(); }}
-      className={`flex min-h-11 select-none flex-col items-center justify-between gap-0.5 rounded-xl border p-1 text-xs transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:min-h-[76px] sm:items-start sm:p-2 ${fundo} ${ehHoje ? 'ring-2 ring-primary' : ''}`}
+      className={`flex min-h-12 select-none flex-col items-center justify-between gap-0.5 rounded-xl border p-1 text-xs transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong sm:items-start sm:p-2 ${modoTodos ? 'sm:min-h-[96px]' : 'sm:min-h-[76px]'} ${fundo} ${ehHoje ? 'ring-2 ring-primary' : ''}`}
     >
       <span aria-hidden="true" className={`text-sm leading-none ${ehHoje && !passado ? 'font-extrabold' : 'font-semibold'}`}>{numero}</span>
       {ehHoje && <span className="sr-only">hoje</span>}
-      <span aria-hidden="true" className="flex min-h-4 items-center">{marca}</span>
+      <span aria-hidden="true" className="flex min-h-4 w-full items-center justify-center sm:justify-start">{marca}</span>
     </div>
+  );
+}
+
+function MarcaTexto({ icone, texto }: { icone: React.ReactNode; texto: string }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 text-[12px] font-bold leading-none">
+      {icone}
+      <span className="hidden truncate sm:inline">{texto}</span>
+    </span>
   );
 }

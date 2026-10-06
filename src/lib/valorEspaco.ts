@@ -51,3 +51,23 @@ export function valorDaReserva(valor: number | undefined): string {
   if (valor === undefined) return '—';
   return valor > 0 ? formatarMoeda(valor) : 'Grátis';
 }
+
+/** Trecho curto do valor para o resumo do espaço: "grátis", "grátis até 10 pessoas" ou "R$ 90,00". */
+export function resumoCurtoDoValor(s: Faixa): string {
+  if (!temFaixa(s)) return 'grátis';
+  if (s.faixaGratisAte > 0) return `grátis até ${s.faixaGratisAte} ${s.faixaGratisAte === 1 ? 'pessoa' : 'pessoas'}`;
+  return `${formatarMoeda(s.faixaValor)} por reserva`;
+}
+
+/** Valor de uso por extenso para o bloco de detalhes: "Grátis até 10 pessoas · R$ 150,00 acima". */
+export function valorUsoPorExtenso(s: Faixa): string {
+  if (!temFaixa(s)) return 'Grátis';
+  if (s.faixaGratisAte > 0) return `Grátis até ${s.faixaGratisAte} ${s.faixaGratisAte === 1 ? 'pessoa' : 'pessoas'} · ${formatarMoeda(s.faixaValor)} acima`;
+  return `${formatarMoeda(s.faixaValor)} por reserva`;
+}
+
+/** Linha do valor no modal, a partir do que o banco devolveu: com valor, diz onde será cobrado. */
+export function textoValorPedido(s: Faixa, valor: number, ehEquipe: boolean): string {
+  if (valor > 0) return `Valor de uso: ${formatarMoeda(valor)}. ${ehEquipe ? 'Cobrado na taxa do condomínio da unidade.' : 'Cobrado na sua taxa do condomínio.'}`;
+  return textoValorModal(s, valor);
+}

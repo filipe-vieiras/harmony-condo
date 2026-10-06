@@ -173,8 +173,11 @@ const salao = espacos.find((e) => e.nome === 'Salão de Festas');
 const churras = espacos.find((e) => e.nome === 'Churrasqueira');
 
 // Reservas em dias diferentes (data de Brasília; a seed roda sem usuário, então o banco não mexe no status).
-// Salão: um pedido aguardando (A-101) e uma aprovada (A-102). Churrasqueira: confirmada automaticamente (A-102)
-// no mesmo dia do pedido do Salão, para o teste de "espaços diferentes no mesmo dia".
+// Salão: um pedido aguardando (A-101, dia 5) e uma aprovada (A-102, dia 9). Churrasqueira: confirmada automaticamente
+// (A-102, dia 7) e (A-101, dia 12). NENHUM dia tem reserva dos dois espaços: Salão e Churrasqueira se bloqueiam, e a seed
+// grava pelo service role (que ignora o gatilho de bloqueio), então um par no mesmo dia criaria uma situação que o
+// sistema não permite (um pedido aguardando de um lado e uma reserva aprovada do outro). Para testar "espaços diferentes
+// no mesmo dia" use a Sala de Jogos, que não bloqueia ninguém.
 const hojeBR = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 const diaBR = (n) => new Date(Date.parse(hojeBR + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 const reserva = (e, bloco, un, nome, dia, status, extra = {}) => ({
@@ -184,13 +187,12 @@ const reserva = (e, bloco, un, nome, dia, status, extra = {}) => ({
 falhar('reservas', (await admin.from('reservations').insert([
   reserva(salao, 'A', '101', 'Morador Proprietário', 5, 'PENDENTE'),
   reserva(salao, 'A', '102', 'Morador Inquilino', 9, 'APROVADA', { avaliado_por: 'Síndico Teste (SINDICO)', data_avaliacao: new Date().toISOString() }),
-  reserva(churras, 'A', '102', 'Morador Inquilino', 5, 'APROVADA', { avaliado_por: 'Aprovação automática', data_avaliacao: new Date().toISOString() }),
+  reserva(churras, 'A', '102', 'Morador Inquilino', 7, 'APROVADA', { avaliado_por: 'Aprovação automática', data_avaliacao: new Date().toISOString() }),
   reserva(churras, 'A', '101', 'Morador Proprietário', 12, 'APROVADA', { avaliado_por: 'Aprovação automática', data_avaliacao: new Date().toISOString() }),
   reserva(salao, 'A', '101', 'Morador Proprietário', 14, 'RECUSADA', { motivo_recusa: 'Data reservada para a assembleia', avaliado_por: 'Síndico Teste (SINDICO)', data_avaliacao: new Date().toISOString() }),
 ])).error);
 // Bloqueio simétrico Salão <-> Churrasqueira (0038). O par é guardado ORDENADO (espaco_a < espaco_b, comparação "C").
-// Vem DEPOIS das reservas de propósito: o Salão e a Churrasqueira já têm reservas no mesmo dia (dia 5), e criar o
-// bloqueio não mexe nelas; só novos pedidos são barrados.
+// Vem DEPOIS das reservas por costume: criar o bloqueio nunca mexe em reservas existentes, só barra novos pedidos.
 {
   const [ea, eb] = salao.id < churras.id ? [salao.id, churras.id] : [churras.id, salao.id];
   falhar('bloqueio Salão e Churrasqueira', (await admin.from('space_blocks').insert({ espaco_a: ea, espaco_b: eb })).error);

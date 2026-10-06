@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Reservas (proposta do designer)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#0B2545;--primary-hover:#134074;--accent:#00A8E8;--accent-strong:#0A6E9C;--accent-50:#EFF8FE;
+  --bg:#F4F7FB;--border:#E2E8F0;--text:#0F172A;--muted:#475569;
+  --pend-50:#FFFBEB;--pend-200:#FDE68A;--pend-800:#92400E;
+  --em-50:#ECFDF5;--em-200:#A7F3D0;--em-800:#065F46;--slate-100:#F1F5F9;--slate-400:#94A3B8;--red:#B91C1C;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9EEF5;font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--text);font-size:14px;line-height:1.4}
+h1,h2,h3{font-family:"Bricolage Grotesque","Plus Jakarta Sans",sans-serif;margin:0;letter-spacing:-.01em}
+.page{max-width:1240px;margin:0 auto;padding:28px 20px 80px}
+.top h1{font-size:30px}.top p{color:var(--muted);max-width:760px}
+.sec{margin:46px 0 14px;padding-top:10px;border-top:2px solid #CBD5E1}
+.sec h2{font-size:22px}.sec .sub{color:var(--muted);margin:4px 0 18px}
+.row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.tag{display:inline-block;font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;margin-bottom:8px}
+.tag.antes{background:#FEE2E2;color:#991B1B}.tag.depois{background:#D1FAE5;color:#065F46}
+.phone{width:375px;background:var(--bg);border:1px solid #CBD5E1;border-radius:26px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,.12);position:relative}
+.phone .scr{padding:16px;display:flex;flex-direction:column;gap:16px}
+.desk{width:1120px;max-width:100%;background:var(--bg);border:1px solid #CBD5E1;border-radius:14px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:24px;display:flex;flex-direction:column;gap:20px}
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:12px;font:600 14px "Plus Jakarta Sans";border:1px solid var(--border);background:#fff;color:var(--primary);cursor:default}
+.btn.p{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn.full{width:100%}.btn.sm{padding:0 14px}
+.btn.danger{color:var(--red);border-color:transparent;background:transparent}
+.chips{display:flex;gap:8px;overflow:hidden}
+.chip{flex:none;min-height:44px;display:inline-flex;align-items:center;gap:6px;padding:0 16px;border-radius:999px;border:1px solid var(--border);background:#fff;font-weight:600;color:var(--primary)}
+.chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.chip.off{opacity:.55}.chip small{font-weight:500;font-size:12px}
+.link{color:var(--accent-strong);text-decoration:underline;font-weight:600;min-height:44px;display:inline-flex;align-items:center}
+.muted{color:var(--muted)}.small{font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.b-em{background:var(--em-50);color:var(--em-800);border:1px solid var(--em-200)}
+.b-pend{background:var(--pend-50);color:var(--pend-800);border:1px solid var(--pend-200)}
+.b-sl{background:var(--slate-100);color:#334155;border:1px solid var(--border)}
+.cal{width:100%}
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-h b{font:700 16px "Bricolage Grotesque"}
+.nav{width:44px;height:44px;border-radius:12px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:#fff;color:var(--primary);font-size:18px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dow{font-size:11px;font-weight:700;color:var(--muted);text-align:center;padding:2px 0}
+.d{min-height:48px;border-radius:10px;border:1px solid var(--border);background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;color:var(--primary);gap:1px;font-size:13px;position:relative}
+.d i{font-style:normal;font-size:11px;font-weight:600;line-height:1}
+.d.past{border-color:transparent;background:transparent;color:var(--slate-400)}
+.d.occ{background:var(--slate-100);color:#64748B}
+.d.pend{background:var(--pend-50);border-color:var(--pend-200);color:var(--pend-800)}
+.d.conf{background:var(--em-50);border-color:var(--em-200);color:var(--em-800)}
+.d.today{box-shadow:0 0 0 2px var(--accent)}
+.d.sel{background:var(--primary);border-color:var(--primary);color:#fff}
+.d.blank{border:none;background:transparent}
+.d.big{min-height:96px;align-items:flex-start;justify-content:flex-start;padding:6px 8px;gap:3px;border-radius:12px}
+.et{font-size:11px;font-weight:600;border-radius:6px;padding:1px 6px;width:100%;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.et.pend{background:var(--pend-200);color:var(--pend-800)}.et.conf{background:var(--em-200);color:var(--em-800)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.dot{width:12px;height:12px;border-radius:4px;border:1px solid var(--border);display:inline-block}
+.amber{background:var(--pend-50);border:1px solid var(--pend-200);border-radius:14px;padding:16px}
+.amber h3{font-size:16px;color:var(--pend-800);margin-bottom:10px}
+.req{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--pend-200);flex-wrap:wrap}
+.req .acts{display:flex;gap:8px}
+.info{background:var(--accent-50);color:var(--accent-strong);border-radius:12px;padding:10px 12px;font-weight:600;display:flex;gap:8px}
+.field label{display:block;font-weight:700;margin-bottom:6px}
+.field .in{min-height:48px;border:1px solid #CBD5E1;border-radius:12px;background:#fff;display:flex;align-items:center;padding:0 14px;font-size:16px}
+.field .in.sel2{justify-content:space-between;padding-right:14px}
+.val{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff}
+.val big{font:700 22px "Bricolage Grotesque";color:var(--primary);display:block}
+.sheet{background:#fff;border-radius:22px 22px 0 0;padding:12px 16px 18px;display:flex;flex-direction:column;gap:14px;margin-top:120px}
+.grab{width:36px;height:4px;background:#CBD5E1;border-radius:4px;margin:0 auto}
+.dim{background:rgba(15,23,42,.4)}
+.chk{display:flex;gap:10px;align-items:center;min-height:44px}
+.box{width:24px;height:24px;border:2px solid var(--primary);border-radius:6px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--border)}
+.kv b{text-align:right}
+.photo{width:72px;height:72px;border-radius:12px;background:linear-gradient(135deg,#7DD3FC,#0B2545);flex:none}
+.gal{height:140px;border-radius:12px;background:linear-gradient(135deg,#7DD3FC,#0B2545);margin-bottom:10px}
+.fold{border-top:2px dashed #EF4444;color:#EF4444;font-size:11px;font-weight:700;text-align:center;padding-top:2px}
+.note{background:#FFF7ED;border:1px solid #FED7AA;color:#9A3412;border-radius:10px;padding:8px 10px;font-size:12px}
+.acc{border:1px solid var(--border);border-radius:14px;background:#fff;overflow:hidden}
+.acc+.acc{margin-top:10px}
+.acc-h{min-height:56px;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.acc-h b{font:700 15px "Bricolage Grotesque"}.acc-h span{font-size:12px;color:var(--muted)}
+.acc-b{padding:4px 16px 16px;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--border)}
+.modal{width:640px;max-width:100%;background:#fff;border-radius:18px;box-shadow:0 12px 36px rgba(15,23,42,.2);border:1px solid var(--border);display:flex;flex-direction:column}
+.modal .hd{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)}
+.modal .bd{padding:16px 18px}
+.modal .ft{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid var(--border)}
+.tog{width:48px;height:28px;border-radius:99px;background:#10B981;position:relative;flex:none}
+.tog::after{content:"";position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff}
+.states{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:760px}
+.states .d{min-height:64px;font-size:16px}.states p{margin:6px 0 0;text-align:center;font-size:12px;color:var(--muted)}
+.table{width:100%;border-collapse:collapse;font-size:13px}.table th,.table td{padding:10px 8px;border-top:1px solid var(--border);text-align:left}
+.menu{position:absolute;right:0;top:50px;width:220px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.15);padding:6px;z-index:2}
+.menu div{min-height:44px;display:flex;align-items:center;padding:0 12px;border-radius:8px;font-weight:600;color:var(--primary)}
+.menu div:hover{background:var(--slate-100)}
+.pos{position:relative}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <h1>Reservas: proposta de layout</h1>
+    <p>Mockup estático para você avaliar a <b>estrutura</b> antes de qualquer implementação. Mesma paleta, mesmas fontes e mesmo botão azul-marinho de hoje. O que muda é a <b>ordem e o agrupamento</b>: uma pergunta por tela. Morador: "quando posso usar este espaço?". Equipe: "o que preciso decidir agora?". Dados fictícios, calendário de outubro de 2026 (hoje = dia 5).</p>
+  </div>
+
+  <!-- 1 -->
+  <div class="sec"><h2>1. Morador no celular: hoje x proposta</h2><p class="sub">Hoje o calendário fica a cerca de 4 telas de rolagem e a marca do dia não diz se <i>o Salão</i> está livre. Na proposta o morador escolhe o espaço e o calendário responde só sobre ele.</p></div>
+  <div class="row">
+    <div>
+      <span class="tag antes">Hoje (resumo)</span>
+      <div class="phone"><div class="scr">
+        <div><h1 style="font-size:24px">Reserva de Espaços Comuns</h1><p class="muted small" style="margin:4px 0 0">Veja os dias livres e reserve. Cada espaço informa se o pedido precisa da aprovação da equipe.</p></div>
+        <div class="card"><div class="gal"></div><b>Churrasqueira</b><div class="muted small">Área de churrasco com 2 grelhas.</div><div class="small" style="margin-top:6px">Horário: 10h às 23h · Valor: grátis</div><div class="small muted">Taxa de higienização: R$ 40,00</div><div style="margin-top:8px"><span class="badge b-em">Confirmação automática</span></div><div style="margin-top:10px"><span class="btn p full">Agendar Este Espaço</span></div></div>
+        <div class="card"><div class="gal"></div><b>Quadra</b><div class="muted small">Quadra poliesportiva.</div><div style="margin-top:8px"><span class="badge b-pend">Exige aprovação</span> <span class="badge b-sl">Inativo</span></div><div class="small muted" style="margin-top:6px">Regras Principais:</div></div>
+        <div class="fold">— dobra da primeira tela —</div>
+        <div class="card"><div class="gal"></div><b>Sala de Jogos</b><div class="small" style="margin-top:6px">…</div><div style="margin-top:10px"><span class="btn p full">Agendar Este Espaço</span></div></div>
+        <div class="card"><div class="gal"></div><b>Salão de Festas</b><div class="small" style="margin-top:6px">…</div><div style="margin-top:10px"><span class="btn p full">Agendar Este Espaço</span></div></div>
+        <div style="display:flex;gap:8px"><span class="btn p" style="flex:1">Lista</span><span class="btn" style="flex:1">Calendário</span></div>
+        <div class="note">Só aqui aparece o calendário, depois de ~4 telas. Cada dia diz "3 espaços livres", sem dizer qual.</div>
+      </div></div>
+    </div>
+    <div>
+      <span class="tag depois">Proposta</span>
+      <div class="phone"><div class="scr">
+        <h1 style="font-size:24px">Reservas</h1>
+        <div class="chips"><span class="chip on">✓ Salão de Festas</span><span class="chip">Churrasqueira</span><span class="chip">Sala de Jogos</span><span class="chip off">Quadra <small>Em manutenção</small></span></div>
+        <div class="card" style="padding:12px 14px">
+          <b>Salão de Festas · até 50 pessoas</b>
+          <div class="muted small">Exige aprovação · grátis até 10 pessoas</div>
+          <a class="link small">Ver regras e valores ›</a>
+        </div>
+        <div class="card cal" id="cal1"><div class="cal-h"><span class="nav">‹</span><b>Outubro 2026</b><span class="nav">›</span></div><div class="grid"><div class="dow">D</div><div class="dow">S</div><div class="dow">T</div><div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div><div class="d blank"></div><div class="d blank"></div><div class="d blank"></div><div class="d blank"></div><div class="d past">1</div><div class="d past">2</div><div class="d past">3</div><div class="d past">4</div><div class="d today"><b>5</b></div><div class="d">6</div><div class="d">7</div><div class="d">8</div><div class="d">9</div><div class="d occ">10<i>🔒</i></div><div class="d">11</div><div class="d">12</div><div class="d">13</div><div class="d pend">14<i>⏱</i></div><div class="d">15</div><div class="d">16</div><div class="d conf">17<i>✓</i></div><div class="d">18</div><div class="d">19</div><div class="d sel">20</div><div class="d">21</div><div class="d">22</div><div class="d">23</div><div class="d pend">24<i>⏱</i></div><div class="d">25</div><div class="d">26</div><div class="d">27</div><div class="d">28</div><div class="d">29</div><div class="d">30</div><div class="d">31</div></div><div class="legend"><span><i class="dot" style="background:#fff"></i>Livre</span><span><i class="dot" style="background:var(--slate-100)"></i>🔒 Ocupado</span><span><i class="dot" style="background:var(--pend-50)"></i>⏱ Aguardando</span><span><i class="dot" style="background:var(--em-50)"></i>✓ Confirmada</span></div></div>
+        <div>
+          <h2 style="font-size:18px;margin-bottom:8px">Minhas reservas</h2>
+          <div class="card" style="padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px"><b>Salão de Festas · 17/10</b><span class="badge b-em">✓ Confirmada</span></div><div class="muted small">18h às 23h</div></div>
+          <div class="card" style="padding:12px 14px"><div style="display:flex;justify-content:space-between;gap:8px"><b>Salão de Festas · 14/10</b><span class="badge b-pend">⏱ Aguardando aprovação</span></div><div style="margin-top:8px"><span class="btn sm">Cancelar pedido</span></div></div>
+          <a class="link small">Ver lista completa</a>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="sec"><h2>2. Morador: modal do dia e "Detalhes"</h2><p class="sub">O modal abre <b>com o espaço do chip</b> e sem a lista de espaços. Isso elimina o risco de confirmar o espaço errado. As regras, o valor e a foto ficam num "Detalhes" recolhível.</p></div>
+  <div class="row">
+    <div>
+      <span class="tag depois">Toque no dia 20</span>
+      <div class="phone dim" style="background:#CBD5E1"><div style="height:60px"></div>
+        <div class="sheet" style="margin-top:0">
+          <div class="grab"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h2 style="font-size:22px">Salão de Festas</h2><div class="muted">Terça-feira, 20 de outubro</div></div><span class="nav">×</span></div>
+          <div class="info">ⓘ <span>Este espaço exige aprovação da administração.</span></div>
+          <div class="field"><label>Número de pessoas</label><div class="in">25</div><div class="muted small" style="margin-top:4px">Até 50 pessoas</div></div>
+          <div class="val"><span class="muted small">Valor da reserva</span><big>R$ 150,00</big><span class="muted small">Grátis até 10 pessoas</span></div>
+          <div class="small muted">Com 8 pessoas: <b style="color:var(--primary)">Grátis</b></div>
+          <div class="field"><label>Horário</label><div class="in sel2"><span>18h às 23h</span><span>⌄</span></div></div>
+          <div class="chk"><span class="box">✓</span><span>Li e aceito as regras de uso do Salão de Festas. <a class="link small" style="min-height:0">Ver regras</a></span></div>
+          <span class="btn p full" style="min-height:48px">Pedir reserva</span>
+          <div style="text-align:center"><a class="link">Cancelar</a></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <span class="tag depois">"Detalhes do Salão" aberto</span>
+      <div class="phone"><div class="scr">
+        <div class="chips"><span class="chip on">✓ Salão de Festas</span><span class="chip">Churrasqueira</span><span class="chip">Sala…</span></div>
+        <div class="card" style="padding:0">
+          <div class="acc-h"><b>Detalhes do Salão</b><span>⌃</span></div>
+          <div class="acc-b" style="gap:0">
+            <div style="display:flex;gap:12px;padding:12px 0"><div class="photo"></div><div class="small muted">Salão climatizado com cozinha de apoio, mesas e cadeiras para até 50 pessoas.</div></div>
+            <div class="kv"><span class="muted">Horário permitido</span><b>8h às 23h</b></div>
+            <div class="kv"><span class="muted">Valor</span><b>Grátis até 10 pessoas · R$ 150,00 acima</b></div>
+            <div class="kv"><span class="muted">Taxa de higienização</span><b>R$ 80,00</b></div>
+            <div class="kv"><span class="muted">Aprovação</span><b>Exige aprovação</b></div>
+            <div style="padding-top:10px"><b>Regras de uso</b><ul class="small muted" style="margin:6px 0 0;padding-left:18px"><li>Silêncio a partir das 22h</li><li>Devolver o espaço limpo até 10h do dia seguinte</li><li>Proibido fixar objetos nas paredes</li></ul></div>
+          </div>
+        </div>
+        <div class="card cal" id="cal2"><div class="cal-h"><span class="nav">‹</span><b>Outubro 2026</b><span class="nav">›</span></div><div class="grid"><div class="dow">D</div><div class="dow">S</div><div class="dow">T</div><div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div><div class="d blank"></div><div class="d blank"></div><div class="d blank"></div><div class="d blank"></div><div class="d past">1</div><div class="d past">2</div><div class="d past">3</div><div class="d past">4</div><div class="d today"><b>5</b></div><div class="d">6</div><div class="d">7</div><div class="d">8</div><div class="d">9</div><div class="d occ">10<i>🔒</i></div><div class="d">11</div><div class="d">12</div><div class="d">13</div><div class="d pend">14<i>⏱</i></div><div class="d">15</div><div class="d">16</div><div class="d conf">17<i>✓</i></div><div class="d">18</div><div class="d">19</div><div class="d">20</div><div class="d">21</div><div class="d">22</div><div class="d">23</div><div class="d pend">24<i>⏱</i></div><div class="d">25</div><div class="d">26</div><div class="d">27</div><div class="d">28</div><div class="d">29</div><div class="d">30</div><div class="d">31</div></div><div class="legend"><span><i class="dot" style="background:#fff"></i>Livre</span><span><i class="dot" style="background:var(--slate-100)"></i>🔒 Ocupado</span><span><i class="dot" style="background:var(--pend-50)"></i>⏱ Aguardando</span><span><i class="dot" style="background:var(--em-50)"></i>✓ Confirmada</span></div></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="sec"><h2>3. Equipe no computador (1280px)</h2><p class="sub">O primeiro bloco é o que o síndico precisa decidir. Um botão principal, o resto agrupado em "Mais". A galeria vira chips que filtram o calendário.</p></div>
+  <div class="desk">
+    <div class="pos" style="display:flex;justify-content:space-between;align-items:center">
+      <h1 style="font-size:28px">Reservas</h1>
+      <div style="display:flex;gap:10px"><span class="btn p">Registrar reserva</span><span class="btn">Mais ⌄</span></div>
+      <div class="menu"><div>Cadastrar espaço</div><div>Imprimir agenda</div><div>Ver reservas passadas</div></div>
+    </div>
+    <div class="amber" style="margin-top:42px">
+      <h3>⏱ 2 pedidos aguardando sua decisão</h3>
+      <div class="req"><span><b>Apto 302</b> · Salão de Festas · 14/10 · 25 pessoas · R$ 150,00</span><span class="acts"><span class="btn p sm">Aprovar</span><span class="btn sm">Recusar</span></span></div>
+      <div class="req"><span><b>Apto 104</b> · Salão de Festas · 24/10 · 40 pessoas · R$ 150,00</span><span class="acts"><span class="btn p sm">Aprovar</span><span class="btn sm">Recusar</span></span></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="chips"><span class="chip on">Todos</span><span class="chip">Salão</span><span class="chip">Churrasqueira</span><span class="chip">Sala de Jogos</span><span class="chip off">Quadra <small>Em manutenção</small></span></div>
+      <a class="link">+ Cadastrar espaço</a>
+    </div>
+    <div style="display:flex;gap:22px;border-bottom:1px solid var(--border)"><span style="min-height:44px;display:flex;align-items:center;font-weight:700;color:var(--primary);border-bottom:3px solid var(--accent)">Calendário</span><span style="min-height:44px;display:flex;align-items:center;color:var(--muted);font-weight:600">Lista</span></div>
+    <div class="card" id="cal3" style="padding:18px"><div class="cal-h"><span class="nav">‹</span><b>Outubro 2026</b><span class="nav">›</span></div><div class="grid"><div class="dow">D</div><div class="dow">S</div><div class="dow">T</div><div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div><div class="d blank"></div><div class="d blank"></div><div class="d blank"></div><div class="d blank"></div><div class="d big past">1</div><div class="d big past">2</div><div class="d big past">3</div><div class="d big past">4</div><div class="d big today"><b>5</b></div><div class="d big">6</div><div class="d big">7</div><div class="d big">8</div><div class="d big">9</div><div class="d big occ">10<span class="et" style="background:#E2E8F0;color:#475569">🔒 Ocupado</span></div><div class="d big">11</div><div class="d big">12</div><div class="d big">13</div><div class="d big pend">14<span class="et pend">Salão · Aguardando</span></div><div class="d big">15</div><div class="d big">16</div><div class="d big conf">17<span class="et conf">Churrasq. · Confirmada</span></div><div class="d big">18</div><div class="d big">19</div><div class="d big sel">20</div><div class="d big">21</div><div class="d big">22</div><div class="d big">23</div><div class="d big pend">24<span class="et pend">Salão · Aguardando</span><span class="et conf">Sala · Confirmada</span></div><div class="d big">25</div><div class="d big">26</div><div class="d big">27</div><div class="d big">28</div><div class="d big">29</div><div class="d big">30</div><div class="d big">31</div></div><div class="legend"><span><i class="dot" style="background:#fff"></i>Livre</span><span><i class="dot" style="background:var(--slate-100)"></i>🔒 Ocupado</span><span><i class="dot" style="background:var(--pend-50)"></i>⏱ Aguardando</span><span><i class="dot" style="background:var(--em-50)"></i>✓ Confirmada</span></div></div>
+    <div class="card" style="padding:0"><div class="acc-h"><b>Espaços cadastrados</b><span>4 espaços · 1 em manutenção ⌄</span></div></div>
+  </div>
+
+  <!-- 4 -->
+  <div class="sec"><h2>4. Equipe no celular (375px)</h2><p class="sub">Mesma estrutura, empilhada. Aprovar e Recusar lado a lado com 44px.</p></div>
+  <div class="row">
+    <div class="phone"><div class="scr">
+      <h1 style="font-size:24px">Reservas</h1>
+      <div style="display:flex;gap:8px"><span class="btn p" style="flex:1">Registrar reserva</span><span class="btn">Mais ⌄</span></div>
+      <div class="amber"><h3>⏱ 2 pedidos aguardando</h3>
+        <div style="border-top:1px solid var(--pend-200);padding:10px 0"><b>Apto 302</b> · Salão · 14/10<div style="display:flex;gap:8px;margin-top:8px"><span class="btn p" style="flex:1">Aprovar</span><span class="btn" style="flex:1">Recusar</span></div></div>
+        <div style="border-top:1px solid var(--pend-200);padding:10px 0 0"><b>Apto 104</b> · Salão · 24/10<div style="display:flex;gap:8px;margin-top:8px"><span class="btn p" style="flex:1">Aprovar</span><span class="btn" style="flex:1">Recusar</span></div></div>
+      </div>
+      <div class="chips"><span class="chip on">Todos</span><span class="chip">Salão</span><span class="chip">Churrasqueira</span><span class="chip">Sala…</span></div>
+      <div style="display:flex"><span class="btn" style="flex:1;border-radius:12px 0 0 12px;background:var(--primary);color:#fff">Calendário</span><span class="btn" style="flex:1;border-radius:0 12px 12px 0">Lista</span></div>
+      <div class="card cal" id="cal4"><div class="cal-h"><span class="nav">‹</span><b>Outubro 2026</b><span class="nav">›</span></div><div class="grid"><div class="dow">D</div><div class="dow">S</div><div class="dow">T</div><div class="dow">Q</div><div class="dow">Q</div><div class="dow">S</div><div class="dow">S</div><div class="d blank"></div><div class="d blank"></div><div class="d blank"></div><div class="d blank"></div><div class="d past">1</div><div class="d past">2</div><div class="d past">3</div><div class="d past">4</div><div class="d today"><b>5</b></div><div class="d">6</div><div class="d">7</div><div class="d">8</div><div class="d">9</div><div class="d occ">10<i>🔒</i></div><div class="d">11</div><div class="d">12</div><div class="d">13</div><div class="d pend">14<i>⏱</i></div><div class="d">15</div><div class="d">16</div><div class="d conf">17<i>✓</i></div><div class="d">18</div><div class="d">19</div><div class="d sel">20</div><div class="d">21</div><div class="d">22</div><div class="d">23</div><div class="d pend">24<i>⏱</i></div><div class="d">25</div><div class="d">26</div><div class="d">27</div><div class="d">28</div><div class="d">29</div><div class="d">30</div><div class="d">31</div></div><div class="legend"><span><i class="dot" style="background:#fff"></i>Livre</span><span><i class="dot" style="background:var(--slate-100)"></i>🔒 Ocupado</span><span><i class="dot" style="background:var(--pend-50)"></i>⏱ Aguardando</span><span><i class="dot" style="background:var(--em-50)"></i>✓ Confirmada</span></div></div>
+      <div class="card" style="padding:0"><div class="acc-h"><b>Espaços cadastrados</b><span>⌄</span></div></div>
+    </div></div>
+  </div>
+
+  <!-- 5 -->
+  <div class="sec"><h2>5. Formulário do espaço (equipe)</h2><p class="sub">Hoje são 10 blocos numa página só. Na proposta, o essencial fica aberto e as regras raras (pedidos, valor, bloqueios) ficam fechadas, com um resumo no cabeçalho. "Excluir" sai do canto da foto.</p></div>
+  <div class="row">
+    <div class="modal">
+      <div class="hd"><h2 style="font-size:20px">Editar Salão de Festas</h2><span class="nav">×</span></div>
+      <div class="bd" style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px"><span class="tog"></span><div><b>Espaço disponível para reservas</b><div class="muted small">Desligue para pausar novos pedidos, por exemplo durante manutenção.</div></div></div>
+        <div class="acc"><div class="acc-h"><b>Dados do espaço</b><span>⌃</span></div><div class="acc-b">
+          <div class="field"><label>Nome</label><div class="in">Salão de Festas</div></div>
+          <div class="field"><label>Descrição</label><div class="in" style="min-height:72px;align-items:flex-start;padding-top:10px">Salão climatizado com cozinha de apoio…</div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px"><div class="field"><label>Capacidade</label><div class="in">50</div></div><div class="field"><label>Horário (início)</label><div class="in">8h</div></div><div class="field"><label>Horário (fim)</label><div class="in">23h</div></div></div>
+          <div class="field"><label>Regras de uso</label><div class="in" style="min-height:72px;align-items:flex-start;padding-top:10px">Silêncio a partir das 22h…</div></div>
+          <div style="display:flex;align-items:center;gap:12px"><div class="photo"></div><span class="btn sm">Trocar foto</span></div>
+        </div></div>
+        <div class="acc"><div class="acc-h"><b>Pedidos e valor</b><span>Exige aprovação · Valor: grátis até 10 pessoas ⌄</span></div></div>
+        <div class="acc"><div class="acc-h"><b>Bloqueios entre espaços</b><span>Não reservável no mesmo dia que Churrasqueira ⌄</span></div></div>
+      </div>
+      <div class="ft"><span class="btn danger">Excluir espaço</span><div style="display:flex;gap:10px"><span class="btn">Cancelar</span><span class="btn p">Salvar espaço</span></div></div>
+    </div>
+    <div class="note" style="max-width:340px">Ao tocar em <b>Excluir espaço</b>: "Excluir o Salão de Festas? As reservas já feitas continuam no histórico." Com <b>Voltar</b> em foco, como nos outros diálogos destrutivos.</div>
+  </div>
+
+  <!-- 6 -->
+  <div class="sec"><h2>6. Estados do calendário</h2><p class="sub">Nunca só cor: cada estado tem texto ou ícone. O dia bloqueado aparece como "Ocupado" para o morador, sem revelar o motivo.</p></div>
+  <div class="states">
+    <div><div class="d">20</div><p>Livre</p></div>
+    <div><div class="d occ">🔒<i>Ocupado</i></div><p>Ocupado</p></div>
+    <div><div class="d pend">⏱<i>Aguardando</i></div><p>Aguardando</p></div>
+    <div><div class="d conf">✓<i>Confirmada</i></div><p>Confirmada</p></div>
+    <div><div class="d past">3</div><p>Passado</p></div>
+    <div><div class="d today"><b>5</b></div><p>Hoje</p></div>
+    <div><div class="d sel">20</div><p>Selecionado</p></div>
+    <div><div class="d occ">🔒<i>Ocupado</i></div><p>Bloqueado (morador vê "Ocupado"; equipe vê "Bloqueado pela Churrasqueira")</p></div>
+  </div>
+</div>
+
+
+</body>
+</html>
