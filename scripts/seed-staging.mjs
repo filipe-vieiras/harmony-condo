@@ -90,6 +90,15 @@ const { data: units, error: unitErr } = await admin.from('units').insert(
 falhar('criar unidades', unitErr);
 const unitDe = (bloco, numero) => units.find((u) => u.bloco === bloco && u.numero === numero);
 
+// Documento do titular (issue #67): fica em tabela própria, só a gestão e o próprio morador leem.
+// Valores fictícios, em A-101 (morador) e A-102 (inquilino): cada um só deve ler o da própria unidade.
+// Os ids dos moradores são dados pelo banco (gatilho de units).
+for (const [bloco, numero, doc] of [['A', '101', '111.222.333-96'], ['A', '102', '222.333.444-05']]) {
+  const u = unitDe(bloco, numero);
+  const { error } = await admin.from('unit_documentos').insert({ unit_id: u.id, morador_id: u.moradores[0].id, documento: doc });
+  falhar(`documento fictício ${bloco}-${numero}`, error);
+}
+
 // ── 3) Usuários (um por perfil) ──
 const usuarios = [
   { email: 'sindico@staging.test', name: 'Síndico Teste', role: 'SINDICO' },

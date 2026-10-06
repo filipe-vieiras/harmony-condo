@@ -62,6 +62,9 @@ export interface UnitResident {
   nome: string;
   tipo: 'TITULAR' | 'DEPENDENTE' | 'INQUILINO';
   telefone: string;
+  /** Chave estável do morador (o banco dá um id a todos). Liga o morador ao documento em unit_documentos. */
+  id?: string;
+  /** Documento: não vem de units. Preenchido só para quem o banco deixa ler (gestão e o próprio morador). */
   rgCpf?: string;
   /** E-mail do morador. Só faz sentido para o morador prioritário (TITULAR ou INQUILINO) — é ele quem recebe o convite de acesso. */
   email?: string;

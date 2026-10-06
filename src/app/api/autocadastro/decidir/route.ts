@@ -101,7 +101,6 @@ async function validar(admin: Admin, envio: Envio, validadoPor: string): Promise
     nome: envio.nome,
     tipo: envio.tipo === 'PROPRIETARIO' ? 'TITULAR' : 'INQUILINO',
     telefone: envio.telefone,
-    rgCpf: envio.rg_cpf ?? undefined,
     email: envio.email,
   };
   const novosDependentes: UnitResident[] = envio.dependentes.map((d) => ({ nome: d.nome, tipo: 'DEPENDENTE', telefone: d.telefone }));
@@ -125,10 +124,29 @@ async function validar(admin: Admin, envio: Envio, validadoPor: string): Promise
     updateUnidade.proprietario_email = envio.email;
   }
 
-  const { error: unidadeError } = await admin.from('units').update(updateUnidade).eq('id', unidade.id);
-  if (unidadeError) {
+  const { data: gravada, error: unidadeError } = await admin
+    .from('units').update(updateUnidade).eq('id', unidade.id).select('moradores').single();
+  if (unidadeError || !gravada) {
     console.error('autocadastro validar unit:', unidadeError);
     return { ok: false, mensagem: `Erro ao atualizar a unidade ${rotulo}.` };
+  }
+
+  // O documento não vai no JSON de units (Portaria e Conselho leem essa linha): fica em unit_documentos,
+  // ligado ao id que o banco deu ao morador. Quem saiu da unidade (titular anterior) perde o documento.
+  const gravados: UnitResident[] = Array.isArray(gravada.moradores) ? gravada.moradores : [];
+  const idPrioritario = gravados[0]?.id;
+  const idsMantidos = gravados.map((m) => m.id).filter((i): i is string => !!i);
+  const { error: limpezaError } = await admin
+    .from('unit_documentos').delete().eq('unit_id', unidade.id).not('morador_id', 'in', `(${idsMantidos.map((i) => `"${i}"`).join(',')})`);
+  const { error: documentoError } = idPrioritario && envio.rg_cpf
+    ? await admin.from('unit_documentos').upsert(
+        { unit_id: unidade.id, morador_id: idPrioritario, documento: envio.rg_cpf.trim().slice(0, 60), atualizado_em: new Date().toISOString() },
+        { onConflict: 'unit_id,morador_id' }
+      )
+    : { error: null };
+  if (limpezaError || documentoError) {
+    console.error('autocadastro validar documento:', limpezaError ?? documentoError);
+    return { ok: false, mensagem: `Unidade atualizada, mas houve erro ao guardar o documento de ${envio.nome}. Tente validar de novo.` };
   }
 
   const { error: perfilError } = await admin
