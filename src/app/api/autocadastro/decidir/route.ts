@@ -3,6 +3,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ADMIN_ROLES } from '@/lib/roles';
 import { ehTipoVeiculo } from '@/lib/tiposVeiculo';
+import { cargoEfetivoDoAlvo } from '@/lib/alvoEfetivo';
 import type { AutocadastroDependente, AutocadastroVeiculo, UnitResident } from '@/types';
 
 interface Resultado {
@@ -54,6 +55,17 @@ export async function POST(request: NextRequest) {
     if (!envio || envio.status !== 'AGUARDANDO') {
       resultados.push({ id, ok: false, mensagem: 'Cadastro não encontrado ou já decidido.' });
       continue;
+    }
+    // Conta com cargo pendente de aceite (ou de equipe) não é validada nem recusada (a recusa apagaria a conta): é decisão do Síndico/ADM.
+    if (envio.user_id) {
+      const { data: pf } = await admin.from('profiles').select('id, role, email').eq('id', envio.user_id).maybeSingle();
+      if (pf) {
+        const ef = await cargoEfetivoDoAlvo(admin, pf);
+        if (ef.pendente || ef.cargo !== 'MORADOR') {
+          resultados.push({ id, ok: false, mensagem: 'Esta conta tem um cargo aguardando aceite. Só o Síndico e a Administradora administram essa conta.' });
+          continue;
+        }
+      }
     }
     const r = acao === 'VALIDAR'
       ? await validar(admin, envio, caller.name)

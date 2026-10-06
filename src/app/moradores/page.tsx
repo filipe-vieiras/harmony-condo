@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/Badge';
 import { useApp, type OpcoesVinculo, type ResultadoUnidade } from '@/context/AppContext';
 import { Unit } from '@/types';
 import { isAdmin, ROLE_LABELS } from '@/lib/roles';
+import { podeConvidarPara } from '@/lib/hierarquia';
+import { textoVazio } from '@/lib/textoLivre';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
 import { ListaUnidades } from '@/components/autocadastro/ListaUnidades';
@@ -246,14 +248,19 @@ function MoradoresContent() {
 
   const handleSaveUnit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!novoNumero || !titularNome || isSaving) return;
+    if (!novoNumero || isSaving) return;
+    // Titular sem nome (só espaços, tab, NBSP ou caracteres invisíveis) não grava a unidade.
+    if (textoVazio(titularNome)) {
+      setFeedbackMsg({ type: 'error', text: 'Escreva o nome do titular.' });
+      return;
+    }
     setIsSaving(true);
 
     // Constrói lista completa de moradores
     // O id preserva a ligação do morador com o documento guardado à parte (unit_documentos).
     const principalResident = {
       id: titularId,
-      nome: titularNome,
+      nome: titularNome.trim(),
       tipo: (novoTipo === 'PROPRIETARIO' ? 'TITULAR' : 'INQUILINO') as 'TITULAR' | 'INQUILINO',
       telefone: titularTelefone,
       // Ao editar, campo vazio apaga o documento guardado; ao criar, vazio é só "não informado".
@@ -263,7 +270,7 @@ function MoradoresContent() {
     };
 
     const validDemaisMoradores = demaisMoradores
-      .filter((m) => m.nome.trim() !== '')
+      .filter((m) => !textoVazio(m.nome))
       .map((m) => ({
         id: m.id,
         nome: m.nome.trim(),
@@ -349,6 +356,8 @@ function MoradoresContent() {
             </button>
           )}
 
+          {/* Impressão em massa de dados de moradores: não é do Zelador (funcionário externo). */}
+          {currentUser.role !== 'ZELADOR' && (
           <button
             type="button"
             onClick={() => window.print()}
@@ -357,6 +366,7 @@ function MoradoresContent() {
             <Printer className="h-4 w-4 text-slate-500" />
             <span>Imprimir Relação</span>
           </button>
+          )}
 
           {isAdmin(currentUser.role) && (
             <button
@@ -529,7 +539,8 @@ function MoradoresContent() {
                 const prioritario = u.moradores?.find(
                   (m) => (m.tipo === 'TITULAR' || m.tipo === 'INQUILINO') && m.email
                 );
-                const podeEnviar = isAdmin(currentUser.role) && prioritario?.email &&
+                // O Subsíndico convida só Portaria e Conselho: o link de acesso de morador é do Síndico e da ADM.
+                const podeEnviar = podeConvidarPara(currentUser.role, 'MORADOR') && prioritario?.email &&
                   u.statusConvite !== 'ENVIADO' && u.statusConvite !== 'ATIVO';
 
                 if (!u.statusConvite || u.statusConvite === 'NAO_ENVIADO') {
@@ -558,7 +569,8 @@ function MoradoresContent() {
                     >
                       {u.statusConvite === 'ATIVO' ? 'Acesso ativo' : u.statusConvite === 'ENVIADO' ? 'Link de acesso gerado' : 'Link pendente de gerar'}
                     </Badge>
-                    {u.statusConvite === 'ENVIADO' && isAdmin(currentUser.role) && (
+                    {/* O link só é lido por Síndico e ADM (convite_links): para o Subsíndico o botão não aparece. */}
+                    {u.statusConvite === 'ENVIADO' && (currentUser.role === 'SINDICO' || currentUser.role === 'ADM') && (
                       <button
                         onClick={() => handleCopyLink(u)}
                         className="flex items-center gap-1.5 whitespace-nowrap min-h-11 rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-bold text-slate-700 transition hover:bg-slate-200 no-print sm:min-h-0"

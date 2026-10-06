@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { rotaPermitida } from '@/lib/roles';
 import { AppProvider, useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -17,6 +18,15 @@ import { DialogProvider } from '@/components/ui/DialogProvider';
 function ConteudoPrincipal({ children }: { children: React.ReactNode }) {
   const { currentUser, isLoading } = useApp();
   const pathname = usePathname();
+  const router = useRouter();
+  // Zelador (funcionário externo): rota fora da lista dele leva ao Início, sem tela de erro. O banco e a API já negam o dado de qualquer jeito.
+  const proibida = !!currentUser && !rotaPermitida(currentUser.role, pathname);
+  useEffect(() => {
+    if (proibida) router.replace('/');
+  }, [proibida, router]);
+  if (proibida) {
+    return <div className="space-y-6 animate-pulse" role="status" aria-label="Carregando"><div className="h-24 rounded-3xl bg-slate-200" /></div>;
+  }
   if (!currentUser && isLoading && pathname !== '/') {
     return (
       <div className="space-y-6 animate-pulse" role="status" aria-label="Carregando">

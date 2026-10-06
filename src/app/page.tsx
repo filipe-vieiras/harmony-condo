@@ -9,7 +9,10 @@ import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { Badge } from '@/components/ui/Badge';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
-import { isAdmin, isProvisorio } from '@/lib/roles';
+import { isAdmin, isOperacao, isProvisorio, ocupaCargo } from '@/lib/roles';
+import { PedidosAguardando } from '@/components/reservas/PedidosAguardando';
+import { reservasFuturasDoEspaco, textoEmManutencao } from '@/lib/interdicao';
+import { hojeBrasilia } from '@/lib/datasReservas';
 import { PainelProvisorio } from '@/components/autocadastro/PainelProvisorio';
 import { FaixaCargo } from '@/components/usuarios/FaixaCargo';
 import {
@@ -61,6 +64,8 @@ function DashboardContent() {
     reservations, 
     judgeReservation,
     zelador,
+    systemUsers,
+    pendingInvites,
   } = useApp();
   const { askReason } = useDialog();
 
@@ -68,6 +73,8 @@ function DashboardContent() {
 
   if (!currentUser) return <DashboardSkeleton />;
   if (isProvisorio(currentUser)) return <div className="flex flex-col gap-6"><FaixaCargo /><PainelProvisorio /></div>;
+  // Zelador (funcionário externo, sem unidade): Início operacional próprio, sem cartão de unidade, multa nem documento.
+  if (currentUser.role === 'ZELADOR') return <InicioZelador />;
 
   // Filtros de acordo com o papel ativo
   const pendingReservations = reservations.filter((r) => r.status === 'PENDENTE');
@@ -450,6 +457,20 @@ function DashboardContent() {
         </div>
       )}
 
+      {/* Operação: espaços interditados (as reservas futuras continuam valendo) e, para quem designa, o cargo de Zelador vago */}
+      {isOperacao(currentUser.role) && <EspacosInterditados />}
+      {(currentUser.role === 'SINDICO' || currentUser.role === 'ADM') &&
+        !systemUsers.some((u) => u.role === 'ZELADOR' && ocupaCargo(u)) &&
+        !pendingInvites.some((i) => i.role === 'ZELADOR' && (i.status === 'PENDENTE' || !!i.transferenciaId)) && (
+          <Link
+            href="/usuarios"
+            className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+          >
+            <span>O cargo de Zelador está vago. Convide uma pessoa.</span>
+            <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+          </Link>
+        )}
+
       {/* Seção Principal de Conteúdo em Duas Colunas */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         
@@ -543,6 +564,116 @@ function DashboardContent() {
 
       </div>
 
+    </div>
+  );
+}
+
+/** Espaços interditados com a contagem de reservas futuras: nada é cancelado ao interditar. */
+function EspacosInterditados() {
+  const { spaces, reservations, interdicoes } = useApp();
+  const hoje = hojeBrasilia();
+  const interditados = spaces.filter((s) => s.ativo === false);
+  if (interditados.length === 0) return null;
+  return (
+    <section aria-labelledby="interditados-titulo" className="rounded-2xl border border-pendente-200 bg-pendente-50/70 p-5 shadow-xs">
+      <h2 id="interditados-titulo" className="text-sm font-bold text-pendente-900">
+        {pluralizar(interditados.length, 'espaço interditado', 'espaços interditados')}
+      </h2>
+      <ul className="mt-2 space-y-2">
+        {interditados.map((s) => {
+          const futuras = reservasFuturasDoEspaco(reservations, s.id, hoje).length;
+          const info = interdicoes[s.id];
+          return (
+            <li key={s.id} className="rounded-xl bg-white p-3 text-xs text-slate-800">
+              <p className="font-bold text-slate-900">{s.nome}</p>
+              <p>{textoEmManutencao(s)}</p>
+              {info && <p className="text-[12px] text-slate-600">Interditado por {info.por} em {formatarData(info.em)}</p>}
+              <p className="text-[12px] text-slate-600">
+                {futuras === 0 ? 'Sem reservas futuras.' : `${pluralizar(futuras, 'reserva futura continua valendo', 'reservas futuras continuam valendo')}.`}
+              </p>
+              {futuras > 0 && (
+                <Link
+                  href={`/reservas?espaco=${encodeURIComponent(s.id)}`}
+                  className="inline-flex min-h-11 items-center text-xs font-semibold text-accent-strong underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+                >
+                  Ver reservas futuras deste espaço
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Início do Zelador: o que precisa de decisão e o que está interditado, sem dado sensível. */
+function InicioZelador() {
+  const { currentUser, reservations, spaces, notices, judgeReservation } = useApp();
+  const { askReason } = useDialog();
+  if (!currentUser) return null;
+  const pendentes = reservations.filter((r) => r.status === 'PENDENTE').sort((a, b) => a.data.localeCompare(b.data));
+  const interditados = spaces.filter((s) => s.ativo === false);
+
+  const recusar = async (r: { id: string; espacoNome: string; data: string; unidade: string; bloco: string }) => {
+    const motivo = await askReason({
+      title: 'Recusar reserva',
+      message: `${r.espacoNome} em ${formatarData(r.data)}, Apto ${r.unidade}-${r.bloco}.`,
+      label: 'Justificativa da recusa',
+      confirmLabel: 'Recusar reserva',
+    });
+    if (motivo) await judgeReservation(r.id, false, motivo);
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="rounded-3xl bg-gradient-to-r from-primary via-primary-hover to-secondary p-6 sm:p-8 text-white shadow-lg">
+        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Olá, {currentUser.name}</h1>
+        <p className="mt-1 text-xs text-cyan-100 sm:text-sm">Operação do condomínio: reservas, espaços, moradores e veículos.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <CartaoKpi href="/reservas" destaque={pendentes.length > 0}>
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Reservas aguardando</span>
+          <p className="mt-3 text-2xl font-bold text-slate-900">{pendentes.length}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{pendentes.length === 0 ? 'Nenhum pedido aguardando decisão' : 'Aguardando a sua decisão'}</p>
+        </CartaoKpi>
+        <CartaoKpi href="/reservas">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Espaços interditados</span>
+          <p className="mt-3 text-2xl font-bold text-slate-900">{interditados.length}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{interditados.length === 0 ? 'Todos os espaços abertos' : 'Novos pedidos bloqueados'}</p>
+        </CartaoKpi>
+        <CartaoKpi href="/mural">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Avisos no mural</span>
+          <p className="mt-3 text-2xl font-bold text-slate-900">{notices.length}</p>
+          <p className="mt-0.5 text-xs text-slate-500">Comunicados publicados</p>
+        </CartaoKpi>
+      </div>
+
+      <PedidosAguardando pedidos={pendentes} onAprovar={(id) => judgeReservation(id, true)} onRecusar={recusar} />
+
+      <EspacosInterditados />
+
+      <section aria-labelledby="avisos-zelador-titulo" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 id="avisos-zelador-titulo" className="text-base font-bold text-slate-900">Avisos recentes</h2>
+          <Link href="/mural" className="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline">Ver mural completo →</Link>
+        </div>
+        {notices.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-6 text-center text-xs text-slate-500">Nenhum aviso publicado ainda.</p>
+        ) : (
+          notices.slice(0, 3).map((n) => (
+            <div key={n.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div className="flex items-center justify-between text-xs">
+                <Badge className="bg-slate-100 text-slate-800">{NOTICE_CATEGORY_LABELS[n.categoria]}</Badge>
+                <span className="text-slate-500">{formatarData(n.data)}</span>
+              </div>
+              <h3 className="mt-2 text-sm font-bold text-slate-900">{n.titulo}</h3>
+              <p className="mt-1 line-clamp-2 text-xs text-slate-600">{n.conteudo}</p>
+            </div>
+          ))
+        )}
+      </section>
     </div>
   );
 }

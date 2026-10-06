@@ -1,4 +1,4 @@
-import { Role, User } from '@/types';
+import type { Role, User } from '../types';
 
 /** Morador que se cadastrou pelo link aberto e ainda não foi validado pelo síndico. */
 export function isProvisorio(user?: User | null): boolean {
@@ -21,7 +21,34 @@ export const ADMIN_ROLES: Role[] = ['SINDICO', 'SUBSINDICO', 'ADM'];
  * ADM ficou de fora de propósito: o condomínio pode ter mais de uma
  * administradora/funcionário com esse perfil cadastrado ao mesmo tempo.
  */
-export const SINGLETON_ROLES: Role[] = ['SINDICO', 'SUBSINDICO'];
+export const SINGLETON_ROLES: Role[] = ['SINDICO', 'SUBSINDICO', 'ZELADOR'];
+
+/**
+ * Perfil operacional (PRD do Zelador): a gestão MAIS o Zelador. Decide, cancela e registra reservas, interdita espaço.
+ * NUNCA libera dado sensível (multa, documento, auditoria, usuários, convites): isso segue em `isAdmin`.
+ * Espelha o banco (`tem_perfil_operacao()`), que é quem decide de verdade.
+ */
+export const OPERACAO_ROLES: Role[] = ['SINDICO', 'SUBSINDICO', 'ADM', 'ZELADOR'];
+
+export function isOperacao(role?: Role | null): boolean {
+  return !!role && OPERACAO_ROLES.includes(role);
+}
+
+/** Funcionário externo: não tem unidade, nunca é provisório e só enxerga o que a operação precisa. */
+export function isZelador(role?: Role | null): boolean {
+  return role === 'ZELADOR';
+}
+
+/** Telas que o Zelador abre. Qualquer outra rota o leva de volta ao Início, sem tela de erro. */
+export const ROTAS_DO_ZELADOR = ['/', '/reservas', '/moradores', '/veiculos', '/mural', '/links'];
+
+export function rotaPermitida(role: Role | undefined, pathname: string | null): boolean {
+  if (role !== 'ZELADOR' || !pathname) return true;
+  return ROTAS_DO_ZELADOR.some((r) => pathname === r || (r !== '/' && pathname.startsWith(`${r}/`)));
+}
+
+/** A conta ocupa o cargo: ativa, ou convite do Zelador enviado e ainda não aceito. */
+export const ocupaCargo = (u: { desativadoEm?: string; aguardandoAceite?: boolean }) => !u.desativadoEm || !!u.aguardandoAceite;
 
 export function isAdmin(role?: Role | null): boolean {
   return !!role && ADMIN_ROLES.includes(role);
@@ -34,6 +61,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   PORTARIA: 'Portaria & Acesso',
   CONSELHO: 'Conselho Fiscal',
   MORADOR: 'Morador',
+  ZELADOR: 'Zelador',
 };
 
 /** Rótulos curtos para selos e frases ("Síndico Ana"). O mapa acima segue como está nas demais telas. */
@@ -44,4 +72,5 @@ export const ROLE_LABELS_CURTO: Record<Role, string> = {
   PORTARIA: 'Portaria',
   ADM: 'Administradora',
   MORADOR: 'Morador',
+  ZELADOR: 'Zelador',
 };

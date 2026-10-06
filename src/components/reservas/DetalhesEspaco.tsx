@@ -18,12 +18,12 @@ interface Props {
 
 /**
  * Resumo de uma linha do espaço escolhido e, atrás de "Ver regras e valores", o bloco recolhível
- * "Detalhes do {espaço}" (fechado por padrão). Substitui a galeria de cartões grandes.
+ * "Detalhes: {espaço}" (fechado por padrão). Substitui a galeria de cartões grandes.
  */
 export function DetalhesEspaco({ espaco, aberto, onAlternar, bloqueiaNomes }: Props) {
   const exige = espaco.exigeAprovacao !== false;
   return (
-    <section aria-label={`Resumo do ${espaco.nome}`} className="no-print rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
+    <section aria-label={`Resumo: ${espaco.nome}`} className="no-print rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
       <p className="text-sm font-bold text-slate-900">{espaco.nome} · até {espaco.capacidadeMax} pessoas</p>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
         {exige
@@ -43,7 +43,7 @@ export function DetalhesEspaco({ espaco, aberto, onAlternar, bloqueiaNomes }: Pr
       </button>
 
       <div id="detalhes-espaco-corpo" role="region" aria-labelledby="detalhes-espaco-titulo" hidden={!aberto} className="mt-2 border-t border-slate-100 pt-3">
-        <h3 id="detalhes-espaco-titulo" className="font-display text-[15px] font-bold text-slate-900">Detalhes do {espaco.nome}</h3>
+        <h3 id="detalhes-espaco-titulo" className="font-display text-[15px] font-bold text-slate-900">Detalhes: {espaco.nome}</h3>
         <div className="mt-3 flex items-start gap-3">
           <img
             src={espaco.imagemUrl || FOTO_PADRAO}

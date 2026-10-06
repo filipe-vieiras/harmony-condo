@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { isAdmin, isProvisorio, ADMIN_ROLES } from '@/lib/roles';
+import { isAdmin, isOperacao, isProvisorio, ADMIN_ROLES } from '@/lib/roles';
 import {
   ClipboardCheck,
   LayoutDashboard,
@@ -35,7 +35,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
   }).length;
 
   const pendingReservationsCount = reservations.filter((r) => {
-    if (isAdmin(currentUser?.role)) return r.status === 'PENDENTE';
+    if (isOperacao(currentUser?.role)) return r.status === 'PENDENTE';
     return false;
   }).length;
 
@@ -52,26 +52,26 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       label: 'Visão Geral',
       href: '/',
       icon: LayoutDashboard,
-      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR', 'ZELADOR'],
     },
     {
       label: 'Mural de Avisos',
       href: '/mural',
       icon: Megaphone,
-      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR', 'ZELADOR'],
     },
     {
       // Para o morador a página mostra só a lista pública (unidade + responsável).
       label: currentUser?.role === 'MORADOR' ? 'Lista de Unidades' : 'Moradores & Unidades',
       href: '/moradores',
       icon: Users,
-      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR', 'ZELADOR'],
     },
     {
       label: 'Veículos & Garagem',
       href: '/veiculos',
       icon: Car,
-      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR', 'ZELADOR'],
       badge: currentUser?.role === 'PORTARIA' ? 'Portaria' : undefined,
     },
     {
@@ -86,14 +86,14 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       label: 'Reserva de Espaços',
       href: '/reservas',
       icon: CalendarDays,
-      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR', 'ZELADOR'],
       badgeCount: pendingReservationsCount,
     },
     {
       label: 'Links & Documentos',
       href: '/links',
       icon: Link2,
-      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR'],
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR', 'ZELADOR'],
     },
     {
       label: 'Relatórios & Auditoria',
@@ -142,7 +142,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
             {currentUser?.name ?? 'Carregando...'}
           </p>
           <p className="text-[12px] text-slate-600">
-            {currentUser?.cargo || (currentUser?.unidade ? `Unidade ${currentUser.unidade}-${currentUser.bloco}` : '')}
+            {currentUser?.cargo || (currentUser?.unidade ? `Unidade ${currentUser.unidade}-${currentUser.bloco}` : currentUser?.role === 'ZELADOR' ? 'Zelador' : '')}
           </p>
         </div>
 

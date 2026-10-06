@@ -2,15 +2,16 @@
 // Só funções puras e sem alias de importação, para a bateria de QA poder importar este arquivo.
 // A autoridade é sempre o banco (função transferir_cargo): nada daqui libera nada sozinho.
 
-export type CargoTransferivel = 'SINDICO' | 'SUBSINDICO' | 'CONSELHO' | 'PORTARIA';
+export type CargoTransferivel = 'SINDICO' | 'SUBSINDICO' | 'CONSELHO' | 'PORTARIA' | 'ZELADOR';
 
-export const CARGOS_TRANSFERIVEIS: CargoTransferivel[] = ['SINDICO', 'SUBSINDICO', 'CONSELHO', 'PORTARIA'];
+export const CARGOS_TRANSFERIVEIS: CargoTransferivel[] = ['SINDICO', 'SUBSINDICO', 'CONSELHO', 'PORTARIA', 'ZELADOR'];
 
 export const CARGO_ROTULO: Record<CargoTransferivel, string> = {
   SINDICO: 'Síndico',
   SUBSINDICO: 'Subsíndico',
   CONSELHO: 'Conselho',
   PORTARIA: 'Portaria',
+  ZELADOR: 'Zelador',
 };
 
 /** Perfis que podem receber um cargo (conta já cadastrada). Nunca ADM, nunca provisório. */
@@ -18,6 +19,12 @@ export const PERFIS_DESTINO: string[] = ['MORADOR', 'SUBSINDICO', 'CONSELHO', 'P
 
 export const ehCargoTransferivel = (v: unknown): v is CargoTransferivel =>
   typeof v === 'string' && (CARGOS_TRANSFERIVEIS as string[]).includes(v);
+
+/**
+ * O Zelador é funcionário externo: só entra por convite de PESSOA NOVA (o banco recusa conta que já existe) e quem
+ * sai tem o acesso removido, nunca vira Morador.
+ */
+export const soPessoaNova = (cargo: CargoTransferivel) => cargo === 'ZELADOR';
 
 /** Síndico e Subsíndico são únicos: a confirmação forte (digitar TRANSFERIR) vale só para eles. */
 export const exigeDigitarTransferir = (cargo: CargoTransferivel) => cargo === 'SINDICO' || cargo === 'SUBSINDICO';
@@ -71,12 +78,14 @@ export function mensagemDoCodigo(
     case 'sem_permissao':
       return 'Você não tem mais permissão para transferir cargos.';
     case 'cargo_invalido':
-      return 'Esse cargo não pode ser transferido por aqui.';
+      return cargo === 'ZELADOR'
+        ? 'O Zelador é funcionário externo: só pode ser indicado como pessoa nova, com um convite.'
+        : 'Esse cargo não pode ser transferido por aqui.';
     case 'dados_invalidos':
       return 'Confira os dados da transferência e tente de novo.';
     case 'origem_desatualizada':
-      // Cargo único (Síndico, Subsíndico) tem um titular só; Conselho e Portaria têm vários, então não citamos ninguém.
-      return extras.titularAtual && (cargo === 'SINDICO' || cargo === 'SUBSINDICO')
+      // Cargo único (Síndico, Subsíndico, Zelador) tem um titular só; Conselho e Portaria têm vários, então não citamos ninguém.
+      return extras.titularAtual && (cargo === 'SINDICO' || cargo === 'SUBSINDICO' || cargo === 'ZELADOR')
         ? `O cargo de ${rotulo} mudou enquanto você preenchia: agora o titular é ${extras.titularAtual}. Nada foi alterado. Comece de novo.`
         : `O cargo de ${rotulo} mudou enquanto você preenchia. Nada foi alterado. Comece de novo.`;
     case 'destino_invalido':
@@ -84,6 +93,7 @@ export function mensagemDoCodigo(
     case 'pendencia_existente':
       return `Já há uma transferência de ${rotulo} aguardando ${extras.destinoNome ?? 'a pessoa'} aceitar. Cancele-a antes de iniciar outra.`;
     case 'email_com_conta':
+      if (cargo === 'ZELADOR') return 'Esse e-mail já tem conta. O Zelador é funcionário externo e precisa de uma conta nova, com outro e-mail.';
       return extras.contaNome
         ? `Esse e-mail já tem conta. Use “Usuário já cadastrado” e escolha ${extras.contaNome}.`
         : 'Esse e-mail já tem conta. Use “Usuário já cadastrado” para escolher a pessoa.';

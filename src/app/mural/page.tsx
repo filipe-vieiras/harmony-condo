@@ -7,7 +7,7 @@ import { useApp } from '@/context/AppContext';
 import { useDialog } from '@/components/ui/DialogProvider';
 import { NoticeCategory } from '@/types';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
-import { isAdmin } from '@/lib/roles';
+import { isAdmin, isOperacao } from '@/lib/roles';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
 import {
@@ -87,8 +87,9 @@ function MuralContent() {
       conteudo,
       categoria,
       autor: currentUser?.cargo || currentUser?.name || 'Sistema',
-      fixado,
-      anexoNome: anexoNome || undefined,
+      // Fixar no topo é da gestão: o Zelador publica sem fixar (o banco também recusa).
+      fixado: fixado && isAdmin(currentUser?.role),
+      anexoNome: isAdmin(currentUser?.role) ? anexoNome || undefined : undefined,
     });
 
     setShowModal(false);
@@ -133,7 +134,7 @@ function MuralContent() {
             <span>Imprimir Mural</span>
           </button>
 
-          {isAdmin(currentUser.role) && (
+          {isOperacao(currentUser.role) && (
             <button
               onClick={() => setShowModal(true)}
               className="flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary-hover sm:min-h-0"
@@ -232,7 +233,8 @@ function MuralContent() {
                     <span className="whitespace-nowrap">{formatarData(n.data)}</span>
                   </span>
 
-                  {isAdmin(currentUser.role) && (
+                  {/* Gestão apaga qualquer aviso; o Zelador, só os que ele mesmo publicou (o banco confere pelo autor). */}
+                  {(isAdmin(currentUser.role) || (currentUser.role === 'ZELADOR' && n.autorId === currentUser.id)) && (
                     <button
                       onClick={() => handleDeleteNotice(n.id, n.titulo)}
                       disabled={excluindoId === n.id}
@@ -332,12 +334,14 @@ function MuralContent() {
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                   >
                     <option value="COMUNICADO">Comunicado Geral</option>
-                    <option value="URGENTE">Urgente</option>
-                    <option value="ASSEMBLEIA">Assembleia</option>
+                    {/* O Zelador publica só Comunicado e Manutenção (o banco também recusa as outras). */}
+                    {isAdmin(currentUser.role) && <option value="URGENTE">Urgente</option>}
+                    {isAdmin(currentUser.role) && <option value="ASSEMBLEIA">Assembleia</option>}
                     <option value="MANUTENCAO">Manutenção</option>
                   </select>
                 </div>
 
+                {isAdmin(currentUser.role) && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700">Fixar no topo?</label>
                   <label className="mt-2.5 flex items-center text-xs text-slate-700">
@@ -350,6 +354,7 @@ function MuralContent() {
                     <span className="ml-2 font-medium">Fixar como destaque</span>
                   </label>
                 </div>
+                )}
               </div>
 
               <div>
@@ -365,6 +370,7 @@ function MuralContent() {
                 />
               </div>
 
+ {isAdmin(currentUser.role) && (
               <div>
                 <label htmlFor="mural-anexo" className="block text-xs font-semibold text-slate-700">Nome do Anexo PDF (Opcional)</label>
                 <input
@@ -376,6 +382,7 @@ function MuralContent() {
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 />
               </div>
+              )}
 
               <div className="mt-5 flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button

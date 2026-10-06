@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
   User,
@@ -21,15 +22,16 @@ import {
   Autocadastro,
 } from '@/types';
 import type { AutocadastroDados } from '@/lib/autocadastro';
-import { isAdmin, SINGLETON_ROLES, ROLE_LABELS_CURTO } from '@/lib/roles';
+import { isAdmin, isOperacao as isOperacaoRole, ocupaCargo, SINGLETON_ROLES, ROLE_LABELS_CURTO } from '@/lib/roles';
 import { CARGO_ROTULO, type CargoTransferencia, type CargoTransferivel } from '@/lib/cargos';
+import { textoVazio } from '@/lib/textoLivre';
 import { avaliarVinculo, normalizarEmail, rotuloUnidade } from '@/lib/vinculoUnidade';
 import {
-  fetchUnits, insertUnit, updateUnitDB, deleteUnitDB,
+  fetchUnits, fetchUnidadesDoZelador, insertUnit, updateUnitDB, deleteUnitDB,
   fetchVehicles, insertVehicle, deleteVehicleDB, updateVehicleDB,
   fetchNotices, insertNotice, deleteNoticeDB,
   fetchFines, insertFine, updateFineDB, anularFineDB, deleteFineDB,
-  fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB,
+  fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB, interditarEspacoDB, fetchInterdicoes,
   fetchReservations, insertReservation, updateReservationDB, fetchDisponibilidade,
   fetchSpaceBlocks, definirBloqueiosEspacoDB, fetchValorReserva,
   fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
@@ -41,7 +43,7 @@ import {
   fetchProfiles, fetchCargoTransferencias,
   fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
-import type { AlteracaoVeiculo, ErroReserva } from '@/lib/supabase/db';
+import type { AlteracaoVeiculo, ErroReserva, InterdicaoInfo } from '@/lib/supabase/db';
 
 /** Resultado de cadastrar/editar veículo; `placaDuplicada` = a placa já existe no condomínio. */
 const MSG_PLACA_DUPLICADA = 'Esta placa já está cadastrada.';
@@ -84,6 +86,8 @@ export type ResultadoTransferirCargo =
       link?: string;
       origemProvisorio?: boolean;
       origemNovoPerfil?: Role;
+      /** Zelador: quem sai não vira Morador, tem o acesso removido. */
+      origemAcessoRemovido?: boolean;
     }
   | {
       success: false;
@@ -135,6 +139,8 @@ interface AppContextType {
   /** Só ADM (a regra real é a do banco). */
   deleteFine: (fineId: string) => Promise<{ success: boolean; message: string }>;
   spaces: CommonSpace[];
+  /** Quem interditou cada espaço hoje interditado e quando. Só a equipe operacional recebe (o morador não vê o nome). */
+  interdicoes: Record<string, InterdicaoInfo>;
   /**
    * Pares de bloqueio entre espaços (0038). Só a gestão lê (RLS): para os demais perfis fica vazio.
    * `bloqueiosDoEspaco` devolve os ids dos espaços com par com este, olhando dos dois lados.
@@ -145,6 +151,11 @@ interface AppContextType {
   /** `bloqueios` omitido = não mexe nos bloqueios; lista (mesmo vazia) = substitui. */
   updateSpace: (id: string, space: Partial<Omit<CommonSpace, 'id'>>, bloqueios?: string[]) => Promise<ResultadoEspaco>;
   deleteSpace: (id: string) => Promise<{ success: boolean; message: string }>;
+  /**
+   * Interdita (ativo = false, com motivo opcional de até 140) ou reabre o espaço. Só Síndico, Subsíndico, ADM e Zelador
+   * (o banco relê o perfil). Bloqueia SÓ novos pedidos: nenhuma reserva existente é alterada e ninguém é avisado.
+   */
+  interditarEspaco: (espacoId: string, ativo: boolean, motivo?: string) => Promise<{ success: boolean; message: string }>;
   documents: DocumentLink[];
   addDocument: (doc: Omit<DocumentLink, 'id' | 'dataAtualizacao'>) => Promise<{ success: boolean; message: string }>;
   updateDocument: (id: string, doc: Partial<Omit<DocumentLink, 'id' | 'dataAtualizacao'>>) => Promise<void>;
@@ -162,6 +173,8 @@ interface AppContextType {
   /** Transferências de cargo pendentes e concluídas recentes (a RLS filtra por quem pode ver). */
   transferenciasCargo: CargoTransferencia[];
   transferirCargo: (input: TransferirCargoInput) => Promise<ResultadoTransferirCargo>;
+  /** Síndico e ADM: devolve o acesso a um ex-Zelador (conta desativada), só com o cargo vago. */
+  reativarAcessoZelador: (userId: string) => Promise<{ success: boolean; message: string }>;
   cancelarTransferenciaCargo: (transferenciaId: string) => Promise<{ success: boolean; message: string }>;
   avisoCargo: AvisoCargo | null;
   dispensarAvisoCargo: () => void;
@@ -187,6 +200,8 @@ interface AppContextType {
   buscarDisponibilidade: (inicio: string, fim: string) => Promise<{ espacoId: string; data: string }[] | null>;
   /** true se a decisão foi gravada. */
   judgeReservation: (reservationId: string, aprovado: boolean, motivoRecusa?: string) => Promise<boolean>;
+  /** Cancela uma reserva (pendente ou já aprovada), com o motivo que o morador vai ler. Gestão e Zelador. true se gravou. */
+  cancelReservation: (reservationId: string, motivo: string) => Promise<boolean>;
   notifications: InAppNotification[];
   unreadNotificationCount: number;
   markNotificationAsRead: (id: string) => Promise<void>;
@@ -223,6 +238,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // o useEffect de onAuthStateChange (que depende de `supabase`) desinscrever
   // e reinscrever o listener repetidamente a cada atualização de estado.
   const [supabase] = useState(() => createClient());
+  const router = useRouter();
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -232,6 +248,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [fines, setFines] = useState<FineNotice[]>([]);
   const [spaces, setSpaces] = useState<CommonSpace[]>([]);
   const [spaceBlocks, setSpaceBlocks] = useState<{ a: string; b: string }[]>([]);
+  const [interdicoes, setInterdicoes] = useState<Record<string, InterdicaoInfo>>({});
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [documents, setDocuments] = useState<DocumentLink[]>([]);
@@ -244,6 +261,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [transferenciasCargo, setTransferenciasCargo] = useState<CargoTransferencia[]>([]);
   const [avisosDispensados, setAvisosDispensados] = useState<string[]>([]);
   const [autocadastroAberto, setAutocadastroAbertoState] = useState(false);
+
+  // Conta sem perfil visível (acesso removido): sai da sessão e volta ao login com a explicação. O banco já barra tudo antes disso.
+  const encerrarSessaoSemAcesso = useCallback(() => {
+    void supabase.auth.signOut().finally(() => router.replace('/login?encerrado=1'));
+  }, [supabase, router]);
 
   // Carrega o perfil do usuário autenticado
   const loadUserProfile = useCallback(async (authUserId: string) => {
@@ -259,6 +281,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (error) console.error('Erro ao carregar o perfil:', error);
       else console.warn('Perfil não encontrado para a sessão atual.');
       setCurrentUser(null);
+      // Sem erro e sem perfil: a conta perdeu o acesso (ex.: ex-Zelador, conta desativada). Encerra a sessão e explica no login.
+      if (!error) encerrarSessaoSemAcesso();
       return;
     }
 
@@ -273,12 +297,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       telefone: data.telefone ?? undefined,
       cadastroValidado: data.cadastro_validado ?? true,
     });
-  }, [supabase]);
+  }, [supabase, encerrarSessaoSemAcesso]);
+
+  // O Zelador não lê `units`: recebe a visão mínima (nome, telefone, e-mail e vínculo de quem mora, bloco e número).
+  const papelAtual = currentUser?.role;
+  const carregarUnidades = useCallback(
+    () => (papelAtual === 'ZELADOR' ? fetchUnidadesDoZelador(supabase) : fetchUnits(supabase)),
+    [supabase, papelAtual],
+  );
 
   // Carrega todos os dados do banco quando o usuário está logado
   const loadAllData = useCallback(async () => {
-    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users, autos, aberto, transf, blocos] = await Promise.all([
-      fetchUnits(supabase),
+    const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users, autos, aberto, transf, blocos, interd] = await Promise.all([
+      carregarUnidades(),
       fetchVehicles(supabase),
       fetchNotices(supabase),
       fetchFines(supabase),
@@ -295,6 +326,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchAutocadastroAberto(supabase),
       fetchCargoTransferencias(supabase),
       fetchSpaceBlocks(supabase),
+      fetchInterdicoes(supabase),
     ]);
     setUnits(u);
     setVehicles(v);
@@ -302,6 +334,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setFines(f);
     setSpaces(s);
     setSpaceBlocks(blocos);
+    setInterdicoes(interd);
     setReservations(r);
     setNotifications(notifs);
     setDocuments(docs);
@@ -313,7 +346,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAutocadastros(autos);
     setAutocadastroAbertoState(aberto);
     setTransferenciasCargo(transf);
-  }, [supabase]);
+  }, [supabase, carregarUnidades]);
 
   // Escuta mudanças de sessão (login/logout)
   useEffect(() => {
@@ -347,8 +380,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!meuId) return;
     let ativo = true;
     const checar = async () => {
-      const { data } = await supabase.from('profiles').select('role, cadastro_validado').eq('id', meuId).maybeSingle();
-      if (!ativo || !data) return;
+      const { data, error } = await supabase.from('profiles').select('role, cadastro_validado').eq('id', meuId).maybeSingle();
+      if (!ativo) return;
+      // Sem erro e sem linha: o acesso foi removido enquanto a pessoa estava na tela. Não espera o próximo login.
+      if (!data) { if (!error) encerrarSessaoSemAcesso(); return; }
       if (data.role !== meuPerfil || (data.cadastro_validado ?? true) !== (meuValidado ?? true)) await loadUserProfile(meuId);
     };
     const aoVoltar = () => { if (document.visibilityState === 'visible') void checar(); };
@@ -361,7 +396,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener('visibilitychange', aoVoltar);
       window.removeEventListener('focus', aoVoltar);
     };
-  }, [supabase, meuId, meuPerfil, meuValidado, loadUserProfile]);
+  }, [supabase, meuId, meuPerfil, meuValidado, loadUserProfile, encerrarSessaoSemAcesso]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -454,6 +489,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ? `Unidade ${rotuloUnidade(unit)} vinculada à conta de ${conta.name}.`
       : `Unidade ${rotuloUnidade(unit)} salva, mas não foi possível vinculá-la à conta de ${conta.name}. Use "Enviar convite" no card para tentar de novo.`;
 
+  // O link do convite só é lido por Síndico e ADM: para os demais a mensagem não manda copiar.
+  const podeVerLinkConvite = currentUser?.role === 'SINDICO' || currentUser?.role === 'ADM';
+
   const addUnit = async (unitData: Omit<Unit, 'id'>, opcoes?: OpcoesVinculo): Promise<ResultadoUnidade> => {
     const blocoNumeroDuplicado = units.some(
       (u) => u.bloco === unitData.bloco && u.numero.trim().toLowerCase() === unitData.numero.trim().toLowerCase()
@@ -534,7 +572,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {
       success: true,
       message: sendResult.success
-        ? `Unidade ${created.numero} cadastrada. Link de acesso gerado para ${prioritario.email} — copie e envie para o morador.`
+        ? `Unidade ${created.numero} cadastrada. Link de acesso gerado para ${prioritario.email} — ${podeVerLinkConvite ? 'copie e envie para o morador.' : 'o Síndico ou a Administradora enviam o link ao morador.'}`
         : `Unidade ${created.numero} cadastrada, mas o link de acesso não pôde ser gerado: ${traduzirErroEnvio(sendResult.message)}`,
     };
   };
@@ -652,7 +690,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return {
           success: true,
           message: sendResult.success
-            ? `Unidade ${updated.numero} atualizada. Link de acesso gerado para ${prioritario.email} — copie e envie para o morador.`
+            ? `Unidade ${updated.numero} atualizada. Link de acesso gerado para ${prioritario.email} — ${podeVerLinkConvite ? 'copie e envie para o morador.' : 'o Síndico ou a Administradora enviam o link ao morador.'}`
             : `Unidade ${updated.numero} atualizada, mas o link de acesso não pôde ser gerado: ${traduzirErroEnvio(sendResult.message)}`,
         };
       }
@@ -802,6 +840,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Mesma ordem do servidor: fixados primeiro, depois os mais recentes (sort é estável,
     // então o aviso novo fica no topo do próprio grupo).
     setNotices((prev) => [created, ...prev].sort((a, b) => Number(b.fixado) - Number(a.fixado)));
+    // O aviso do Zelador gera o sino no banco (gatilho de notices): ele não escreve notificação nenhuma.
+    if (currentUser?.role === 'ZELADOR') return;
     await insertNotification(supabase, {
       titulo: `Novo comunicado: ${noticeData.titulo.length > 60 ? `${noticeData.titulo.slice(0, 57).trimEnd()}...` : noticeData.titulo}`,
       mensagem: `${noticeData.titulo} (${NOTICE_CATEGORY_LABELS[noticeData.categoria]})`,
@@ -985,6 +1025,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true, message: `Espaço "${target?.nome ?? ''}" removido com sucesso.` };
   };
 
+  const interditarEspaco = async (espacoId: string, ativo: boolean, motivo?: string): Promise<{ success: boolean; message: string }> => {
+    const alvo = spaces.find((s) => s.id === espacoId);
+    const res = await interditarEspacoDB(supabase, espacoId, ativo, motivo);
+    if (!res.ok) {
+      if (res.erro === 'SEM_PERMISSAO') return { success: false, message: 'Você não tem permissão para interditar espaços.' };
+      if (res.erro === 'MOTIVO_LONGO') return { success: false, message: 'O motivo pode ter no máximo 140 caracteres.' };
+      return { success: false, message: 'Não foi possível salvar agora. Tente de novo.' };
+    }
+    // Relê os espaços do banco: é ele quem limpa o motivo ao reabrir e normaliza o texto. A auditoria é gravada pela própria função.
+    setSpaces(await fetchSpaces(supabase));
+    setInterdicoes(await fetchInterdicoes(supabase));
+    if (isAdmin(currentUser?.role)) void fetchAuditLogs(supabase).then(setAuditLogs);
+    const nome = alvo?.nome ?? 'O espaço';
+    return {
+      success: true,
+      message: !res.alterado ? `${nome} já estava assim.` : ativo ? `${nome} reaberto. Novos pedidos de reserva voltaram a ser aceitos.` : `${nome} interditado. Novos pedidos de reserva estão bloqueados.`,
+    };
+  };
+
   // ── DOCUMENTS ──
 
   const addDocument = async (docData: Omit<DocumentLink, 'id' | 'dataAtualizacao'>): Promise<{ success: boolean; message: string }> => {
@@ -1043,7 +1102,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const createStaffInvite = async (data: { nome: string; email: string; role: Role }): Promise<{ success: boolean; message: string }> => {
     if (SINGLETON_ROLES.includes(data.role)) {
-      const jaExisteAtivo = systemUsers.some((u) => u.role === data.role);
+      const jaExisteAtivo = systemUsers.some((u) => u.role === data.role && ocupaCargo(u));
       // Convite de transferência de cargo (já com link) também ocupa a vaga até ser aceito ou cancelado.
       const jaExistePendente = pendingInvites.some((i) => i.role === data.role && (i.status === 'PENDENTE' || !!i.transferenciaId));
       if (jaExisteAtivo || jaExistePendente) {
@@ -1051,8 +1110,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    if (textoVazio(data.nome)) return { success: false, message: 'Escreva o nome completo.' };
     const invite = await insertPendingInvite(supabase, {
-      nome: data.nome,
+      nome: data.nome.trim(),
       email: data.email,
       role: data.role,
       criadoPor: currentUser?.name,
@@ -1060,17 +1120,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!invite) return { success: false, message: 'Erro ao registrar o convite. Tente novamente.' };
 
     setPendingInvites((prev) => [invite, ...prev]);
-    await recordAudit(`Cadastrou convite de acesso para ${data.nome} (${data.role})`, 'SISTEMA', { email: data.email, role: data.role });
+    // A auditoria do convite é gravada pelo banco (gatilho de pending_invites, 0042), não pelo navegador.
     return { success: true, message: 'Convite adicionado à fila. Envie quando estiver pronto.' };
   };
 
   const cancelPendingInvite = async (id: string): Promise<{ success: boolean; message: string }> => {
-    const alvo = pendingInvites.find((i) => i.id === id);
     const apagou = await deletePendingInviteDB(supabase, id);
     if (!apagou) return { success: false, message: 'Não foi possível cancelar o convite. Tente de novo.' };
     setPendingInvites((prev) => prev.filter((i) => i.id !== id));
-    // Sem e-mail no registro: só o nome (LGPD).
-    await recordAudit('Cancelou o convite de acesso', 'SISTEMA', { nome: alvo?.nome });
     return { success: true, message: 'Convite cancelado.' };
   };
 
@@ -1092,7 +1149,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const enviados = results.filter((r) => r.ok).length;
     const comErro = results.filter((r) => !r.ok).length;
 
-    await recordAudit(`Enviou lote de convites de acesso (${enviados} enviado(s), ${comErro} com erro)`, 'SISTEMA', { ids });
+    // A auditoria do envio é gravada pela rota do servidor, a cada link gerado.
 
     const [invites, users, unitsAtualizadas] = await Promise.all([
       fetchPendingInvites(supabase),
@@ -1133,7 +1190,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSystemUsers((prev) => prev.filter((u) => u.id !== userId));
     setUnits((prev) => prev.map((u) => (u.usuarioId === userId ? { ...u, usuarioId: undefined, statusConvite: 'NAO_ENVIADO' } : u)));
 
-    await recordAudit(`Excluiu o acesso de ${target?.name ?? userId} (${target?.role ?? '?'})`, 'SISTEMA', { userId });
+    // A auditoria da exclusão é gravada pela rota do servidor.
     // A exclusão cancela, no servidor, transferência de cargo pendente que envolvia essa conta.
     const [invites, transf] = await Promise.all([fetchPendingInvites(supabase), fetchCargoTransferencias(supabase)]);
     setPendingInvites(invites);
@@ -1144,6 +1201,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Transferir cargo: a rota de servidor chama a função do banco (atômica). Aqui só montamos a resposta
   // e recarregamos perfil e dados, porque quem executa pode ter acabado de perder o próprio cargo.
+  const reativarAcessoZelador = async (userId: string): Promise<{ success: boolean; message: string }> => {
+    let response: Response;
+    try {
+      response = await fetch('/api/usuarios/reativar-zelador', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+    } catch {
+      return { success: false, message: 'Não deu para reativar. Confira a internet e tente de novo.' };
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, message: body.error ?? 'Não deu para reativar. Tente de novo.' };
+    await recarregarAposCargo();
+    return { success: true, message: `O acesso de ${body.nome ?? 'o Zelador'} foi reativado.` };
+  };
+
   const recarregarAposCargo = async () => {
     if (!currentUser) return;
     await Promise.all([loadUserProfile(currentUser.id), loadAllData()]);
@@ -1262,7 +1336,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     const { link } = await response.json() as { link: string };
-    await recordAudit(`Gerou link de redefinição de senha para ${target?.name ?? userId}`, 'SISTEMA', { userId });
+    // A auditoria (e o aviso ao titular) saem da rota do servidor.
 
     return { success: true, message: `Link de redefinição gerado para ${target?.name ?? 'o usuário'} — copie e envie manualmente.`, link };
   };
@@ -1320,14 +1394,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // (Síndico/Subsíndico/ADM) não precisa de aviso do próprio registro. Reserva confirmada
     // automaticamente: o aviso à equipe e à unidade é gravado pelo banco (0034).
     if (!confirmada && !isAdmin(currentUser?.role)) {
-      await insertNotification(supabase, {
+      const aviso = {
         titulo: 'Nova Solicitação de Reserva',
         // O valor vem do que o BANCO gravou na reserva (0039), nunca de conta do navegador.
         mensagem: `${created.moradorNome} (Unidade ${created.unidade}) solicitou ${targetSpace.nome} para ${formatarData(data)}. Requer aprovação.${valor > 0 ? ` ${fraseValorParaEquipe(targetSpace, valor)}` : ''}`,
-        tipo: 'RESERVA',
-        perfilAlvo: 'SINDICO',
+        tipo: 'RESERVA' as const,
         linkDestino: '/reservas',
-      });
+      };
+      await insertNotification(supabase, { ...aviso, perfilAlvo: 'SINDICO' });
+      // O Zelador também decide reservas: o pedido aparece no sino dele (quem registra o pedido não precisa do próprio aviso).
+      if (currentUser?.role !== 'ZELADOR') await insertNotification(supabase, { ...aviso, perfilAlvo: 'ZELADOR' });
     }
 
     let message: string;
@@ -1352,7 +1428,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const judgeReservation = async (reservationId: string, aprovado: boolean, motivoRecusa?: string) => {
     const timestamp = new Date().toISOString();
-    const targetRes = reservations.find((r) => r.id === reservationId);
     const updated = await updateReservationDB(supabase, reservationId, {
       status: aprovado ? 'APROVADA' : 'RECUSADA',
       motivo_recusa: aprovado ? null : (motivoRecusa ?? null),
@@ -1362,34 +1437,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!updated) return false;
     setReservations((prev) => prev.map((r) => (r.id === reservationId ? updated : r)));
 
-    await recordAudit(
-      aprovado ? `Aprovou reserva de ${targetRes?.espacoNome ?? 'espaço'}` : `Recusou reserva de ${targetRes?.espacoNome ?? 'espaço'}`,
-      'RESERVAS',
-      {
-        reservationId,
-        espaco: targetRes?.espacoNome,
-        unidade: targetRes?.unidade,
-        aprovado,
-        motivoRecusa,
-      }
-    );
+    // Auditoria e aviso à unidade são gravados pelo banco (gatilho de reservations, 0042): valem também para decisão por API.
+    // O histórico recarrega para a gestão ver a linha nova.
+    if (isAdmin(currentUser?.role)) void fetchAuditLogs(supabase).then(setAuditLogs);
+    return true;
+  };
 
-    if (targetRes) {
-      await insertNotification(supabase, {
-        titulo: aprovado ? 'Reserva Aprovada!' : 'Reserva Não Aprovada',
-        mensagem: aprovado
-          ? `Sua reserva do ${targetRes.espacoNome} para ${formatarData(targetRes.data)} foi confirmada!`
-          : `Sua solicitação para ${formatarData(targetRes.data)} foi recusada: ${motivoRecusa ?? 'Incompatibilidade com o regimento.'}`,
-        tipo: 'RESERVA',
-        unidadeAlvo: targetRes.unidade,
-        // A reserva guarda bloco/número em texto; a notificação precisa da FK
-        // para chegar só à unidade certa.
-        unidadeIdAlvo: units.find(
-          (u) => u.bloco === targetRes.bloco && u.numero.trim().toLowerCase() === targetRes.unidade.trim().toLowerCase()
-        )?.id,
-        linkDestino: '/reservas',
-      });
-    }
+  // Cancelar (pendente ou já aprovada): mesmo caminho da decisão (auditoria + aviso ao morador). O motivo vai em
+  // `motivo_recusa` (a mesma coluna do parecer) e o morador o lê. Só muda status e parecer: o banco não deixa mais nada.
+  const cancelReservation = async (reservationId: string, motivo: string) => {
+    const targetRes = reservations.find((r) => r.id === reservationId);
+    if (!targetRes || !isOperacaoRole(currentUser?.role)) return false;
+    const updated = await updateReservationDB(supabase, reservationId, { status: 'CANCELADA', motivo_recusa: motivo });
+    if (!updated) return false;
+    setReservations((prev) => prev.map((r) => (r.id === reservationId ? updated : r)));
+
+    // Auditoria e aviso ao morador: gatilho do banco (0042).
+    if (isAdmin(currentUser?.role)) void fetchAuditLogs(supabase).then(setAuditLogs);
     return true;
   };
 
@@ -1541,10 +1605,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         annulFine,
         deleteFine,
         spaces,
+        interdicoes,
         bloqueiosDoEspaco,
         addSpace,
         updateSpace,
         deleteSpace,
+        interditarEspaco,
         documents,
         addDocument,
         updateDocument,
@@ -1561,6 +1627,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteSystemUser,
         transferenciasCargo,
         transferirCargo,
+        reativarAcessoZelador,
         cancelarTransferenciaCargo,
         avisoCargo,
         dispensarAvisoCargo,
@@ -1573,6 +1640,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         buscarDisponibilidade,
         buscarValorReserva,
         judgeReservation,
+        cancelReservation,
         notifications: visibleNotifications,
         unreadNotificationCount,
         markNotificationAsRead,

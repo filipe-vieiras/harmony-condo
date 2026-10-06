@@ -31,6 +31,9 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const senhaCriada = searchParams.get('senhaCriada') === '1';
+  // Voltou para cá porque o acesso foi removido (ex.: saiu do cargo de Zelador) ou a conta não tem mais perfil.
+  const acessoEncerrado = searchParams.get('encerrado') === '1';
+  const MSG_ENCERRADO = 'Seu acesso a este condomínio foi encerrado. Fale com a administração.';
   const [cadastroAberto, setCadastroAberto] = useState(false);
 
   useEffect(() => {
@@ -52,7 +55,9 @@ function LoginForm() {
     });
 
     if (authError) {
-      setError('E-mail ou senha incorretos. Verifique suas credenciais.');
+      // Conta com acesso removido (ban no Auth): só chega aqui quem acertou a senha, então a mensagem não revela nada a terceiros.
+      const banida = authError.code === 'user_banned' || /banned/i.test(authError.message);
+      setError(banida ? MSG_ENCERRADO : 'E-mail ou senha incorretos. Verifique suas credenciais.');
       setIsLoading(false);
       return;
     }
@@ -110,6 +115,12 @@ function LoginForm() {
         <div className="rounded-3xl border border-white/10 bg-white p-8 shadow-2xl">
 
           <form className="space-y-4" onSubmit={handleLogin}>
+            {acessoEncerrado && (
+              <div role="alert" className="flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 p-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-pendente-700" />
+                <p className="text-xs text-pendente-900">{MSG_ENCERRADO}</p>
+              </div>
+            )}
             {senhaCriada && (
               <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />

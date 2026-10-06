@@ -293,8 +293,8 @@ function VeiculosContent() {
   // Uma só condição para mostrar E exigir os campos da equipe (vaga, status, dono, telefone; apto e bloco no
   // cadastro): quem cadastra sem ser morador (Síndico, Subsíndico, ADM e Portaria) ou a equipe administrativa editando.
   const camposDaEquipe = editando ? ehEquipe : !isMorador;
-  // Quem o banco deixa inserir (policy vehicles_insert, 0028): equipe administrativa, Portaria e Morador. Conselho não.
-  const podeCadastrar = ehEquipe || currentUser.role === 'PORTARIA' || isMorador;
+  // Quem o banco deixa inserir (policy vehicles_insert, 0028/0041): equipe administrativa, Portaria, Zelador e Morador. Conselho não.
+  const podeCadastrar = ehEquipe || currentUser.role === 'PORTARIA' || currentUser.role === 'ZELADOR' || isMorador;
   const placaForaDoPadrao = !!editando && editando.placa === placa && !placaValida(editando.placa);
   const subtituloUnidade = editando ? rotuloUnidade(editando) : isMorador && currentUser.unidade ? `${currentUser.bloco ?? ''}-${currentUser.unidade}` : '';
 

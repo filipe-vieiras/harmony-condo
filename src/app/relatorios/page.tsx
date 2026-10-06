@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { descreverAuditoria, ROTULOS_MODULO } from '@/lib/auditoria';
 import { useApp } from '@/context/AppContext';
 import { isAdmin, ROLE_LABELS } from '@/lib/roles';
+import { linhaCsv } from '@/lib/csv';
 import {
   FileSpreadsheet,
   Printer, 
@@ -80,18 +81,12 @@ function RelatoriosContent() {
   // Exportar auditoria para CSV
   const exportarAuditoriaCSV = () => {
     if (auditLogs.length === 0) return;
-    const cabecalho = ['Data/Hora', 'Usuário', 'Perfil', 'Módulo', 'Ação', 'Detalhes'].join(';');
+    const cabecalho = linhaCsv(['Data/Hora', 'Usuário', 'Perfil', 'Módulo', 'Ação', 'Detalhes']);
     const linhas = logsFiltrados.map(({ log }) => {
       const dataStr = new Date(log.createdAt).toLocaleString('pt-BR');
       const detalhesStr = log.detalhes ? JSON.stringify(log.detalhes).replace(/;/g, ',') : '';
-      return [
-        `"${dataStr}"`,
-        `"${log.usuarioNome}"`,
-        `"${log.usuarioRole}"`,
-        `"${log.modulo}"`,
-        `"${log.acao.replace(/"/g, '""')}"`,
-        `"${detalhesStr.replace(/"/g, '""')}"`
-      ].join(';');
+      // Texto livre de quem gravou o registro pode começar com "=": celulaCsv neutraliza a fórmula.
+      return linhaCsv([dataStr, log.usuarioNome, log.usuarioRole, log.modulo, log.acao, detalhesStr]);
     });
 
     const csvContent = '\uFEFF' + [cabecalho, ...linhas].join('\n');

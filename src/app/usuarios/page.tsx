@@ -7,7 +7,8 @@ import { useDialog } from '@/components/ui/DialogProvider';
 import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { Role } from '@/types';
-import { isAdmin, ROLE_LABELS, ROLE_LABELS_CURTO, SINGLETON_ROLES } from '@/lib/roles';
+import { isAdmin, ocupaCargo, ROLE_LABELS, ROLE_LABELS_CURTO, SINGLETON_ROLES } from '@/lib/roles';
+import { cargoEfetivo, podeAdministrarContaPendente, podeAgirSobre, podeConvidarPara } from '@/lib/hierarquia';
 import { CARGO_ROTULO, type CargoTransferivel } from '@/lib/cargos';
 import { CargosSecao } from '@/components/usuarios/CargosSecao';
 import { TransferirCargoModal } from '@/components/usuarios/TransferirCargoModal';
@@ -32,6 +33,8 @@ import {
   DoorOpen,
   Briefcase,
   Home,
+  Wrench,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function UsuariosPage() {
@@ -42,7 +45,7 @@ export default function UsuariosPage() {
   );
 }
 
-const STAFF_ROLES: Role[] = ['SINDICO', 'SUBSINDICO', 'ADM', 'PORTARIA', 'CONSELHO'];
+const STAFF_ROLES: Role[] = ['SINDICO', 'SUBSINDICO', 'ADM', 'PORTARIA', 'CONSELHO', 'ZELADOR'];
 
 // Selos de cargo na lista (ícone + texto, só tokens do tema). Nunca só cor.
 const SELOS: Record<Role, { cls: string; icon: React.ReactNode }> = {
@@ -52,6 +55,7 @@ const SELOS: Record<Role, { cls: string; icon: React.ReactNode }> = {
   PORTARIA: { cls: 'bg-slate-100 text-slate-700', icon: <DoorOpen className="h-3 w-3" aria-hidden="true" /> },
   ADM: { cls: 'bg-slate-100 text-slate-700', icon: <Briefcase className="h-3 w-3" aria-hidden="true" /> },
   MORADOR: { cls: 'bg-slate-100 text-slate-700', icon: <Home className="h-3 w-3" aria-hidden="true" /> },
+  ZELADOR: { cls: 'bg-accent-50 text-accent-strong', icon: <Wrench className="h-3 w-3" aria-hidden="true" /> },
 };
 
 function SeloCargo({ role, sufixo }: { role: Role; sufixo?: string }) {
@@ -76,6 +80,7 @@ function UsuariosContent() {
     transferenciasCargo,
     cancelarTransferenciaCargo,
     avisoCargo,
+    reativarAcessoZelador,
   } = useApp();
   const { confirm } = useDialog();
   const router = useRouter();
@@ -131,9 +136,36 @@ function UsuariosContent() {
 
   const isRoleTaken = (r: Role) =>
     SINGLETON_ROLES.includes(r) &&
-    (systemUsers.some((u) => u.role === r) ||
+    (systemUsers.some((u) => u.role === r && ocupaCargo(u)) ||
       // Convite de transferência de cargo (já com link) também segura a vaga até ser aceito ou cancelado.
       pendingInvites.some((i) => i.role === r && (i.status === 'PENDENTE' || !!i.transferenciaId)));
+
+  // Só Síndico e ADM designam o Zelador (o Subsíndico não); o servidor e o banco conferem de novo.
+  const podeDesignarZelador = currentUser.role === 'SINDICO' || currentUser.role === 'ADM';
+  const cargoZeladorVago = !systemUsers.some((u) => u.role === 'ZELADOR' && ocupaCargo(u)) &&
+    !pendingInvites.some((i) => i.role === 'ZELADOR' && (i.status === 'PENDENTE' || !!i.transferenciaId));
+
+  // Conta convidada com cargo pendente (transferência ou convite aberto) vale pelo cargo de destino, e só Síndico e ADM a
+  // administram: para os demais os botões nem aparecem (a rota e o banco recusam do mesmo jeito).
+  const podeAgirNaConta = (u: { id: string; email: string; role: Role }, acao: 'RESETAR_SENHA' | 'EXCLUIR') => {
+    const transf = transferenciasCargo.filter((t) => t.status === 'PENDENTE' && t.destinoId === u.id);
+    const convites = pendingInvites.filter((i) => i.email.toLowerCase() === u.email.toLowerCase());
+    const pendente = transf.length > 0 || convites.some((i) => !!i.transferenciaId);
+    if (pendente && !podeAdministrarContaPendente(currentUser.role)) return false;
+    const efetivo = cargoEfetivo(u.role, [...transf.map((t) => t.cargo), ...convites.map((i) => i.role)]);
+    return podeAgirSobre(currentUser.role, efetivo, acao, u.id === currentUser.id);
+  };
+
+  const handleReativar = async (userId: string, nome: string) => {
+    if (!(await confirm({
+      title: `Reativar o acesso de ${nome}?`,
+      message: `${nome} volta a ser o Zelador e consegue entrar de novo. Só é possível enquanto o cargo está vago.`,
+      confirmLabel: 'Reativar acesso',
+      cancelLabel: 'Voltar',
+    }))) return;
+    const res = await reativarAcessoZelador(userId);
+    setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
+  };
 
   const handleOpenModal = () => {
     setNome('');
@@ -396,6 +428,7 @@ function UsuariosContent() {
       <CargosSecao
         onTransferir={(cargo, origemId) => setTransferir({ cargo, origemId })}
         onIndicarSubsindico={() => { handleOpenModal(); setRole('SUBSINDICO'); }}
+        onIndicarZelador={() => { handleOpenModal(); setRole('ZELADOR'); }}
         onCopiarLink={handleCopiarLinkTransferencia}
         onCancelar={handleCancelarTransferencia}
       />
@@ -404,7 +437,7 @@ function UsuariosContent() {
       <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
         <div className="border-b border-slate-200 bg-slate-50/75 p-4">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-            Equipe com Acesso Ativo ({systemUsers.length})
+            Equipe com Acesso Ativo ({systemUsers.filter((u) => !u.desativadoEm).length})
           </h2>
         </div>
         <div className="overflow-x-auto">
@@ -431,6 +464,11 @@ function UsuariosContent() {
                     <td data-label="Perfil" className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <SeloCargo role={u.role} />
+                        {u.desativadoEm && (
+                          <Badge className="bg-slate-100 text-slate-700" icon={u.aguardandoAceite ? <Clock className="h-3 w-3" aria-hidden="true" /> : <Lock className="h-3 w-3" aria-hidden="true" />}>
+                            {u.aguardandoAceite ? 'Aguardando aceitar o convite' : 'Acesso removido'}
+                          </Badge>
+                        )}
                         {transferenciasCargo.some((t) => t.status === 'PENDENTE' && t.destinoId === u.id) && (
                           <Badge className="bg-pendente-50 text-pendente-800" icon={<Clock className="h-3 w-3" aria-hidden="true" />}>
                             Cargo pendente
@@ -439,10 +477,21 @@ function UsuariosContent() {
                       </div>
                     </td>
                     <td data-label="Unidade" className="px-4 py-3 text-slate-500">
-                      {u.unidade ? `Apto ${u.unidade}-${u.bloco}` : '—'}
+                      {u.unidade ? `Apto ${u.unidade}-${u.bloco}` : u.role === 'ZELADOR' ? 'Funcionário externo' : '—'}
                     </td>
                     <td data-label="Ações" className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2 sm:gap-1">
+                        {u.desativadoEm && !u.aguardandoAceite && podeDesignarZelador && cargoZeladorVago && (
+                          <button
+                            onClick={() => handleReativar(u.id, u.name)}
+                            aria-label={`Reativar o acesso de ${u.name}`}
+                            className="flex min-h-11 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-bold text-accent-strong hover:bg-accent-50 transition sm:min-h-0"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Reativar acesso</span>
+                          </button>
+                        )}
+                        {!u.desativadoEm && podeAgirNaConta(u, 'RESETAR_SENHA') && (
                         <button
                           onClick={() => handleResetPassword(u.id, u.name)}
                           title="Gerar link de redefinição de senha"
@@ -461,11 +510,12 @@ function UsuariosContent() {
                             </>
                           )}
                         </button>
+                        )}
                         {u.role === 'SINDICO' && u.id !== currentUser.id && (
                           // Ninguém exclui o Síndico pelo app (o servidor também recusa): a saída é transferir o cargo.
                           <span className="text-[12px] text-slate-600">Para sair do cargo, transfira-o.</span>
                         )}
-                        {u.id !== currentUser.id && u.role !== 'SINDICO' && (
+                        {podeAgirNaConta(u, 'EXCLUIR') && (
                           <button
                             onClick={() => handleDeleteUser(u.id, u.name)}
                             title="Excluir acesso"
@@ -565,7 +615,8 @@ function UsuariosContent() {
                       </td>
                       <td data-label="Ações" className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
-                          {i.status === 'ENVIADO' && (
+                          {/* O link só chega a Síndico e ADM (convite_links); para o Subsíndico o botão nem aparece. */}
+                          {i.status === 'ENVIADO' && i.linkAcesso && (
                             <button
                               onClick={() => handleCopyLink(i.id, i.linkAcesso, i.nome)}
                               title="Copiar link de acesso"
@@ -686,14 +737,15 @@ function UsuariosContent() {
                   onChange={(e) => setRole(e.target.value as Role)}
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30"
                 >
-                  {STAFF_ROLES.map((r) => (
+                  {STAFF_ROLES.filter((r) => podeConvidarPara(currentUser.role, r)).map((r) => (
                     <option key={r} value={r} disabled={isRoleTaken(r)}>
                       {ROLE_LABELS[r]} {isRoleTaken(r) ? '(já ocupado)' : ''}
                     </option>
                   ))}
                 </select>
                 <span className="text-[12px] text-slate-500">
-                  Síndico e Subsíndico têm um único titular por vez. A Administradora pode ter várias contas.
+                  Síndico, Subsíndico e Zelador têm um único titular por vez. A Administradora pode ter várias contas.
+                  {role === 'ZELADOR' && ' O Zelador é funcionário externo: não tem unidade e não vê documentos, multas nem relatórios.'}
                 </span>
               </div>
 
