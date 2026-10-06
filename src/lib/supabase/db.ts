@@ -60,6 +60,56 @@ function rowToUnit(r: Record<string, unknown>): Unit {
   };
 }
 
+// O documento (RG/CPF) do morador não fica mais no JSON de units: mora em unit_documentos, que o banco só
+// devolve à gestão e ao próprio morador (para Portaria e Conselho a consulta volta vazia). Aqui ele é
+// religado ao morador pelo id, de modo que as telas continuam lendo `morador.rgCpf`.
+async function comDocumentos(supabase: SupabaseClient, units: Unit[]): Promise<Unit[]> {
+  if (units.length === 0) return units;
+  const { data, error } = await supabase.from('unit_documentos').select('unit_id, morador_id, documento');
+  if (error || !data?.length) return units;
+  const porMorador = new Map(data.map((d) => [`${d.unit_id}:${d.morador_id}`, d.documento as string]));
+  return units.map((u) => ({
+    ...u,
+    moradores: u.moradores.map((m) => {
+      const documento = m.id ? porMorador.get(`${u.id}:${m.id}`) : undefined;
+      return documento ? { ...m, rgCpf: documento } : m;
+    }),
+  }));
+}
+
+/** Tira o documento do JSON que vai para units (o banco também recusa guardá-lo ali). */
+const semDocumento = (moradores: Unit['moradores']): Unit['moradores'] =>
+  moradores.map((m) => {
+    const resto = { ...m };
+    delete resto.rgCpf;
+    return resto;
+  });
+
+/**
+ * Grava os documentos pela função da gestão. `gravados` são os moradores como o banco os guardou
+ * (já com id); `enviados`, os da tela, na mesma ordem. Documento não informado (undefined) não muda;
+ * texto vazio apaga. Quem saiu da unidade perde o documento.
+ */
+async function gravarDocumentos(
+  supabase: SupabaseClient,
+  unitId: string,
+  gravados: Unit['moradores'],
+  enviados: Unit['moradores']
+): Promise<boolean> {
+  const docs: Record<string, string> = {};
+  gravados.forEach((m, i) => {
+    const doc = enviados[i]?.rgCpf;
+    if (m.id && doc !== undefined) docs[m.id] = doc;
+  });
+  const { error } = await supabase.rpc('salvar_documentos_unidade', {
+    p_unit_id: unitId,
+    p_docs: docs,
+    p_manter: gravados.map((m) => m.id).filter((id): id is string => !!id),
+  });
+  if (error) console.error('gravarDocumentos:', error);
+  return !error;
+}
+
 export async function fetchUnits(supabase: SupabaseClient): Promise<Unit[]> {
   const { data, error } = await supabase
     .from('units')
@@ -67,7 +117,7 @@ export async function fetchUnits(supabase: SupabaseClient): Promise<Unit[]> {
     .order('bloco', { ascending: true })
     .order('numero', { ascending: true });
   if (error) { console.error('fetchUnits:', error); return []; }
-  return (data ?? []).map(rowToUnit);
+  return comDocumentos(supabase, (data ?? []).map(rowToUnit));
 }
 
 export async function insertUnit(
@@ -84,13 +134,15 @@ export async function insertUnit(
     vagas_garagem: unit.vagasGaragem,
     animais: unit.animais,
     observacoes: unit.observacoes,
-    moradores: unit.moradores ?? [],
+    moradores: semDocumento(unit.moradores ?? []),
   }).select().single();
   if (error) {
     console.error('insertUnit:', error);
     return { unit: null, errorCode: error.code, errorMessage: error.message };
   }
-  return { unit: rowToUnit(data) };
+  const criada = rowToUnit(data);
+  if (unit.moradores?.some((m) => m.rgCpf)) await gravarDocumentos(supabase, criada.id, criada.moradores, unit.moradores);
+  return { unit: (await comDocumentos(supabase, [criada]))[0] };
 }
 
 export async function updateUnitDB(supabase: SupabaseClient, id: string, unit: Partial<Omit<Unit, 'id'>>): Promise<Unit | null> {
@@ -104,13 +156,15 @@ export async function updateUnitDB(supabase: SupabaseClient, id: string, unit: P
   if (unit.vagasGaragem !== undefined) payload.vagas_garagem = unit.vagasGaragem;
   if (unit.animais !== undefined) payload.animais = unit.animais;
   if (unit.observacoes !== undefined) payload.observacoes = unit.observacoes;
-  if (unit.moradores !== undefined) payload.moradores = unit.moradores;
+  if (unit.moradores !== undefined) payload.moradores = semDocumento(unit.moradores);
   if (unit.statusConvite !== undefined) payload.status_convite = unit.statusConvite;
   if (unit.usuarioId !== undefined) payload.usuario_id = unit.usuarioId;
 
   const { data, error } = await supabase.from('units').update(payload).eq('id', id).select().single();
   if (error) { console.error('updateUnitDB:', error); return null; }
-  return rowToUnit(data);
+  const atualizada = rowToUnit(data);
+  if (unit.moradores !== undefined && !(await gravarDocumentos(supabase, id, atualizada.moradores, unit.moradores))) return null;
+  return (await comDocumentos(supabase, [atualizada]))[0];
 }
 
 export async function deleteUnitDB(supabase: SupabaseClient, id: string): Promise<void> {

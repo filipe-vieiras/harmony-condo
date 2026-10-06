@@ -107,6 +107,149 @@ await admin.from('notifications').update({ titulo: 'QA Cadastro validado!' }).eq
 
 console.log('\n## G/H. Multa, ciência e recurso');
 const cM1 = await clientDe(email('morador1')), cM2 = await clientDe(email('morador2'));
+
+console.log('\n## M. Documento do titular fora de Portaria e Conselho (issue #67, migração 0040)');
+{
+  const DOC_A = '999.111.222-33', DOC_B = '888.111.222-44', DOC_C = '444.555.666-77', DOC_D = '777.666.555-11';
+  const todos = [DOC_A, DOC_B, DOC_C, DOC_D];
+  const vaza = (d) => { const t = JSON.stringify(d ?? ''); return todos.some((x) => t.includes(x)) || /rgCpf/.test(t); };
+  const moradoresDe = async (unitId) => (await admin.from('units').select('moradores').eq('id', unitId).single()).data.moradores;
+  const docsDe = async (unitId) => (await admin.from('unit_documentos').select('*').eq('unit_id', unitId)).data ?? [];
+
+  // Contas e unidades da seção. conselho2 MORA em R-901 (é titular de unidade) e mesmo assim não lê o documento.
+  const { data: [uR1, uR2] } = await admin.from('units').insert([
+    { bloco: 'R', numero: '901', proprietario_nome: 'QA Conselho Dois', proprietario_telefone: '(11) 90000-9901', proprietario_email: 'qa-c2@example.com', tipo_ocupacao: 'PROPRIETARIO', moradores: [{ nome: 'QA Conselho Dois', tipo: 'TITULAR', telefone: '(11) 90000-9901', email: 'qa-c2@example.com', rgCpf: 'DEVE-SER-REMOVIDO' }], vagas_garagem: [], animais: '' },
+    { bloco: 'R', numero: '902', proprietario_nome: '', proprietario_telefone: '', proprietario_email: '', tipo_ocupacao: 'DESOCUPADO', moradores: [], vagas_garagem: [], animais: '' },
+  ]).select();
+  const idC2 = await criarUsuario(email('conselho2doc'), { name: 'QA Conselho Dois', role: 'CONSELHO', bloco: 'R', unidade: '901' });
+  await admin.from('units').update({ usuario_id: idC2, status_convite: 'ATIVO' }).eq('id', uR1.id);
+  await criarUsuario(email('portaria2doc'), { name: 'QA Portaria Dois', role: 'PORTARIA' });
+  await criarUsuario(email('prov67'), { name: 'QA provisório67', role: 'MORADOR', bloco: 'Q', unidade: '101', cadastro_validado: false });
+  await criarUsuario(email('semperfil67'));
+  const cX = await clientDe(email('semperfil67'));
+  const cC2 = await clientDe(email('conselho2doc')), cP2 = await clientDe(email('portaria2doc')), cProv = await clientDe(email('prov67'));
+
+  // Gatilho de units: o JSON nunca guarda documento (mesmo que um cliente tente) e todo morador ganha id.
+  const m901 = await moradoresDe(uR1.id);
+  ok(!JSON.stringify(m901).includes('rgCpf') && !!m901[0].id, 'gatilho: documento enviado dentro do JSON de units é descartado e o morador ganha id');
+  const nomeAntes = m901[0].nome;
+  ok((await docsDe(uR1.id)).length === 0, 'documento mandado no JSON NÃO vira documento guardado (some)');
+
+  // Documentos de teste, gravados como o app grava: pela função da gestão (Síndico, Subsíndico e ADM).
+  const mA = await moradoresDe(U['101']), mB = await moradoresDe(U['102']);
+  const idsA = mA.map((m) => m.id), idsB = mB.map((m) => m.id);
+  ok(idsA.every(Boolean) && idsB.every(Boolean), 'moradores validados pelo autocadastro têm id');
+  ok(!(await cSind.rpc('salvar_documentos_unidade', { p_unit_id: U['101'], p_docs: { [idsA[0]]: DOC_A }, p_manter: idsA })).error, 'Síndico grava o documento do titular de Q-101 pela função');
+  ok(!(await cSub.rpc('salvar_documentos_unidade', { p_unit_id: U['102'], p_docs: { [idsB[0]]: DOC_B }, p_manter: idsB })).error, 'Subsíndico grava o documento do titular de Q-102 pela função');
+  await admin.from('unit_documentos').insert({ unit_id: uR1.id, morador_id: m901[0].id, documento: DOC_D });
+  ok((await docsDe(U['101'])).length === 1 && (await docsDe(U['102'])).length === 1, 'dois documentos gravados, um em cada unidade');
+
+  // Quem lê: gestão lê tudo; o morador só o da própria unidade.
+  for (const [nome, c] of [['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm]]) {
+    const r = await c.from('unit_documentos').select('unit_id,morador_id,documento');
+    const vals = (r.data ?? []).map((d) => d.documento);
+    ok(!r.error && vals.includes(DOC_A) && vals.includes(DOC_B) && vals.includes(DOC_D), `${nome} lê os documentos de todas as unidades`);
+  }
+  const rM1 = await cM1.from('unit_documentos').select('documento');
+  ok(rM1.data?.length === 1 && rM1.data[0].documento === DOC_A, 'Morador lê só o documento da PRÓPRIA unidade (Q-101)');
+  const rM2 = await cM2.from('unit_documentos').select('documento');
+  ok(rM2.data?.length === 1 && rM2.data[0].documento === DOC_B, 'Morador de outra unidade lê só o da dele (Q-102) e nunca o de Q-101');
+  ok(!(await cM2.from('unit_documentos').select('documento').eq('unit_id', U['101'])).data?.length, 'Morador de outra unidade pedindo Q-101 por filtro: 0 linhas');
+
+  // Quem NÃO lê: Portaria, Conselho, Portaria2, Conselho2 (titular de unidade), provisório, visitante, conta sem perfil.
+  const naoLe = [['Portaria', cPort], ['Conselho', cCons], ['Portaria2', cP2], ['Conselho2 (titular de R-901, com documento lá)', cC2], ['Morador provisório', cProv], ['Visitante', anon()], ['Conta sem perfil', cX]];
+  for (const [nome, c] of naoLe) {
+    const t = await c.from('unit_documentos').select('*');
+    ok(!(t.data?.length), `${nome} NÃO lê unit_documentos (${t.error ? 'erro: ' + t.error.code : '0 linhas'})`);
+    const u = await c.from('units').select('*');
+    ok(!vaza(u.data), `${nome} NÃO recebe documento em units (${u.data?.length ?? 0} unidades lidas, nenhuma com rgCpf nem com o valor)`);
+    const d = await c.rpc('diretorio_unidades');
+    ok(!vaza(d.data), `${nome} NÃO recebe documento por diretorio_unidades`);
+  }
+  // Visão geral da API: nenhuma tabela legível por eles contém o valor.
+  for (const [nome, c] of naoLe.slice(0, 4)) {
+    const achados = [];
+    for (const tb of ['units', 'vehicles', 'fines', 'notifications', 'audit_logs', 'autocadastros', 'profiles', 'pending_invites', 'unit_documentos']) {
+      const r = await c.from(tb).select('*');
+      if (!r.error && vaza(r.data)) achados.push(tb);
+    }
+    ok(achados.length === 0, `${nome}: valor do documento não aparece em nenhuma tabela legível ${achados.join(' ')}`);
+  }
+
+  // Equipe que lê units continua vendo telefone, e-mail e responsável.
+  for (const [nome, c] of [['Portaria', cPort], ['Conselho', cCons], ['Portaria2', cP2], ['Conselho2', cC2]]) {
+    const r = await c.from('units').select('id,proprietario_nome,proprietario_telefone,proprietario_email,moradores').eq('id', uR1.id).maybeSingle();
+    const m = r.data?.moradores?.[0];
+    ok(r.data?.proprietario_nome === 'QA Conselho Dois' && r.data.proprietario_telefone === '(11) 90000-9901' && r.data.proprietario_email === 'qa-c2@example.com' && m?.nome === nomeAntes && m.telefone === '(11) 90000-9901' && m.email === 'qa-c2@example.com', `${nome} continua lendo responsável, telefone e e-mail das unidades (sem o documento)`);
+  }
+
+  // Escrita direta pelo cliente: recusada para todos, inclusive a gestão (só a função grava).
+  const alvo = { unit_id: U['101'], morador_id: idsA[0] };
+  for (const [nome, c] of [...naoLe, ['Morador dono', cM1], ['Morador de outra unidade', cM2], ['Síndico', cSind], ['Subsíndico', cSub], ['ADM', cAdm]]) {
+    const ins = await c.from('unit_documentos').insert({ unit_id: U['104'], morador_id: 'x', documento: 'QA-INSERT' });
+    const upd = await c.from('unit_documentos').update({ documento: 'QA-ADULTERADO' }).match(alvo).select();
+    const del = await c.from('unit_documentos').delete().match(alvo).select();
+    ok(!!ins.error && !upd.data?.length && !del.data?.length, `${nome}: escrita direta em unit_documentos recusada (insert/update/delete)`);
+  }
+  const depois = await docsDe(U['101']);
+  ok(depois.length === 1 && depois[0].documento === DOC_A, 'documento continua intacto depois das tentativas diretas');
+  ok(!(await docsDe(U['104'])).length, 'nenhum documento criado por insert direto');
+
+  // A função de gravação: só a gestão.
+  for (const [nome, c] of [...naoLe, ['Morador dono', cM1], ['Morador de outra unidade', cM2]]) {
+    const r = await c.rpc('salvar_documentos_unidade', { p_unit_id: U['101'], p_docs: { [idsA[0]]: 'QA-FUNCAO' }, p_manter: idsA });
+    ok(!!r.error && (await docsDe(U['101']))[0].documento === DOC_A, `${nome} NÃO grava documento pela função (${r.error?.code ?? 'sem erro'})`);
+  }
+  // Documento solto: id que não é de morador da unidade é ignorado; texto vazio apaga; sair da unidade apaga.
+  await cSind.rpc('salvar_documentos_unidade', { p_unit_id: U['101'], p_docs: { 'id-inventado': 'QA-SOLTO' }, p_manter: idsA });
+  ok((await docsDe(U['101'])).length === 1, 'função ignora id que não é morador da unidade');
+  await cSind.rpc('salvar_documentos_unidade', { p_unit_id: U['101'], p_docs: { [idsA[0]]: '' }, p_manter: idsA });
+  ok((await docsDe(U['101'])).length === 0, 'texto vazio apaga o documento');
+  await cSind.rpc('salvar_documentos_unidade', { p_unit_id: U['101'], p_docs: { [idsA[0]]: DOC_A }, p_manter: idsA });
+  await cSind.rpc('salvar_documentos_unidade', { p_unit_id: U['101'], p_docs: {}, p_manter: [] });
+  ok((await docsDe(U['101'])).length === 0, 'morador que saiu da unidade (fora de p_manter) perde o documento');
+  await cSind.rpc('salvar_documentos_unidade', { p_unit_id: U['101'], p_docs: { [idsA[0]]: DOC_A }, p_manter: idsA });
+
+  // Editar a unidade pela gestão (JSON com rgCpf) não devolve o documento ao JSON; o id continua o mesmo.
+  const upJson = await cSind.from('units').update({ moradores: mA.map((m, i) => (i === 0 ? { ...m, rgCpf: DOC_C } : m)) }).eq('id', U['101']).select('moradores').single();
+  ok(!upJson.error && !JSON.stringify(upJson.data.moradores).includes('rgCpf') && upJson.data.moradores[0].id === idsA[0], 'gestão salvando a unidade com rgCpf no JSON: banco descarta a chave e mantém o id');
+  ok((await docsDe(U['101']))[0].documento === DOC_A, 'e o documento guardado não muda por causa disso');
+
+  // Autocadastro: o documento do envio só a gestão (e o dono do envio) lê; ao validar, vai para a tabela nova.
+  const IPm = () => ({ 'x-forwarded-for': `198.51.100.${Math.floor(Math.random() * 250) + 1}` });
+  const env67 = await api('/api/autocadastro/publico', { method: 'POST', headers: IPm(), body: { unitId: uR2.id, tipo: 'PROPRIETARIO', nome: 'QA morador67', telefone: '(11) 90000-0067', rgCpf: DOC_C, email: email('morador67'), senha: SENHA, consentimento: true, dependentes: [], veiculos: [] } });
+  ok(env67.status === 200, `autocadastro com documento aceito (${env67.status})`);
+  const linha = (await admin.from('autocadastros').select('id,rg_cpf').eq('email', email('morador67')).single()).data;
+  ok(linha?.rg_cpf === DOC_C, 'autocadastros guarda o documento do envio');
+  for (const [nome, c] of [['Portaria', cPort], ['Conselho', cCons], ['Portaria2', cP2], ['Conselho2', cC2], ['Morador de outra unidade', cM2], ['Provisório de outro envio', cProv], ['Visitante', anon()], ['Conta sem perfil', cX]]) {
+    const r = await c.from('autocadastros').select('*');
+    ok(!vaza(r.data), `${nome} NÃO lê o documento do envio em autocadastros`);
+  }
+  ok((await cSind.from('autocadastros').select('rg_cpf').eq('id', linha.id).single()).data?.rg_cpf === DOC_C, 'gestão lê o documento do envio');
+  const v67 = await api('/api/autocadastro/decidir', { method: 'POST', cookie: ckSind, body: { ids: [linha.id], acao: 'VALIDAR' } });
+  ok(v67.status === 200 && v67.data.resultados?.[0]?.ok, `Síndico valida o envio com documento (${v67.data?.resultados?.[0]?.mensagem})`);
+  const m902 = await moradoresDe(uR2.id);
+  ok(m902.length === 1 && !JSON.stringify(m902).includes('rgCpf') && !!m902[0].id, 'depois de validar: units.moradores sem documento, com id');
+  const d902 = await docsDe(uR2.id);
+  ok(d902.length === 1 && d902[0].morador_id === m902[0].id && d902[0].documento === DOC_C, 'depois de validar: documento está em unit_documentos, ligado ao titular');
+  const cM67 = await clientDe(email('morador67'));
+  ok((await cM67.from('unit_documentos').select('documento')).data?.[0]?.documento === DOC_C, 'o novo morador lê o próprio documento');
+  for (const [nome, c] of [['Portaria', cPort], ['Conselho', cCons]]) {
+    ok(!vaza((await c.from('units').select('*').eq('id', uR2.id)).data), `${nome} lê a unidade recém-validada sem o documento`);
+  }
+
+  // Excluir a unidade leva o documento junto (ON DELETE CASCADE): sem documento de unidade que não existe mais.
+  const antesExcluir = (await admin.from('unit_documentos').select('*', { count: 'exact', head: true })).count;
+  await admin.from('units').delete().eq('id', uR1.id);
+  ok((await admin.from('unit_documentos').select('*', { count: 'exact', head: true })).count === antesExcluir - 1, 'excluir a unidade apaga o documento dela');
+
+  // Migração (0040) conferida: nada sobrou de documento no JSON de nenhuma unidade do banco.
+  const { data: tudo } = await admin.from('units').select('moradores');
+  ok(!tudo.some((u) => JSON.stringify(u.moradores).includes('rgCpf')), 'nenhuma unidade do banco guarda rgCpf no JSON (migração aplicada e gatilho ativo)');
+  ok(tudo.every((u) => (u.moradores ?? []).every((m) => !!m.id)), 'todo morador de todas as unidades tem id');
+  ok(!(await anon().from('unit_documentos').select('*')).data?.length, 'visitante sem login não lê nada de unit_documentos');
+}
+
 const { data: esp } = await cSind.from('spaces').insert({ nome: 'QA Churrasqueira', descricao: 'QA', capacidade_max: 20, horario_funcionamento: '10h-22h', taxa_limpeza: 50, regras: [], ativo: true }).select().single();
 ok(!(await cSind.from('notices').insert({ titulo: 'QA <img src=x onerror=alert(1)>', conteudo: 'QA', categoria: 'COMUNICADO', autor: 'QA Síndico' })).error, 'Síndico publica aviso');
 ok(!(await cSub.from('documents').insert({ titulo: 'QA Regimento', descricao: 'QA', categoria: 'REGIMENTO', link_externo: 'https://example.com' })).error, 'Subsíndico publica documento');
@@ -748,7 +891,7 @@ console.log('\n## Conta criada direto na API do Supabase, sem perfil (correção
 await criarUsuario(email('intruso-api'));
 const cX = await clientDe(email('intruso-api'));
 const vazados = [];
-for (const t of ['profiles', 'units', 'vehicles', 'fines', 'spaces', 'reservations', 'documents', 'notices', 'notifications', 'audit_logs', 'pending_invites', 'autocadastros', 'autocadastro_config', 'zelador', 'portal_administradora', 'notification_reads']) {
+for (const t of ['profiles', 'units', 'vehicles', 'fines', 'spaces', 'reservations', 'documents', 'notices', 'notifications', 'audit_logs', 'pending_invites', 'autocadastros', 'autocadastro_config', 'zelador', 'portal_administradora', 'notification_reads', 'unit_documentos']) {
   const r = await cX.from(t).select('*');
   if (!r.error && r.data.length) vazados.push(`${t}(${r.data.length})`);
 }

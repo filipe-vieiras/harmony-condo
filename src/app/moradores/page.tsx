@@ -75,6 +75,7 @@ function MoradoresContent() {
   const [titularTelefone, setTitularTelefone] = useState('');
   const [titularEmail, setTitularEmail] = useState('');
   const [titularRgCpf, setTitularRgCpf] = useState('');
+  const [titularId, setTitularId] = useState<string | undefined>(undefined);
 
   // Dados do Proprietário Legal (caso seja alugado)
   const [proprietarioNome, setProprietarioNome] = useState('');
@@ -83,7 +84,7 @@ function MoradoresContent() {
 
   // Demais moradores vinculados
   const [demaisMoradores, setDemaisMoradores] = useState<
-    Array<{ nome: string; tipo: 'DEPENDENTE' | 'INQUILINO'; telefone: string; rgCpf: string }>
+    Array<{ id?: string; nome: string; tipo: 'DEPENDENTE' | 'INQUILINO'; telefone: string; rgCpf: string }>
   >([]);
 
   const handleAddMorador = () => {
@@ -120,6 +121,7 @@ function MoradoresContent() {
     setTitularTelefone('');
     setTitularEmail('');
     setTitularRgCpf('');
+    setTitularId(undefined);
     setProprietarioNome('');
     setProprietarioTelefone('');
     setProprietarioEmail('');
@@ -166,11 +168,13 @@ function MoradoresContent() {
     setTitularTelefone(principal?.telefone ?? u.proprietarioTelefone);
     setTitularEmail(principal?.email ?? u.proprietarioEmail ?? '');
     setTitularRgCpf(principal?.rgCpf ?? '');
+    setTitularId(principal?.id);
     setProprietarioNome(u.proprietarioNome);
     setProprietarioTelefone(u.proprietarioTelefone);
     setProprietarioEmail(u.proprietarioEmail);
     setDemaisMoradores(
       (u.moradores ?? []).slice(1).map((m) => ({
+        id: m.id,
         nome: m.nome,
         tipo: m.tipo === 'INQUILINO' ? 'INQUILINO' : 'DEPENDENTE',
         telefone: m.telefone,
@@ -246,11 +250,14 @@ function MoradoresContent() {
     setIsSaving(true);
 
     // Constrói lista completa de moradores
+    // O id preserva a ligação do morador com o documento guardado à parte (unit_documentos).
     const principalResident = {
+      id: titularId,
       nome: titularNome,
       tipo: (novoTipo === 'PROPRIETARIO' ? 'TITULAR' : 'INQUILINO') as 'TITULAR' | 'INQUILINO',
       telefone: titularTelefone,
-      rgCpf: titularRgCpf || undefined,
+      // Ao editar, campo vazio apaga o documento guardado; ao criar, vazio é só "não informado".
+      rgCpf: editingUnitId ? titularRgCpf.trim() : (titularRgCpf.trim() || undefined),
       // E-mail do morador prioritário — é para ele que vai o convite de acesso ao portal.
       email: titularEmail || undefined,
     };
@@ -258,10 +265,11 @@ function MoradoresContent() {
     const validDemaisMoradores = demaisMoradores
       .filter((m) => m.nome.trim() !== '')
       .map((m) => ({
+        id: m.id,
         nome: m.nome.trim(),
         tipo: m.tipo,
         telefone: m.telefone.trim(),
-        rgCpf: m.rgCpf.trim() || undefined,
+        rgCpf: editingUnitId ? m.rgCpf.trim() : (m.rgCpf.trim() || undefined),
       }));
 
     const todosMoradores = [principalResident, ...validDemaisMoradores];
