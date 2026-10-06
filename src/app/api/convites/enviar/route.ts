@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ADMIN_ROLES, SINGLETON_ROLES } from '@/lib/roles';
+import { MSG_SEM_NIVEL, podeConvidarPara } from '@/lib/hierarquia';
+import { gravarAuditoria } from '@/lib/auditoriaServidor';
+import { textoVazio } from '@/lib/textoLivre';
 import { montarLinkAcesso } from '@/lib/linkAcesso';
 
 interface SendResult {
@@ -21,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   const { data: callerProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('id, name, role')
     .eq('id', user.id)
     .single();
 
@@ -55,16 +58,52 @@ export async function POST(request: NextRequest) {
 
   const results: SendResult[] = [];
 
+  // Convite que não veio da fila (já enviado, ou outra chamada está enviando agora): resposta clara, nunca lista vazia.
+  const MSG_EM_ANDAMENTO = 'Este convite já está em andamento ou já foi enviado. Atualize a lista.';
+  if (!invites || invites.length === 0) {
+    return NextResponse.json({ error: MSG_EM_ANDAMENTO, codigo: 'em_andamento' }, { status: 409 });
+  }
+  for (const id of ids) {
+    if (!invites.some((i) => i.id === id)) results.push({ id, ok: false, mensagem: MSG_EM_ANDAMENTO });
+  }
+
   for (const invite of invites ?? []) {
+    // Nome em branco (só espaços) não vira convite.
+    if (textoVazio(String(invite.nome ?? ''))) {
+      results.push({ id: invite.id, ok: false, mensagem: 'O convite está sem nome. Remova-o da fila e cadastre de novo.' });
+      continue;
+    }
+    // Hierarquia (#68): só se convida para cargo que o executor pode convidar (nível menor que o dele; o Zelador, só Síndico e ADM).
+    // Nada é criado nem alterado na fila quando a regra recusa.
+    if (!podeConvidarPara(callerProfile.role, invite.role)) {
+      results.push({ id: invite.id, ok: false, mensagem: invite.role === 'ZELADOR' ? MSG_SEM_NIVEL.ZELADOR : MSG_SEM_NIVEL.CONVITE });
+      continue;
+    }
+    // O Zelador é funcionário externo: nunca com unidade (o banco também recusa).
+    if (invite.role === 'ZELADOR' && (invite.unit_id || invite.bloco || invite.unidade)) {
+      const recusa = 'O Zelador é funcionário externo e não pode ter unidade.';
+      await supabase.from('pending_invites').update({ status: 'ERRO', erro_mensagem: recusa }).eq('id', invite.id);
+      results.push({ id: invite.id, ok: false, mensagem: recusa });
+      continue;
+    }
+
     // Trava de singleton: no máximo um SINDICO e um ADM ativos.
     if (SINGLETON_ROLES.includes(invite.role)) {
+      // Conta com acesso removido (ex-Zelador) não ocupa a vaga; transferência pendente do cargo ocupa.
       const { data: existing } = await admin
         .from('profiles')
         .select('id')
         .eq('role', invite.role)
+        .or('desativado_em.is.null,aguardando_aceite.eq.true')
+        .limit(1);
+      const { data: transfPendente } = await admin
+        .from('cargo_transferencias')
+        .select('id')
+        .eq('cargo', invite.role)
+        .eq('status', 'PENDENTE')
         .limit(1);
 
-      if (existing && existing.length > 0) {
+      if ((existing && existing.length > 0) || (transfPendente && transfPendente.length > 0)) {
         const msg = `Já existe um usuário ativo com o perfil ${invite.role}.`;
         await supabase.from('pending_invites').update({ status: 'ERRO', erro_mensagem: msg }).eq('id', invite.id);
         results.push({ id: invite.id, ok: false, mensagem: msg });
@@ -80,6 +119,27 @@ export async function POST(request: NextRequest) {
     // (#access_token=...), que só o cliente no navegador consegue ler — o
     // fragmento nunca chega ao servidor, então uma rota server-side como
     // /api/auth/callback (que espera ?code=) nunca recebe nada e falha.
+    // E-mail que já tem conta (perfil ou Auth): gerar link de novo invalidaria o link da conta existente. Recusa antes de tudo.
+    const { data: emUso } = await admin.rpc('email_em_uso', { p_email: invite.email });
+    if (emUso) {
+      const msg = 'Já existe uma conta com este e-mail. Não é possível enviar outro convite para ele.';
+      await supabase.from('pending_invites').update({ status: 'ERRO', erro_mensagem: msg }).eq('id', invite.id);
+      results.push({ id: invite.id, ok: false, mensagem: msg });
+      continue;
+    }
+
+    // Reserva o convite ANTES de gerar o link: chamadas simultâneas do mesmo convite não criam conta duas vezes.
+    const { data: reservado } = await admin
+      .from('pending_invites')
+      .update({ status: 'ENVIADO', enviado_em: new Date().toISOString(), erro_mensagem: null })
+      .eq('id', invite.id)
+      .in('status', ['PENDENTE', 'ERRO'])
+      .select('id');
+    if (!reservado || reservado.length === 0) {
+      results.push({ id: invite.id, ok: false, mensagem: 'Este convite já está sendo enviado. Aguarde e atualize a lista.' });
+      continue;
+    }
+
     const { data: linkData, error: inviteError } = await admin.auth.admin.generateLink({
       type: 'invite',
       email: invite.email,
@@ -106,8 +166,10 @@ export async function POST(request: NextRequest) {
       name: invite.nome,
       email: invite.email,
       role: invite.role,
-      bloco: invite.bloco,
-      unidade: invite.unidade,
+      bloco: invite.role === 'ZELADOR' ? null : invite.bloco,
+      unidade: invite.role === 'ZELADOR' ? null : invite.unidade,
+      // Zelador pela fila (cargo vago): a conta nasce DESATIVADA e só ativa quando a pessoa aceita o convite (como na transferência).
+      ...(invite.role === 'ZELADOR' ? { desativado_em: new Date().toISOString(), aguardando_aceite: true } : {}),
     });
 
     if (profileError) {
@@ -122,13 +184,18 @@ export async function POST(request: NextRequest) {
     }
 
     const nowIso = new Date().toISOString();
-    await supabase.from('pending_invites').update({ status: 'ENVIADO', enviado_em: nowIso, link_acesso: actionLink, erro_mensagem: null }).eq('id', invite.id);
+    await supabase.from('pending_invites').update({ status: 'ENVIADO', enviado_em: nowIso, erro_mensagem: null }).eq('id', invite.id);
+    // O link fica em tabela à parte, que só Síndico e ADM leem.
+    await admin.from('convite_links').upsert({ invite_id: invite.id, link_acesso: actionLink });
+    await gravarAuditoria(admin, { id: callerProfile.id, name: callerProfile.name, role: callerProfile.role },
+      `Gerou o link de acesso de ${invite.nome} (${invite.role})`, { acao: 'CONVITE_ENVIADO', conviteId: invite.id, cargo: invite.role });
 
     if (invite.unit_id) {
       await supabase.from('units').update({ status_convite: 'ENVIADO', usuario_id: newUserId }).eq('id', invite.unit_id);
     }
 
-    results.push({ id: invite.id, ok: true, link: actionLink });
+    // O link só volta a Síndico e ADM (a regra vale também para quem chama a rota direto).
+    results.push({ id: invite.id, ok: true, ...(callerProfile.role === 'SINDICO' || callerProfile.role === 'ADM' ? { link: actionLink } : {}) });
   }
 
   return NextResponse.json({ results });

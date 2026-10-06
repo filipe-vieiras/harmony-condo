@@ -35,6 +35,8 @@ export async function fetchProfiles(supabase: SupabaseClient): Promise<User[]> {
     unidade: (r.unidade as string) ?? undefined,
     telefone: (r.telefone as string) ?? undefined,
     cadastroValidado: (r.cadastro_validado as boolean) ?? true,
+    desativadoEm: (r.desativado_em as string) ?? undefined,
+    aguardandoAceite: (r.aguardando_aceite as boolean) ?? false,
   }));
 }
 
@@ -118,6 +120,29 @@ export async function fetchUnits(supabase: SupabaseClient): Promise<Unit[]> {
     .order('numero', { ascending: true });
   if (error) { console.error('fetchUnits:', error); return []; }
   return comDocumentos(supabase, (data ?? []).map(rowToUnit));
+}
+
+/**
+ * O Zelador não lê `units`: recebe só nome, telefone, e-mail e vínculo de quem mora, mais bloco e número (função do banco).
+ * O resto do cadastro (proprietário que não mora, observações, animais, vagas, conta e convite) fica em branco.
+ */
+export async function fetchUnidadesDoZelador(supabase: SupabaseClient): Promise<Unit[]> {
+  const { data, error } = await supabase.rpc('unidades_para_zelador');
+  if (error) { console.error('fetchUnidadesDoZelador:', error); return []; }
+  return (data ?? []).map((r: { id: string; bloco: string; numero: string; moradores: Unit['moradores'] }): Unit => ({
+    id: r.id,
+    bloco: r.bloco,
+    numero: r.numero,
+    proprietarioNome: '',
+    proprietarioTelefone: '',
+    proprietarioEmail: '',
+    // Só para a tela rotular o morador principal: deduzido de quem mora (o cadastro de ocupação não vai ao Zelador).
+    tipoOcupacao: (r.moradores ?? []).some((m) => m.tipo === 'INQUILINO') ? 'INQUILINO' : (r.moradores ?? []).some((m) => m.tipo === 'TITULAR') ? 'PROPRIETARIO' : 'DESOCUPADO',
+    moradores: r.moradores ?? [],
+    vagasGaragem: [],
+    animais: '',
+    statusConvite: 'NAO_ENVIADO',
+  }));
 }
 
 export async function insertUnit(
@@ -270,6 +295,7 @@ function rowToNotice(r: Record<string, unknown>): Notice {
     fixado: (r.fixado as boolean) ?? false,
     anexoNome: (r.anexo_nome as string) ?? undefined,
     anexoUrl: (r.anexo_url as string) ?? undefined,
+    autorId: (r.autor_id as string) ?? undefined,
   };
 }
 
@@ -440,6 +466,7 @@ function rowToSpace(r: Record<string, unknown>): CommonSpace {
     exigeAprovacao: (r.exige_aprovacao as boolean) ?? true,
     faixaGratisAte: r.faixa_gratis_ate == null ? null : Number(r.faixa_gratis_ate),
     faixaValor: r.faixa_valor == null ? null : Number(r.faixa_valor),
+    motivoInterdicao: (r.motivo_interdicao as string | null) ?? null,
   };
 }
 
@@ -473,6 +500,43 @@ export async function insertSpace(
   return rowToSpace(data);
 }
 
+export interface InterdicaoInfo { por: string; em: string }
+
+/** Quem interditou cada espaço e quando (só a equipe operacional recebe; para os demais volta vazio). */
+export async function fetchInterdicoes(supabase: SupabaseClient): Promise<Record<string, InterdicaoInfo>> {
+  const { data, error } = await supabase.rpc('interdicoes_atuais');
+  if (error) { console.error('fetchInterdicoes:', error); return {}; }
+  const mapa: Record<string, InterdicaoInfo> = {};
+  for (const r of (data ?? []) as { espaco_id: string; por_nome: string; em: string }[]) mapa[r.espaco_id] = { por: r.por_nome, em: r.em };
+  return mapa;
+}
+
+export type ResultadoInterdicao =
+  | { ok: true; alterado: boolean; ativo: boolean; motivo: string | null }
+  | { ok: false; erro: 'SEM_PERMISSAO' | 'MOTIVO_LONGO' | 'NAO_ENCONTRADO' | 'ERRO' };
+
+/** Interdita (ativo = false) ou reabre o espaço, pela função do banco. Não mexe em reserva nenhuma. */
+export async function interditarEspacoDB(
+  supabase: SupabaseClient,
+  espacoId: string,
+  ativo: boolean,
+  motivo?: string
+): Promise<ResultadoInterdicao> {
+  const { data, error } = await supabase.rpc('interditar_espaco', {
+    p_espaco_id: espacoId,
+    p_ativo: ativo,
+    p_motivo: ativo ? null : (motivo ?? null),
+  });
+  if (error) {
+    console.error('interditarEspacoDB:', error);
+    if (error.code === '42501') return { ok: false, erro: 'SEM_PERMISSAO' };
+    if (error.message?.includes('motivo_muito_longo')) return { ok: false, erro: 'MOTIVO_LONGO' };
+    if (error.code === 'P0002' || error.code === '22023' || /espaco_nao_encontrado/.test(error.message ?? '')) return { ok: false, erro: 'NAO_ENCONTRADO' };
+    return { ok: false, erro: 'ERRO' };
+  }
+  return { ok: true, alterado: !!data?.alterado, ativo: !!data?.ativo, motivo: (data?.motivo as string | null) ?? null };
+}
+
 export async function updateSpaceDB(
   supabase: SupabaseClient,
   id: string,
@@ -486,7 +550,7 @@ export async function updateSpaceDB(
   if (space.taxaLimpeza !== undefined) payload.taxa_limpeza = space.taxaLimpeza;
   if (space.regras !== undefined) payload.regras = space.regras;
   if (space.imagemUrl !== undefined) payload.imagem_url = space.imagemUrl;
-  if (space.ativo !== undefined) payload.ativo = space.ativo;
+  // `ativo` e o motivo da interdição NÃO vão por aqui: o banco recusa e só interditar_espaco() grava (e audita).
   if (space.exigeAprovacao !== undefined) payload.exige_aprovacao = space.exigeAprovacao;
   // null é um valor de verdade aqui (volta a "grátis"); undefined = não mexe.
   if (space.faixaGratisAte !== undefined) payload.faixa_gratis_ate = space.faixaGratisAte;
@@ -808,7 +872,7 @@ export async function insertAuditLog(
 // PENDING INVITES (fila de convites em lote)
 // ──────────────────────────────────────────────
 
-function rowToPendingInvite(r: Record<string, unknown>): PendingInvite {
+function rowToPendingInvite(r: Record<string, unknown>, links?: Map<string, string>): PendingInvite {
   return {
     id: r.id as string,
     nome: r.nome as string,
@@ -822,7 +886,8 @@ function rowToPendingInvite(r: Record<string, unknown>): PendingInvite {
     criadoPor: (r.criado_por as string) ?? undefined,
     criadoEm: r.criado_em as string,
     enviadoEm: (r.enviado_em as string) ?? undefined,
-    linkAcesso: (r.link_acesso as string) ?? undefined,
+    // O link mora em convite_links, que só Síndico e ADM leem (para os demais fica vazio).
+    linkAcesso: links?.get(r.id as string),
     transferenciaId: (r.transferencia_id as string) ?? undefined,
   };
 }
@@ -833,7 +898,9 @@ export async function fetchPendingInvites(supabase: SupabaseClient): Promise<Pen
     .select('*')
     .order('criado_em', { ascending: false });
   if (error) { console.error('fetchPendingInvites:', error); return []; }
-  return (data ?? []).map(rowToPendingInvite);
+  const { data: links } = await supabase.from('convite_links').select('invite_id, link_acesso');
+  const porConvite = new Map((links ?? []).map((l: { invite_id: string; link_acesso: string }) => [l.invite_id, l.link_acesso]));
+  return (data ?? []).map((r) => rowToPendingInvite(r, porConvite));
 }
 
 export async function insertPendingInvite(

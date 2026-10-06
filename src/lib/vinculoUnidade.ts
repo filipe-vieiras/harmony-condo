@@ -48,6 +48,11 @@ export function avaliarVinculo(
     return { tipo: 'BLOQUEADO', mensagem: `Esta unidade já está vinculada a ${outra?.name ?? 'outra conta'}.` };
   }
 
+  // O Zelador é funcionário externo: nunca é ligado a unidade (o banco também recusa, no gatilho de units).
+  if (conta.role === 'ZELADOR') {
+    return { tipo: 'BLOQUEADO', mensagem: 'Esta conta é do Zelador, que é funcionário externo e não pode ser ligado a uma unidade. Use outro e-mail ou deixe o e-mail em branco.' };
+  }
+
   if (conta.role === 'MORADOR') {
     if (conta.cadastroValidado === false) {
       return { tipo: 'BLOQUEADO', mensagem: 'Esta conta ainda aguarda validação em Autocadastro. Valide ou recuse lá primeiro.' };

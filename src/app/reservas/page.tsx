@@ -7,7 +7,7 @@ import { useDialog } from '@/components/ui/DialogProvider';
 import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { ReservationStatus, CommonSpace } from '@/types';
-import { isAdmin, isProvisorio } from '@/lib/roles';
+import { isAdmin, isOperacao, isProvisorio } from '@/lib/roles';
 import { AguardandoValidacao } from '@/components/autocadastro/AguardandoValidacao';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
@@ -16,6 +16,9 @@ import { CampoVeiculo } from '@/components/ui/CampoVeiculo';
 import { Acordeao } from '@/components/reservas/Acordeao';
 import { DetalhesEspaco } from '@/components/reservas/DetalhesEspaco';
 import { EspacosCadastrados } from '@/components/reservas/EspacosCadastrados';
+import { InterditarEspacoDialog, type ModoInterdicao } from '@/components/reservas/InterditarEspacoDialog';
+import { ReservasFuturasEspaco } from '@/components/reservas/ReservasFuturasEspaco';
+import { reservasFuturasDoEspaco, textoEmManutencao } from '@/lib/interdicao';
 import { MenuMais } from '@/components/reservas/MenuMais';
 import { PedidosAguardando } from '@/components/reservas/PedidosAguardando';
 import { SeletorEspacos, type SeletorEspacosRef } from '@/components/reservas/SeletorEspacos';
@@ -73,7 +76,10 @@ function ReservasContent() {
     requestReservation, 
     buscarDisponibilidade,
     buscarValorReserva,
-    judgeReservation 
+    judgeReservation,
+    cancelReservation,
+    interditarEspaco,
+    interdicoes,
   } = useApp();
   const { confirm, askReason } = useDialog();
   const [reservaFormError, setReservaFormError] = useState<string | null>(null);
@@ -125,7 +131,6 @@ function ReservasContent() {
   const [spaceTaxaLimpeza, setSpaceTaxaLimpeza] = useState('');
   const [spaceRegras, setSpaceRegras] = useState('');
   const [spaceImagemUrl, setSpaceImagemUrl] = useState('');
-  const [spaceAtivo, setSpaceAtivo] = useState(true);
   const [spaceExigeAprovacao, setSpaceExigeAprovacao] = useState(true);
   // Valor de uso por faixa e bloqueios entre espaços (issue #81). Os valores digitados de cada opção
   // ficam guardados ao trocar de rádio, mas só os da opção marcada vão para o banco.
@@ -139,7 +144,12 @@ function ReservasContent() {
   const [secoes, setSecoes] = useState({ dados: true, pedidos: false, bloqueios: false });
   const [espacoFormError, setEspacoFormError] = useState<string | null>(null);
 
+  // Gestão (cadastra e edita espaço) x operação (gestão + Zelador: decide, cancela e interdita). O banco confere de novo.
   const isSindico = isAdmin(currentUser?.role);
+  const podeDecidir = isOperacao(currentUser?.role);
+  // Interdição aberta no diálogo e espaço em foco na lista "Reservas futuras do espaço" (vem também do link ?espaco=).
+  const [interdicaoAlvo, setInterdicaoAlvo] = useState<{ espacoId: string; modo: ModoInterdicao } | null>(null);
+  const [espacoFocoId, setEspacoFocoId] = useState<string | null>(() => (typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('espaco')));
   // Equipe sem unidade própria (Síndico/ADM/Portaria) precisa informar de qual
   // morador é a reserva ao registrar em nome de alguém (ex: pedido por telefone).
   const isStaff = currentUser?.role !== 'MORADOR';
@@ -190,7 +200,6 @@ function ReservasContent() {
     setSpaceTaxaLimpeza('');
     setSpaceRegras('');
     setSpaceImagemUrl('');
-    setSpaceAtivo(true);
     setSpaceExigeAprovacao(true);
     setSpaceValorModo('GRATIS');
     setSpaceFaixaAte('');
@@ -212,7 +221,6 @@ function ReservasContent() {
     setSpaceTaxaLimpeza(s.taxaLimpeza > 0 ? String(s.taxaLimpeza) : '');
     setSpaceRegras(s.regras.join('\n'));
     setSpaceImagemUrl(s.imagemUrl);
-    setSpaceAtivo(s.ativo !== false);
     setSpaceExigeAprovacao(s.exigeAprovacao !== false);
     const comFaixa = s.faixaGratisAte != null && s.faixaValor != null;
     setSpaceValorModo(comFaixa ? 'FAIXA' : 'GRATIS');
@@ -265,7 +273,8 @@ function ReservasContent() {
       taxaLimpeza: taxaNum,
       regras: regrasList,
       imagemUrl: spaceImagemUrl || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80',
-      ativo: spaceAtivo,
+      // Espaço novo nasce ativo; interditar e reabrir são pela função do banco (com motivo e auditoria), nunca por este formulário.
+      ...(editingSpaceId ? {} : { ativo: true }),
       exigeAprovacao: spaceExigeAprovacao,
       // Só os valores da opção marcada vão para o banco (null = grátis para qualquer número de pessoas).
       faixaGratisAte: spaceValorModo === 'FAIXA' ? faixaAteNum : null,
@@ -295,7 +304,7 @@ function ReservasContent() {
     if (!editingSpaceId) return;
     const nome = spaces.find((x) => x.id === editingSpaceId)?.nome ?? spaceNome;
     const confirmou = await confirm({
-      title: `Excluir o ${nome}?`,
+      title: `Excluir ${nome}?`,
       message: 'As reservas já feitas continuam no histórico.',
       confirmLabel: 'Excluir espaço',
       cancelLabel: 'Voltar',
@@ -307,13 +316,29 @@ function ReservasContent() {
     if (res.success) setShowSpaceModal(false);
   };
 
-  const handleToggleSpaceAtivo = async (s: CommonSpace) => {
-    const novoStatus = !(s.ativo !== false);
-    await updateSpace(s.id, { ativo: novoStatus });
-    setFeedbackMsg({
-      type: 'success',
-      text: `Espaço "${s.nome}" agora está ${novoStatus ? 'ativo para reservas' : 'desativado (em manutenção)'}.`,
-    });
+  // Interditar bloqueia SÓ novos pedidos: reserva nenhuma é cancelada nem avisada. Quem precisa cancela uma a uma, pela lista abaixo.
+  const hojeLista = hojeBrasilia();
+  const futurasDo = (espacoId: string) => reservasFuturasDoEspaco(reservations, espacoId, hojeLista).length;
+  const abrirInterdicao = (espaco: CommonSpace, modo: ModoInterdicao) => {
+    setFeedbackMsg(null);
+    setInterdicaoAlvo({ espacoId: espaco.id, modo });
+  };
+  const verReservasFuturas = (espaco: CommonSpace) => {
+    setInterdicaoAlvo(null);
+    setEspacoFocoId(espaco.id);
+    setTimeout(() => { const el = document.getElementById('reservas-futuras-espaco'); el?.scrollIntoView({ block: 'start' }); el?.focus(); }, 150);
+  };
+  const confirmarInterdicao = async (motivo: string): Promise<string | null> => {
+    if (!interdicaoAlvo) return null;
+    const alvo = spaces.find((x) => x.id === interdicaoAlvo.espacoId);
+    const res = await interditarEspaco(interdicaoAlvo.espacoId, interdicaoAlvo.modo === 'reabrir', motivo);
+    if (!res.success) return res.message;
+    setInterdicaoAlvo(null);
+    setRecarregarKey((k) => k + 1);
+    setFeedbackMsg({ type: 'success', text: res.message });
+    // O espaço pode ter sumido da lista de escolha (interditado): o chip volta ao padrão.
+    if (alvo && interdicaoAlvo.modo === 'interditar') setChipId((atual) => (atual === alvo.id ? null : atual));
+    return null;
   };
 
   // Campo inválido dentro de uma seção fechada: o navegador não consegue focá-lo e o envio morreria
@@ -449,6 +474,27 @@ function ReservasContent() {
     if (motivo) await decidir(r.id, false, motivo);
   };
 
+  // Cancelar (pendente ou já confirmada): motivo obrigatório, que o morador lê no aviso. Mesma auditoria e mesmo aviso da gestão.
+  const cancelar = async (r: { id: string; espacoNome: string; data: string; unidade: string; bloco: string }) => {
+    const motivo = await askReason({
+      title: 'Cancelar reserva',
+      message: `${r.espacoNome} em ${formatarData(r.data)}, Apto ${r.unidade}-${r.bloco}. O morador será avisado.`,
+      label: 'Motivo do cancelamento (o morador vê)',
+      confirmLabel: 'Cancelar reserva',
+      cancelLabel: 'Voltar',
+      minLength: 3,
+      maxLength: 200,
+      requiredMessage: 'Escreva o motivo do cancelamento.',
+    });
+    if (!motivo) return;
+    const ok = await cancelReservation(r.id, motivo);
+    setRecarregarKey((k) => k + 1);
+    setFeedbackMsg(ok
+      ? { type: 'success', text: 'Reserva cancelada. O morador foi avisado.' }
+      : { type: 'error', text: 'Não foi possível cancelar a reserva agora. Tente de novo.' });
+    if (!showModal) setTimeout(() => { const el = document.getElementById('reservas-feedback'); el?.focus(); el?.scrollIntoView({ block: 'nearest' }); }, 150);
+  };
+
   // Leva o foco ao campo com problema (leitor de tela e teclado); o texto fica no alerta do modal.
   const focarCampo = (id: string) => setTimeout(() => document.getElementById(id)?.focus(), 0);
 
@@ -535,7 +581,7 @@ function ReservasContent() {
 
   if (isProvisorio(currentUser)) return <AguardandoValidacao recurso="As reservas" />;
 
-  const pedidosAguardando = isSindico
+  const pedidosAguardando = podeDecidir
     ? reservations.filter((r) => r.status === 'PENDENTE').sort((a, b) => a.data.localeCompare(b.data))
     : [];
   // Morador: as próximas reservas ativas (a lista completa fica em "Ver em lista").
@@ -644,8 +690,18 @@ function ReservasContent() {
       )}
 
       {/* Quem decide vê primeiro o que está aguardando */}
-      {isSindico && (
+      {podeDecidir && (
         <PedidosAguardando pedidos={pedidosAguardando} onAprovar={(id) => decidir(id, true)} onRecusar={recusar} />
+      )}
+
+      {/* Depois de interditar: as reservas futuras continuam valendo e quem precisa as cancela uma a uma */}
+      {podeDecidir && espacoFocoId && spaces.find((x) => x.id === espacoFocoId) && (
+        <ReservasFuturasEspaco
+          espaco={spaces.find((x) => x.id === espacoFocoId)!}
+          reservas={reservasFuturasDoEspaco(reservations, espacoFocoId, hoje)}
+          onCancelar={cancelar}
+          onFechar={() => setEspacoFocoId(null)}
+        />
       )}
 
       {spaces.length === 0 ? (
@@ -708,6 +764,34 @@ function ReservasContent() {
               </button>
             )}
           </div>
+
+          {/* Espaço interditado: o morador lê "Em manutenção: {motivo}" (texto puro); a equipe vê também quem interditou e as reservas futuras */}
+          {spaces.some((x) => x.ativo === false) && (
+            <ul aria-label="Espaços em manutenção" className="no-print space-y-1.5">
+              {spaces.filter((x) => x.ativo === false).map((x) => {
+                const info = interdicoes[x.id];
+                const futuras = podeDecidir ? futurasDo(x.id) : 0;
+                return (
+                  <li key={x.id} className="flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 px-3 py-2 text-xs text-pendente-900">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-pendente-700" aria-hidden="true" />
+                    <span className="min-w-0 break-words">
+                      <strong>{x.nome}:</strong> {textoEmManutencao(x)}
+                      {podeDecidir && info && <span className="block text-[12px] text-pendente-800">Interditado por {info.por} em {formatarData(info.em)}</span>}
+                      {futuras > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => verReservasFuturas(x)}
+                          className="block min-h-11 text-left text-[12px] font-semibold text-accent-strong underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+                        >
+                          {pluralizar(futuras, 'reserva futura continua valendo', 'reservas futuras continuam valendo')}: ver reservas futuras deste espaço
+                        </button>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
 
           {chipEspaco && (
             <DetalhesEspaco
@@ -820,12 +904,13 @@ function ReservasContent() {
                   <th className="px-4 py-3.5">Valor</th>
                   <th className="px-4 py-3.5">Status</th>
                   <th className="px-4 py-3.5">Avaliação / Parecer</th>
+                  {podeDecidir && <th className="px-4 py-3.5 no-print">Ações</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {reservations.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-slate-600">
+                    <td colSpan={podeDecidir ? 7 : 6} className="px-5 py-8 text-center text-slate-600">
                       {isStaff ? 'Nenhuma reserva registrada até o momento.' : 'Você ainda não tem reservas. Escolha um espaço e um dia no calendário.'}
                     </td>
                   </tr>
@@ -866,15 +951,29 @@ function ReservasContent() {
                           )}
                           {r.status === 'APROVADA' && r.avaliadoPor !== APROVACAO_AUTOMATICA && (
                             <span className="text-emerald-700 font-semibold">
-                              Confirmada por {(r.avaliadoPor || 'Administração').replace(/\s*\([A-Z]+\)$/, '')} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
+                              Confirmada por {(r.avaliadoPor || 'Administração').replace(/\s*\([A-Za-z]+\)$/, '')} em {formatarData(r.dataAvaliacao || r.dataSolicitacao)}
                             </span>
                           )}
-                          {r.status === 'RECUSADA' && (
-                            <span className="text-red-700 font-medium">
+                          {(r.status === 'RECUSADA' || r.status === 'CANCELADA') && r.motivoRecusa && (
+                            <span className={`${r.status === 'RECUSADA' ? 'text-red-700' : 'text-slate-700'} font-medium`}>
                               Motivo: {r.motivoRecusa}
                             </span>
                           )}
                         </td>
+                        {podeDecidir && (
+                          <td data-label="Ações" className="px-4 py-3.5 no-print">
+                            {(r.status === 'PENDENTE' || r.status === 'APROVADA') && r.data >= hoje && (
+                              <button
+                                type="button"
+                                onClick={() => cancelar(r)}
+                                aria-label={`Cancelar reserva do apto ${r.unidade}, bloco ${r.bloco}, ${r.espacoNome}, ${formatarData(r.data)}`}
+                                className="flex min-h-11 items-center justify-center rounded-xl border border-red-300 bg-white px-3 text-xs font-bold text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+                              >
+                                Cancelar reserva
+                              </button>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -886,13 +985,30 @@ function ReservasContent() {
       </div>
 
       {/* Equipe que gere espaços: a lista recolhível substitui os 3 ícones sobre a foto */}
-      {isSindico && spaces.length > 0 && (
+      {podeDecidir && spaces.length > 0 && (
         <EspacosCadastrados
           spaces={spaces}
           aberto={espacosAberto}
           onAlternar={() => setEspacosAberto((v) => !v)}
-          onEditar={handleOpenEditSpace}
-          onAlternarAtivo={handleToggleSpaceAtivo}
+          onEditar={isSindico ? handleOpenEditSpace : undefined}
+          onInterditar={abrirInterdicao}
+          interdicoes={interdicoes}
+          futurasDo={futurasDo}
+          onVerFuturas={verReservasFuturas}
+        />
+      )}
+
+      {interdicaoAlvo && spaces.find((x) => x.id === interdicaoAlvo.espacoId) && (
+        <InterditarEspacoDialog
+          key={`${interdicaoAlvo.espacoId}-${interdicaoAlvo.modo}`}
+          espaco={spaces.find((x) => x.id === interdicaoAlvo.espacoId)!}
+          modo={interdicaoAlvo.modo}
+          reservasFuturas={futurasDo(interdicaoAlvo.espacoId)}
+          futurasPendentes={reservasFuturasDoEspaco(reservations, interdicaoAlvo.espacoId, hojeLista).filter((r) => r.status === 'PENDENTE').length}
+          futurasAprovadas={reservasFuturasDoEspaco(reservations, interdicaoAlvo.espacoId, hojeLista).filter((r) => r.status === 'APROVADA').length}
+          onVerReservasFuturas={() => verReservasFuturas(spaces.find((x) => x.id === interdicaoAlvo.espacoId)!)}
+          onFechar={() => setInterdicaoAlvo(null)}
+          onConfirmar={confirmarInterdicao}
         />
       )}
 
@@ -956,7 +1072,7 @@ function ReservasContent() {
                             {isStaff && (
                               <div className="mt-0.5 text-[12px] text-slate-600">Apto {r.unidade} – Bloco {r.bloco} · {r.moradorNome}</div>
                             )}
-                            {isSindico && r.status === 'PENDENTE' && (
+                            {podeDecidir && r.status === 'PENDENTE' && (
                               <div className="mt-2 flex gap-2">
                                 <button
                                   type="button"
@@ -975,6 +1091,15 @@ function ReservasContent() {
                                   <span>Recusar</span>
                                 </button>
                               </div>
+                            )}
+                            {podeDecidir && (r.status === 'PENDENTE' || r.status === 'APROVADA') && (
+                              <button
+                                type="button"
+                                onClick={() => cancelar(r)}
+                                className="mt-2 flex min-h-11 w-full items-center justify-center rounded-lg border border-red-300 bg-white px-2.5 text-xs font-bold text-red-700 transition hover:bg-red-50"
+                              >
+                                Cancelar reserva
+                              </button>
                             )}
                           </li>
                         );
@@ -1305,23 +1430,6 @@ function ReservasContent() {
 
             <form onSubmit={handleSaveSpace} onInvalidCapture={aoCampoInvalido} className="flex min-h-0 flex-1 flex-col">
               <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
-                {/* Interruptor no topo: é o que mais se usa (pausar um espaço em manutenção) */}
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    checked={spaceAtivo}
-                    onChange={(e) => setSpaceAtivo(e.target.checked)}
-                    aria-describedby="espaco-ativo-ajuda"
-                    className="peer sr-only"
-                  />
-                  <span aria-hidden="true" className="relative h-7 w-12 shrink-0 rounded-full bg-slate-500 transition peer-checked:bg-emerald-700 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent-strong after:absolute after:left-0.75 after:top-0.75 after:size-5.5 after:rounded-full after:bg-white after:transition-all peer-checked:after:left-5.75 motion-reduce:after:transition-none" />
-                  <span>
-                    <span className="block text-xs font-bold text-slate-900">Espaço disponível para reservas</span>
-                    <span id="espaco-ativo-ajuda" className="block text-[12px] text-slate-600">Desligue para pausar novos pedidos, por exemplo durante manutenção.</span>
-                  </span>
-                </label>
-
                 <Acordeao id="espaco-dados" titulo="Dados do espaço" aberto={secoes.dados} onAlternar={() => alternarSecao('dados')}>
                   <div className="space-y-4">
                     <div>
@@ -1533,7 +1641,7 @@ function ReservasContent() {
                                 onChange={(e) => setSpaceBloqueios((prev) => (e.target.checked ? [...prev, o.id] : prev.filter((id) => id !== o.id)))}
                                 className="size-5 shrink-0 rounded border-slate-300 text-primary focus:ring-accent-strong"
                               />
-                              <span className="text-xs font-semibold text-slate-700">{o.nome}{o.ativo === false ? ' (inativo)' : ''}</span>
+                              <span className="text-xs font-semibold text-slate-700">{o.nome}{o.ativo === false ? ' (em manutenção)' : ''}</span>
                             </label>
                           ))}
                         </fieldset>

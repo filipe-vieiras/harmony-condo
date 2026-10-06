@@ -1,4 +1,4 @@
-export type Role = 'SINDICO' | 'SUBSINDICO' | 'ADM' | 'PORTARIA' | 'CONSELHO' | 'MORADOR';
+export type Role = 'SINDICO' | 'SUBSINDICO' | 'ADM' | 'PORTARIA' | 'CONSELHO' | 'MORADOR' | 'ZELADOR';
 
 export interface User {
   id: string;
@@ -11,6 +11,10 @@ export interface User {
   cargo?: string;
   /** false = morador que se cadastrou pelo link aberto e ainda aguarda validação do síndico (acesso provisório). */
   cadastroValidado?: boolean;
+  /** Preenchido quando o acesso foi removido (ex.: ex-Zelador). Só a gestão enxerga esta conta; o histórico fica. */
+  desativadoEm?: string;
+  /** Zelador convidado pela fila que ainda não aceitou o convite (conta desativada até o aceite). */
+  aguardandoAceite?: boolean;
 }
 
 export type AutocadastroStatus = 'AGUARDANDO' | 'VALIDADO' | 'RECUSADO';
@@ -118,6 +122,8 @@ export interface Notice {
   fixado: boolean;
   anexoNome?: string;
   anexoUrl?: string;
+  /** Quem publicou (conta). O Zelador só apaga/edita os avisos em que este id é o dele. */
+  autorId?: string;
 }
 
 export type FineStatus = 
@@ -193,6 +199,8 @@ export interface CommonSpace {
    */
   faixaGratisAte?: number | null;
   faixaValor?: number | null;
+  /** Motivo curto (até 140) escrito ao interditar; o morador lê "Em manutenção: {motivo}". Só existe com `ativo === false`. */
+  motivoInterdicao?: string | null;
 }
 
 export type ReservationStatus = 'PENDENTE' | 'APROVADA' | 'RECUSADA' | 'CANCELADA';

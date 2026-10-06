@@ -65,6 +65,7 @@ export function Header({ onToggleMobileMenu, mobileMenuOpen }: HeaderProps) {
     PORTARIA: { label: 'Portaria & Acesso', badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-200' },
     CONSELHO: { label: 'Conselho Fiscal', badgeColor: 'bg-pendente-100 text-pendente-900 border-pendente-200' },
     MORADOR: { label: 'Morador', badgeColor: 'bg-accent-100 text-accent-900 border-accent-200' },
+    ZELADOR: { label: 'Zelador', badgeColor: 'bg-accent-50 text-accent-strong border-accent-200' },
   };
 
   const userRole = currentUser?.role ?? 'MORADOR';

@@ -61,7 +61,22 @@ export async function rodarTransferirCargo({ unidadeSemMorador }) {
   ].map(async ([k, n]) => [k, await cookieDe(email(n))])));
   const cl = { sind: await clientDe(email('sindico')), adm: await clientDe(email('adm')), mA: await clientDe(email('candidatoa')), subs: await clientDe(email('subsindico')) };
 
-  const tr = (cookie, cargo, origemId, destino) => api('/api/usuarios/transferir-cargo', { method: 'POST', cookie, body: { cargo, origemId, destino } });
+  // Desde a 0042 quem muda de cargo (origem e destino) perde as sessões abertas e os links pendentes (M-1): depois de cada
+  // transferência concluída o teste entra de novo, e as chamadas seguintes valem para a conta com o cargo NOVO.
+  const NOMES_CK = { sind: 'sindico', subs: 'subsindico', adm: 'adm', port1: 'portaria', cons1: 'conselho', mA: 'candidatoa', prov: 'provisorio2', adm2: 'adm2' };
+  const IDS_CK = { sind, subs, adm, port1, cons1, mA, prov, adm2 };
+  const renovarSessoes = async (...envolvidos) => {
+    for (const [k, n] of Object.entries(NOMES_CK)) {
+      if (!envolvidos.includes(IDS_CK[k])) continue;
+      ck[k] = await cookieDe(email(n));
+      if (k in cl) cl[k] = await clientDe(email(n));
+    }
+  };
+  const tr = async (cookie, cargo, origemId, destino) => {
+    const r = await api('/api/usuarios/transferir-cargo', { method: 'POST', cookie, body: { cargo, origemId, destino } });
+    if (r.status === 200 && destino?.tipo === 'EXISTENTE') await renovarSessoes(origemId, destino.id);
+    return r;
+  };
   const ex = (id) => ({ tipo: 'EXISTENTE', id });
   // Sem e-mail nem telefone no registro (o regex de telefone ignora pedaços de UUID).
   const semDadosPessoais = (reg) => !/@|qa\.harmony|\(\d{2}\)|(?<![0-9a-f-])\d{4,5}-\d{4}(?![0-9a-f-])/i.test(JSON.stringify(reg));
@@ -272,6 +287,8 @@ export async function rodarTransferirCargo({ unidadeSemMorador }) {
 
   // ── 7) Trava de excluir o Síndico ──
   console.log('-- ninguém exclui o Síndico pelo app');
+  ck.subs = await cookieDe(email('subsindico')); // sessões anteriores caem quando a conta muda de cargo (0042)
+  ck.adm = await cookieDe(email('adm'));
   for (const [nome, cookie] of [['ADM', ck.adm], ['Subsíndico', ck.subs]]) {
     const e = await api('/api/usuarios/excluir', { method: 'POST', cookie, body: { userId: sind } });
     ok(e.status === 403 && /Síndico não pode ser excluído/.test(e.data?.error ?? ''), `${nome} NÃO exclui o Síndico → ${e.status} "${e.data?.error}"`);
@@ -319,7 +336,8 @@ export async function rodarTransferirCargo({ unidadeSemMorador }) {
   ok(pNovo1.role === 'MORADOR' && pNovo1.cadastro_validado === false, 'a conta nova nasce SEM poder (Morador provisório)');
   ok(!!(await admin.from('profiles').select('telefone').eq('id', idNovo1).single()).data.telefone, 'telefone opcional fica no perfil');
   const inv = (await admin.from('pending_invites').select('*').eq('transferencia_id', pend.id).single()).data;
-  ok(inv?.role === 'SINDICO' && inv.status === 'ENVIADO' && inv.link_acesso === link, 'convite na fila: perfil Síndico (ao aceitar), com o link');
+  const linkInv = (await admin.from('convite_links').select('link_acesso').eq('invite_id', inv.id).single()).data;
+  ok(inv?.role === 'SINDICO' && inv.status === 'ENVIADO' && linkInv?.link_acesso === link, 'convite na fila: perfil Síndico (ao aceitar), com o link (guardado em convite_links)');
   const { data: logsP } = await admin.from('audit_logs').select('*').like('acao', 'Iniciou a transferência%');
   ok(logsP.length === 1 && /aguarda aceitar o convite/.test(logsP[0].acao) && semDadosPessoais(logsP[0]) && logsP[0].detalhes.resultado === 'PENDENTE', 'histórico da pendência, sem e-mail nem telefone');
   ok(/aguarda aceitar/.test(descreverAuditoria(logsP[0].acao, logsP[0].detalhes).frase), 'Relatórios descreve a pendência');
@@ -341,6 +359,8 @@ export async function rodarTransferirCargo({ unidadeSemMorador }) {
   ok(recusou(await tr(ck.adm, 'PORTARIA', port1, ex(idNovo1)), 409, 'destino_invalido'), 'conta de destino pendente (provisória) não recebe outro cargo');
   // Antes do aceite, o destino novo não tem poder de equipe
   // Cancelar
+  ck.subs = await cookieDe(email('subsindico'));
+  ck.mA = await cookieDe(email('candidatoa'));
   for (const [nome, cookie] of [['Subsíndico', ck.subs], ['Morador', ck.mA]]) {
     const c = await api('/api/usuarios/transferir-cargo/cancelar', { method: 'POST', cookie, body: { transferenciaId: pend.id } });
     ok(c.status === 403, `${nome} NÃO cancela a pendência → ${c.status}`);
@@ -375,7 +395,7 @@ export async function rodarTransferirCargo({ unidadeSemMorador }) {
   ok(ac.status === 200 && ac.data.aplicada === true && ac.data.cargo === 'SINDICO', `aceite aplica o cargo → ${ac.status} ${JSON.stringify(ac.data)}`);
   ok((await papel(pend6.destino_id)).role === 'SINDICO' && (await papel(sind2)).role === 'MORADOR' && (await contar('SINDICO')) === 1, 'após o aceite: o novo é Síndico, o antigo vira Morador, só um Síndico');
   ok((await admin.from('cargo_transferencias').select('status').eq('id', pend6.id).single()).data.status === 'CONCLUIDA' && !(await admin.from('pending_invites').select('id').eq('transferencia_id', pend6.id)).data.length, 'transferência CONCLUIDA e convite saiu da fila');
-  ok((await api('/api/usuarios/transferir-cargo/aceitar', { method: 'POST', cookie: ckN })).data.aplicada === false, 'aceitar de novo não faz nada (aplicada: false)');
+  ok((await api('/api/usuarios/transferir-cargo/aceitar', { method: 'POST', cookie: await cookieDe(email('novo6')) })).data.aplicada === false, 'aceitar de novo não faz nada (aplicada: false)');
   const logA = (await admin.from('audit_logs').select('*').like('acao', 'Aceitou o convite e assumiu%')).data;
   ok(logA.length === 1 && logA[0].usuario_id === pend6.destino_id && logA[0].detalhes.executorId === adm && semDadosPessoais(logA[0]), 'histórico do aceite: quem aceitou, quem pediu em executorId, sem dados pessoais');
   const avN = (await admin.from('notifications').select('titulo').in('usuario_id_alvo', [pend6.destino_id, sind2])).data.map((n) => n.titulo).sort();

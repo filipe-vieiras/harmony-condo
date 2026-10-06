@@ -3,6 +3,8 @@ import { formatarData, formatarMoeda, formatarHorario, formatarIntervalo, plural
 import { descreverAuditoria } from '../../src/lib/auditoria.ts';
 import { avaliarVinculo } from '../../src/lib/vinculoUnidade.ts';
 import { rodarTransferirCargo } from './transferir-cargo.mjs';
+import { rodarZelador } from './zelador.mjs';
+import { rodarHierarquia } from './hierarquia.mjs';
 import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, ALVO } from './lib.mjs';
 
 const email = (n) => `${n}@${DOMINIO}`;
@@ -322,7 +324,7 @@ console.log('\n## I2. Reservas: conflito no banco, disponibilidade e aprovação
   const apos2 = await rv(cM1, espA, 'Q', '101', 'QA morador1', daqui(20));
   ok(!apos2.error, 'cancelada libera o dia: novo pedido aceito');
   const reativa = await cSind.from('reservations').update({ status: 'PENDENTE' }).eq('id', apos.data.id).select();
-  ok(reativa.error?.code === '23505', 'reativar a cancelada com o dia já ocupado também é barrado');
+  ok(reativa.error?.message === 'reserva_encerrada', `reserva cancelada não é reaberta por ninguém, nem pela gestão (${reativa.error?.message})`);
 
   // — Dia passado e espaço inativo —
   const ontem = await rv(cM1, espA, 'Q', '101', 'QA passado', somaDias(hojeBR, -1));
@@ -483,7 +485,7 @@ console.log('\n## I3. Bloqueio entre espaços (issue #81 fase 1, migração 0038
   const aDeNovo = await rv(cM1, eA, 'Q', '101', 'QA morador1', dia2);
   ok(!aDeNovo.error, 'recusada libera: A passa a ser reservável no dia');
   const reativa = await cSind.from('reservations').update({ status: 'PENDENTE' }).eq('id', bLibera.data.id).select();
-  ok(reativa.error?.message === BLOQ, 'reativar a recusada de B com A ocupando o dia é barrado');
+  ok(reativa.error?.message === BLOQ || reativa.error?.message === 'reserva_encerrada', 'reativar a recusada de B com A ocupando o dia é barrado (desde a 0042 a reserva encerrada nem reabre)');
   // Aprovar um pedido que já existia não dispara a checagem (a ocupação não muda).
   ok((await cSind.from('reservations').update({ status: 'APROVADA', avaliado_por: 'QA' }).eq('id', aDeNovo.data.id).select()).data?.length === 1, 'aprovar a PENDENTE de A (já existente) continua funcionando');
 
@@ -531,8 +533,8 @@ console.log('\n## I3. Bloqueio entre espaços (issue #81 fase 1, migração 0038
   ok(mista.filter((x) => !x.error).length === noDia.length && new Set(noDia.map((r) => r.espaco_id)).size === noDia.length && !(noDia.some((r) => r.espaco_id === eA.id) && noDia.some((r) => r.espaco_id === eB.id)), `6 pedidos simultâneos (A, B e C): nunca A e B juntos (${noDia.length} reserva(s) no dia)`);
 
   // — Apagar limpa pares; desativar mantém —
-  ok(!(await cSind.from('spaces').update({ ativo: false }).eq('id', eC.id).select()).error && (await temPar(eA, eC)), 'desativar um espaço mantém seus pares');
-  ok(!(await cSind.from('spaces').update({ ativo: true }).eq('id', eC.id).select()).error && (await temPar(eA, eC)), 'reativar mantém a regra');
+  ok(!(await cSind.rpc('interditar_espaco', { p_espaco_id: eC.id, p_ativo: false })).error && (await temPar(eA, eC)), 'interditar um espaço mantém seus pares (desde a 0041 só pela função)');
+  ok(!(await cSind.rpc('interditar_espaco', { p_espaco_id: eC.id, p_ativo: true })).error && (await temPar(eA, eC)), 'reativar mantém a regra');
   const delB = await cSind.from('spaces').delete().eq('id', eB.id).select();
   ok(delB.data?.length === 1 && !(await temPar(eA, eB)), `apagar o espaço B apaga os pares dele (${delB.error?.message ?? 'ok'})`);
   ok((await temPar(eA, eC)) && (await admin.from('reservations').select('espaco_id').eq('id', exB.data.id).single()).data.espaco_id === null, 'o par A–C continua; a reserva do B apagado fica com espaco_id nulo (histórico preservado)');
@@ -1262,6 +1264,8 @@ console.log('\n## Anular e apagar multa (spec 2026-10-02): regra no banco, por A
 }
 
 await rodarTransferirCargo({ unidadeSemMorador: U['104'] });
+await rodarZelador({ U });
+await rodarHierarquia();
 
 await limparQA();
 resumo();

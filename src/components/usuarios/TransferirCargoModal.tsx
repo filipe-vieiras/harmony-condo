@@ -12,6 +12,7 @@ import {
   ehEmailValido,
   exigeDigitarTransferir,
   podeTransferirCargo,
+  soPessoaNova,
   type CargoTransferivel,
 } from '@/lib/cargos';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
@@ -37,7 +38,17 @@ const PODERES: Record<CargoTransferivel, string> = {
   SUBSINDICO: 'O Subsíndico tem os mesmos poderes do Síndico: valida cadastros, emite multas e vê dados dos moradores.',
   CONSELHO: 'O Conselho acompanha relatórios, multas e o histórico.',
   PORTARIA: 'A Portaria busca placas e registra pedidos de reserva.',
+  ZELADOR: 'O Zelador é funcionário externo, sem unidade, e cuida da operação do dia a dia.',
 };
+
+// Resumo da confirmação do Zelador: o que a pessoa nova poderá e não verá (perfil operacional, sem dado sensível).
+const ZELADOR_PODERA = [
+  'Aprovar, recusar e cancelar reservas, e registrar reservas em nome de morador',
+  'Interditar e reabrir espaços',
+  'Ver nome, telefone e e-mail de moradores e dependentes, e os veículos',
+  'Publicar avisos no mural',
+];
+const ZELADOR_NAO_VERA = ['Documentos (RG e CPF)', 'Multas e situação financeira', 'Relatórios e histórico de ações', 'Usuários, convites e cargos'];
 
 type ErroTopo = { texto: string; acao?: 'tentar' | 'recomecar' | 'ver' | 'fechar' };
 
@@ -56,7 +67,9 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
     (u) => !pendentesDoCargo.some((t) => t.origemId === u.id) && !!currentUser && podeTransferirCargo(currentUser.role, cargo, u.id, currentUser.id),
   );
   const [origemId, setOrigemId] = useState(origemInicialId ?? (origensPossiveis.length === 1 ? origensPossiveis[0].id : ''));
-  const [modo, setModo] = useState<'EXISTENTE' | 'NOVO'>('EXISTENTE');
+  // O Zelador é funcionário externo: só entra como pessoa nova (convite). O banco também recusa conta que já existe.
+  const novaPessoaObrigatoria = soPessoaNova(cargo);
+  const [modo, setModo] = useState<'EXISTENTE' | 'NOVO'>(novaPessoaObrigatoria ? 'NOVO' : 'EXISTENTE');
   const [busca, setBusca] = useState('');
   const [destinoId, setDestinoId] = useState('');
   const [nome, setNome] = useState('');
@@ -143,7 +156,11 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
         primeiro ||= 'transferir-email';
       } else {
         const conta = systemUsers.find((u) => u.email.toLowerCase() === em);
-        if (conta) {
+        if (conta && novaPessoaObrigatoria) {
+          novos.email = 'Esse e-mail já tem conta. O Zelador é funcionário externo e precisa de uma conta nova, com outro e-mail.';
+          setContaDoEmail(null);
+          primeiro ||= 'transferir-email';
+        } else if (conta) {
           novos.email = `Esse e-mail já tem conta. Use “Usuário já cadastrado” e escolha ${conta.name}.`;
           setContaDoEmail(conta);
           primeiro ||= 'transferir-email';
@@ -253,7 +270,10 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
 
   const textoOrigem = !origem
     ? ''
-    : troca
+    : cargo === 'ZELADOR'
+      // Texto fixo: o Zelador não "vira" nada; o acesso é removido e o histórico fica guardado.
+      ? `O acesso de ${origem.name} será removido. O histórico de ações dele continua guardado.`
+      : troca
       ? `${origem.name} passa a ser Subsíndico. Perde o poder de Síndico e fica com os de Subsíndico.`
       : `${modo === 'NOVO' ? `Quando ${destino1} aceitar o convite: ` : ''}${cargo === 'CONSELHO' || cargo === 'PORTARIA' ? `${origem.name} deixa de ser ${rotulo}. ` : ''}${origem.name} passa a ser Morador. Perde só o poder do cargo.${
           origemTemUnidade ? '' : ` ${origem1} ficará só com o acesso básico até alguém ligar uma unidade.`
@@ -286,6 +306,7 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
     3: 'Revise e confirme',
   };
   const perigoso = exigeDigitarTransferir(cargo);
+  const ehZelador = cargo === 'ZELADOR';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-xs sm:items-center sm:p-4">
@@ -378,11 +399,11 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
 
               <fieldset>
                 <legend className="text-xs font-semibold text-slate-700">Quem recebe o cargo</legend>
-                <div role="radiogroup" aria-label="Quem recebe o cargo" className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div role="radiogroup" aria-label="Quem recebe o cargo" className={`mt-2 grid grid-cols-1 gap-2 ${novaPessoaObrigatoria ? '' : 'sm:grid-cols-2'}`}>
                   {([
                     ['EXISTENTE', 'Usuário já cadastrado'],
-                    ['NOVO', 'Convidar nova pessoa'],
-                  ] as const).map(([valor, texto]) => (
+                    ['NOVO', novaPessoaObrigatoria ? 'Pessoa nova' : 'Convidar nova pessoa'],
+                  ] as const).filter(([valor]) => !novaPessoaObrigatoria || valor === 'NOVO').map(([valor, texto]) => (
                     <label
                       key={valor}
                       className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-xs font-semibold ${
@@ -529,7 +550,16 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
 
           {passo === 2 && origem && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-800">{textoOrigem}</p>
+              <p className="text-sm text-slate-800">
+                {ehZelador ? <><strong>O acesso de {origem.name} será removido.</strong> O histórico de ações dele continua guardado.</> : textoOrigem}
+              </p>
+              {ehZelador && (
+                // Informativa e travada: a regra do Zelador não tem variante (nunca vira Morador nem provisório).
+                <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-800">
+                  <input type="checkbox" checked disabled readOnly className="size-4 accent-accent-strong" />
+                  Remover o acesso desta pessoa
+                </label>
+              )}
               {avisoDestino && (
                 <div role="note" className="flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 p-3 text-xs font-semibold text-pendente-900">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-pendente-700" aria-hidden="true" />
@@ -560,9 +590,23 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
                     {destino1} ainda não tem conta. Enviaremos o convite com o cargo de {rotulo}. Até aceitar, {origem1} continua no cargo de {rotulo}.
                   </p>
                 )}
+                {ehZelador && <p>{textoOrigem}</p>}
                 <p>{linhaExecutor}</p>
                 <p className="text-xs text-slate-600">{PODERES[cargo]}</p>
               </div>
+
+              {ehZelador && (
+                <div className="grid gap-3 text-xs text-slate-800 sm:grid-cols-2">
+                  <div>
+                    <p className="font-bold text-slate-900">{destino1} poderá</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5">{ZELADOR_PODERA.map((t) => <li key={t}>{t}</li>)}</ul>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900">{destino1} não verá</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5">{ZELADOR_NAO_VERA.map((t) => <li key={t}>{t}</li>)}</ul>
+                  </div>
+                </div>
+              )}
 
               {perigoso && (
                 <div>
@@ -623,7 +667,7 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
                 perigoso ? 'bg-red-700 hover:bg-red-800' : 'bg-primary hover:bg-primary-hover'
               }`}
             >
-              {enviando ? 'Transferindo…' : 'Transferir cargo'}
+              {enviando ? 'Transferindo…' : ehZelador ? 'Confirmar novo Zelador' : 'Transferir cargo'}
             </button>
           )}
         </div>

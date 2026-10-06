@@ -9,6 +9,7 @@ import { CARGO_ROTULO, podeTransferirCargo, type CargoTransferivel } from '@/lib
 interface Props {
   onTransferir: (cargo: CargoTransferivel, origemId?: string) => void;
   onIndicarSubsindico: () => void;
+  onIndicarZelador: () => void;
   onCopiarLink: (transferenciaId: string) => void;
   onCancelar: (transferenciaId: string) => void;
 }
@@ -20,7 +21,7 @@ const botaoSecundario =
  * Seção "Cargos" da tela de Usuários (issue #53): quem tem cada cargo e a ação de transferir.
  * Só ADM e Síndico a veem (o Subsíndico não ganha botão desabilitado: a seção nem existe para ele).
  */
-export function CargosSecao({ onTransferir, onIndicarSubsindico, onCopiarLink, onCancelar }: Props) {
+export function CargosSecao({ onTransferir, onIndicarSubsindico, onIndicarZelador, onCopiarLink, onCancelar }: Props) {
   const { currentUser, systemUsers, transferenciasCargo } = useApp();
   // No celular a seção começa recolhida num resumo de uma linha; no computador fica sempre aberta.
   const [aberta, setAberta] = useState(false);
@@ -28,13 +29,14 @@ export function CargosSecao({ onTransferir, onIndicarSubsindico, onCopiarLink, o
   if (!currentUser || (currentUser.role !== 'ADM' && currentUser.role !== 'SINDICO')) return null;
 
   const pendentes = transferenciasCargo.filter((t) => t.status === 'PENDENTE');
-  const titularesDe = (cargo: CargoTransferivel) => systemUsers.filter((u) => u.role === cargo);
+  // Conta com acesso removido (ex-Zelador) não é titular de nada.
+  const titularesDe = (cargo: CargoTransferivel) => systemUsers.filter((u) => u.role === cargo && !u.desativadoEm);
   const sindico = titularesDe('SINDICO')[0];
   const subsindico = titularesDe('SUBSINDICO')[0];
 
   const resumo = `Cargos: ${sindico ? `Síndico ${sindico.name}` : 'sem Síndico'}, ${subsindico ? `Subsíndico ${subsindico.name}` : 'sem Subsíndico'}`;
 
-  const cargos: CargoTransferivel[] = ['SINDICO', 'SUBSINDICO', 'CONSELHO', 'PORTARIA'];
+  const cargos: CargoTransferivel[] = ['SINDICO', 'SUBSINDICO', 'CONSELHO', 'PORTARIA', 'ZELADOR'];
 
   return (
     <section aria-label="Cargos" className="space-y-2">
@@ -50,11 +52,11 @@ export function CargosSecao({ onTransferir, onIndicarSubsindico, onCopiarLink, o
       </button>
       <h2 className="hidden text-xs font-bold uppercase tracking-wider text-slate-800 sm:block">Cargos</h2>
 
-      <div id="cargos-grade" className={`${aberta ? 'grid' : 'hidden'} gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4`}>
+      <div id="cargos-grade" className={`${aberta ? 'grid' : 'hidden'} gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-5`}>
         {cargos.map((cargo) => {
           const titulares = titularesDe(cargo);
           const pendentesDoCargo = pendentes.filter((t) => t.cargo === cargo);
-          const unico = cargo === 'SINDICO' || cargo === 'SUBSINDICO';
+          const unico = cargo === 'SINDICO' || cargo === 'SUBSINDICO' || cargo === 'ZELADOR';
           // Quem pode ser origem aqui: titular sem pendência e dentro do que o executor pode transferir.
           const origens = titulares.filter(
             (u) => !pendentesDoCargo.some((t) => t.origemId === u.id) && podeTransferirCargo(currentUser.role, cargo, u.id, currentUser.id),
@@ -76,6 +78,10 @@ export function CargosSecao({ onTransferir, onIndicarSubsindico, onCopiarLink, o
                   {titulares.slice(0, 3).map((u) => u.name).join(', ')}
                   {titulares.length > 3 && <span className="ml-1 font-semibold text-slate-600">+{titulares.length - 3}</span>}
                 </p>
+              )}
+
+              {cargo === 'ZELADOR' && (
+                <p className="mt-1 text-xs text-slate-600">Vê contatos de moradores. Sem documentos.</p>
               )}
 
               {pendentesDoCargo.map((t) => (
@@ -105,6 +111,17 @@ export function CargosSecao({ onTransferir, onIndicarSubsindico, onCopiarLink, o
                       <UserCog className="h-4 w-4" aria-hidden="true" />
                       Indicar subsíndico
                     </button>
+                  )
+                ) : cargo === 'ZELADOR' && titulares.length === 0 ? (
+                  pendentesDoCargo.length === 0 && (
+                    systemUsers.some((u) => u.role === 'ZELADOR' && u.aguardandoAceite) ? (
+                      <p className="text-xs font-semibold text-pendente-800">Convite enviado. Aguardando aceitar.</p>
+                    ) : (
+                    <button type="button" onClick={onIndicarZelador} className={`${botaoSecundario} w-full`}>
+                      <UserCog className="h-4 w-4" aria-hidden="true" />
+                      Indicar zelador
+                    </button>
+                    )
                   )
                 ) : (
                   origens.length > 0 && (

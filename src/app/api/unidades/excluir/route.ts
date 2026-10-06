@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ADMIN_ROLES } from '@/lib/roles';
+import { cargoEfetivoDoAlvo } from '@/lib/alvoEfetivo';
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
@@ -47,8 +48,13 @@ export async function POST(request: NextRequest) {
   // dele; ao excluir a unidade o vínculo some junto, e a conta continua existindo.
   let contaDeEquipe = false;
   if (unit.usuario_id) {
-    const { data: vinculado } = await admin.from('profiles').select('role').eq('id', unit.usuario_id).maybeSingle();
+    const { data: vinculado } = await admin.from('profiles').select('id, role, email').eq('id', unit.usuario_id).maybeSingle();
     contaDeEquipe = !!vinculado && vinculado.role !== 'MORADOR';
+    // Conta com cargo pendente de aceite (convidada numa transferência) vale pelo cargo de destino: nunca é apagada por aqui.
+    if (vinculado && !contaDeEquipe) {
+      const efetivo = await cargoEfetivoDoAlvo(admin, vinculado);
+      if (efetivo.pendente || efetivo.cargo !== 'MORADOR') contaDeEquipe = true;
+    }
   }
   if (unit.usuario_id && !contaDeEquipe) {
     await admin.from('profiles').delete().eq('id', unit.usuario_id);
@@ -70,6 +76,12 @@ export async function POST(request: NextRequest) {
     .eq('status', 'AGUARDANDO');
   for (const p of pendentes ?? []) {
     if (!p.user_id) continue;
+    // Conta com cargo pendente (ou de equipe) nunca é apagada por aqui, mesmo que apareça num autocadastro.
+    const { data: pf } = await admin.from('profiles').select('id, role, email').eq('id', p.user_id).maybeSingle();
+    if (pf) {
+      const ef = await cargoEfetivoDoAlvo(admin, pf);
+      if (ef.pendente || ef.cargo !== 'MORADOR') continue;
+    }
     await admin.from('profiles').delete().eq('id', p.user_id);
     await admin.auth.admin.deleteUser(p.user_id);
   }

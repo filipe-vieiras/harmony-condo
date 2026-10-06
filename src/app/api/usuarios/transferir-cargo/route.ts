@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { montarLinkAcesso } from '@/lib/linkAcesso';
+import { textoVazio } from '@/lib/textoLivre';
 import { ehCargoTransferivel, ehEmailValido, mensagemDoCodigo } from '@/lib/cargos';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -64,6 +65,11 @@ export async function POST(request: NextRequest) {
     );
   };
 
+  // O Zelador é funcionário externo: só entra como pessoa nova (o banco também recusa).
+  if (cargo === 'ZELADOR' && destino.tipo !== 'NOVO') {
+    return NextResponse.json({ error: mensagemDoCodigo('cargo_invalido', {}, cargo), codigo: 'cargo_invalido' }, { status: 400 });
+  }
+
   // ── Destino já cadastrado ──
   if (destino.tipo === 'EXISTENTE') {
     if (typeof destino.id !== 'string' || !UUID.test(destino.id)) {
@@ -97,7 +103,7 @@ export async function POST(request: NextRequest) {
     const nome = typeof destino.nome === 'string' ? destino.nome.trim() : '';
     const email = typeof destino.email === 'string' ? destino.email.trim().toLowerCase() : '';
     const telefone = typeof destino.telefone === 'string' ? destino.telefone.trim().slice(0, 30) : '';
-    if (!nome || nome.length > 120 || !ehEmailValido(email)) {
+    if (textoVazio(nome) || nome.length > 120 || !ehEmailValido(email)) {
       return NextResponse.json({ error: mensagemDoCodigo('dados_invalidos'), codigo: 'dados_invalidos' }, { status: 400 });
     }
 

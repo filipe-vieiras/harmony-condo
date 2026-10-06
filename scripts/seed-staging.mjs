@@ -114,6 +114,8 @@ const usuarios = [
   { email: 'portaria2@staging.test', name: 'Portaria Dois', role: 'PORTARIA' },
   { email: 'candidato1@staging.test', name: 'Candidato Um', role: 'MORADOR', bloco: 'B', unidade: '101', telefone: '(11) 94444-0001' },
   { email: 'candidato2@staging.test', name: 'Candidato Dois', role: 'MORADOR' },
+  // Zelador (issue #82): funcionário EXTERNO, sem unidade. Operacional, sem documento, multa, auditoria nem usuários.
+  { email: 'zelador@staging.test', name: 'Zelador Teste', role: 'ZELADOR', telefone: '(11) 96666-0001' },
   // Provisório (autocadastro aguardando validação): a tela NÃO o oferece como destino de cargo.
   { email: 'provisorio@staging.test', name: 'Morador Provisório', role: 'MORADOR', validado: false },
 ];
@@ -175,7 +177,7 @@ const { data: espacos, error: espErr } = await admin.from('spaces').insert([
   { nome: 'Salão de Festas', descricao: 'Salão para até 50 pessoas', capacidade_max: 50, horario_funcionamento: '10h às 22h', taxa_limpeza: 150, regras: ['Silêncio após as 22h'], ativo: true, exige_aprovacao: true, faixa_gratis_ate: 10, faixa_valor: 150 },
   { nome: 'Churrasqueira', descricao: 'Churrasqueira coberta para até 20 pessoas', capacidade_max: 20, horario_funcionamento: '10h às 22h', taxa_limpeza: 0, regras: ['Limpar após o uso'], ativo: true, exige_aprovacao: false },
   { nome: 'Sala de Jogos', descricao: 'Sala com mesa de sinuca e pebolim para até 15 pessoas', capacidade_max: 15, horario_funcionamento: '10h às 22h', taxa_limpeza: 0, regras: ['Desligar as luzes ao sair'], ativo: true, exige_aprovacao: false },
-  { nome: 'Quadra Poliesportiva', descricao: 'Quadra em manutenção para teste do aviso', capacidade_max: 30, horario_funcionamento: '08h às 20h', taxa_limpeza: 0, regras: [], ativo: false, exige_aprovacao: true },
+  { nome: 'Quadra Poliesportiva', descricao: 'Quadra em manutenção para teste do aviso', capacidade_max: 30, horario_funcionamento: '08h às 20h', taxa_limpeza: 0, regras: [], ativo: false, motivo_interdicao: 'Reforma da cobertura até 20/10', exige_aprovacao: true },
 ]).select();
 falhar('espaços', espErr);
 const salao = espacos.find((e) => e.nome === 'Salão de Festas');
