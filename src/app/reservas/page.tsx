@@ -1060,7 +1060,7 @@ function ReservasContent() {
                       min={hoje}
                       value={dataReserva}
                       onChange={(e) => setDataReserva(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                      className="mt-1 w-full min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                     />
                   </div>
                 )}
@@ -1116,8 +1116,8 @@ function ReservasContent() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                  <div className="min-w-0">
                     <label htmlFor="reserva-inicio" className="block text-xs font-semibold text-slate-700">Início</label>
                     <input
                       id="reserva-inicio"
@@ -1125,10 +1125,10 @@ function ReservasContent() {
                       required
                       value={horarioInicio}
                       onChange={(e) => setHorarioInicio(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                      className="mt-1 w-full min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label htmlFor="reserva-fim" className="block text-xs font-semibold text-slate-700">Término</label>
                     <input
                       id="reserva-fim"
@@ -1136,7 +1136,7 @@ function ReservasContent() {
                       required
                       value={horarioFim}
                       onChange={(e) => setHorarioFim(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
+                      className="mt-1 w-full min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30 min-h-11 sm:min-h-0"
                     />
                   </div>
                   {espacoEscolhido && (
