@@ -185,7 +185,8 @@ interface AppContextType {
   buscarValorReserva: (espacoId: string, pessoas: number) => Promise<number | null>;
   /** Dias ocupados por espaço (função do banco, sem nome nem unidade). null = falhou. */
   buscarDisponibilidade: (inicio: string, fim: string) => Promise<{ espacoId: string; data: string }[] | null>;
-  judgeReservation: (reservationId: string, aprovado: boolean, motivoRecusa?: string) => Promise<void>;
+  /** true se a decisão foi gravada. */
+  judgeReservation: (reservationId: string, aprovado: boolean, motivoRecusa?: string) => Promise<boolean>;
   notifications: InAppNotification[];
   unreadNotificationCount: number;
   markNotificationAsRead: (id: string) => Promise<void>;
@@ -1358,7 +1359,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       data_avaliacao: timestamp,
       avaliado_por: `${currentUser?.name ?? 'Síndico'} (${currentUser?.role ?? 'SINDICO'})`,
     });
-    if (!updated) return;
+    if (!updated) return false;
     setReservations((prev) => prev.map((r) => (r.id === reservationId ? updated : r)));
 
     await recordAudit(
@@ -1389,6 +1390,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         linkDestino: '/reservas',
       });
     }
+    return true;
   };
 
   // ── NOTIFICATIONS ──

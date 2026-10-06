@@ -356,6 +356,13 @@ interface CelulaProps {
 
 const MAX_ETIQUETAS = 3;
 
+/** Nome curto da etiqueta: primeira palavra ("Salão de Festas" -> "Salão"), mantendo número ou letra final ("Churrasqueira 2"). */
+function abreviar(nome: string): string {
+  const p = nome.trim().split(/\s+/);
+  const ultimo = p[p.length - 1];
+  return p.length > 1 && /^(\d+|[A-Za-z])$/.test(ultimo) ? `${p[0]} ${ultimo}` : p[0];
+}
+
 function CelulaDia({ numero, dia, ehHoje, selecionado, comFoco, rotulo, passado, modoTodos, estado, bloqueadoPor, itens = [], onAbrir, onFocar }: CelulaProps) {
   const algumPendente = itens.some((i) => i.pendente);
   // Cor de fundo da célula: só reforça; o texto e o ícone dizem o estado.
@@ -364,7 +371,7 @@ function CelulaDia({ numero, dia, ehHoje, selecionado, comFoco, rotulo, passado,
     : (estado ?? 'livre');
 
   let fundo = 'bg-white border-slate-200 text-slate-900 hover:bg-slate-50 cursor-pointer';
-  if (passado) fundo = 'bg-transparent border-transparent text-slate-400 cursor-default';
+  if (passado) fundo = 'bg-transparent border-transparent text-slate-500 cursor-default';
   else if (selecionado) fundo = 'bg-primary border-primary text-white cursor-pointer';
   else if (situacao === 'ocupado') fundo = 'bg-slate-100 border-slate-200 text-slate-700 cursor-pointer';
   else if (situacao === 'aguardando') fundo = 'bg-pendente-50 border-pendente-200 text-pendente-800 cursor-pointer hover:bg-pendente-100';
@@ -401,10 +408,11 @@ function CelulaDia({ numero, dia, ehHoje, selecionado, comFoco, rotulo, passado,
           {visiveis.map((it, i) => (
             <span
               key={i}
+              title={`${it.nome}: ${it.pendente ? 'aguardando aprovação' : 'confirmada'}`}
               className={`flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-semibold leading-tight ${it.pendente ? 'bg-pendente-200 text-pendente-800' : 'bg-emerald-200 text-emerald-800'}`}
             >
               {it.pendente ? <Clock aria-hidden="true" className="h-3 w-3 shrink-0" /> : <Check aria-hidden="true" className="h-3 w-3 shrink-0" />}
-              <span className="truncate">{it.nome}</span>
+              <span className="truncate">{abreviar(it.nome)}</span>
             </span>
           ))}
           {resto > 0 && <span className="rounded-md bg-slate-200 px-1.5 py-0.5 text-[12px] font-semibold leading-tight text-slate-700">+{resto}</span>}

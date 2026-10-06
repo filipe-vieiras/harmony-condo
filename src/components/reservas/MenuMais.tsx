@@ -36,8 +36,13 @@ export function MenuMais({ itens }: { itens: ItemMenu[] }) {
     const fora = (e: PointerEvent) => {
       if (raiz.current && !raiz.current.contains(e.target as Node)) setAberto(false);
     };
+    // Esc fecha mesmo com o foco no botão (menu aberto com o mouse): o foco nunca saiu dele.
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setAberto(false); botao.current?.focus(); }
+    };
     document.addEventListener('pointerdown', fora);
-    return () => document.removeEventListener('pointerdown', fora);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', fora); document.removeEventListener('keydown', esc); };
   }, [aberto]);
 
   const abrirComFoco = (ultimo = false) => {
