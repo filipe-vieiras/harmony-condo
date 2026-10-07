@@ -397,13 +397,15 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
                 </p>
               )}
 
+              {/* Zelador só entra como pessoa nova: sem escolha, o formulário já abre nos dados da pessoa. */}
+              {!novaPessoaObrigatoria && (
               <fieldset>
                 <legend className="text-xs font-semibold text-slate-700">Quem recebe o cargo</legend>
-                <div role="radiogroup" aria-label="Quem recebe o cargo" className={`mt-2 grid grid-cols-1 gap-2 ${novaPessoaObrigatoria ? '' : 'sm:grid-cols-2'}`}>
+                <div role="radiogroup" aria-label="Quem recebe o cargo" className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {([
                     ['EXISTENTE', 'Usuário já cadastrado'],
-                    ['NOVO', novaPessoaObrigatoria ? 'Pessoa nova' : 'Convidar nova pessoa'],
-                  ] as const).filter(([valor]) => !novaPessoaObrigatoria || valor === 'NOVO').map(([valor, texto]) => (
+                    ['NOVO', 'Convidar nova pessoa'],
+                  ] as const).map(([valor, texto]) => (
                     <label
                       key={valor}
                       className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-xs font-semibold ${
@@ -423,6 +425,7 @@ export function TransferirCargoModal({ cargo, origemInicialId, onClose, onConclu
                   ))}
                 </div>
               </fieldset>
+              )}
 
               {modo === 'EXISTENTE' ? (
                 <div className="space-y-3">
