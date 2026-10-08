@@ -25,7 +25,7 @@ export function PainelModo({ supabase, modo, onMudou }: Props) {
     const ok = await confirm({
       title: `Mudar o Livro para "${MODOS.find((m) => m.valor === novo)?.titulo}"?`,
       message: abrir
-        ? 'Os moradores validados, o Zelador e a Portaria passam a ler tudo, com nome e unidade.'
+        ? 'Os moradores validados, o Zelador e a Portaria passam a ler tudo, com nome e unidade. Isso inclui TUDO o que já foi escrito em "Só a equipe": mensagens de teste, nomes, unidades e citações. Antes de continuar, convém remover o conteúdo de teste.'
         : novo === 'EQUIPE'
         ? 'Só Síndico, Subsíndico, Administradora e Conselho entram. Nada é apagado.'
         : 'Ninguém acessa o Livro. Nada é apagado e dá para ligar de novo.',
