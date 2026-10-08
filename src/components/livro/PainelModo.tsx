@@ -1,7 +1,6 @@
 'use client';
 
-// Interruptor do Livro (Síndico e ADM). Desligado por padrão em todo ambiente. Abrir aos moradores exige o aviso de
-// privacidade (#55) publicado: o diálogo lembra disso, mas a decisão é de quem muda.
+// Interruptor do Livro (Síndico e ADM). Desligado por padrão em todo ambiente. Os três modos estão sempre disponíveis.
 import React, { useState } from 'react';
 import { Loader2, Settings2 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -12,12 +11,10 @@ import { useDialog } from '@/components/ui/DialogProvider';
 interface Props {
   supabase: SupabaseClient;
   modo: LivroModo;
-  /** Sem isso o banco recusa "Aberto"; a tela só explica. */
-  liberadoParaAbrir: boolean;
   onMudou: () => Promise<void>;
 }
 
-export function PainelModo({ supabase, modo, liberadoParaAbrir, onMudou }: Props) {
+export function PainelModo({ supabase, modo, onMudou }: Props) {
   const { confirm } = useDialog();
   const [salvando, setSalvando] = useState<LivroModo | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -28,7 +25,7 @@ export function PainelModo({ supabase, modo, liberadoParaAbrir, onMudou }: Props
     const ok = await confirm({
       title: `Mudar o Livro para "${MODOS.find((m) => m.valor === novo)?.titulo}"?`,
       message: abrir
-        ? 'Os moradores validados, o Zelador e a Portaria passam a ler tudo, com nome e unidade. Só abra depois de publicar o aviso de privacidade e as regras.'
+        ? 'Os moradores validados, o Zelador e a Portaria passam a ler tudo, com nome e unidade.'
         : novo === 'EQUIPE'
         ? 'Só Síndico, Subsíndico, Administradora e Conselho entram. Nada é apagado.'
         : 'Ninguém acessa o Livro. Nada é apagado e dá para ligar de novo.',
@@ -59,14 +56,14 @@ export function PainelModo({ supabase, modo, liberadoParaAbrir, onMudou }: Props
               role="radio"
               aria-checked={ativo}
               onClick={() => void mudar(m.valor)}
-              disabled={!!salvando || (m.valor === 'ABERTO' && !liberadoParaAbrir)}
+              disabled={!!salvando}
               className={`min-h-11 rounded-xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-strong ${ativo ? 'border-accent-strong bg-accent-50' : 'border-slate-200 bg-white hover:bg-slate-50'} disabled:opacity-60`}
             >
               <span className="flex items-center gap-2 text-sm font-bold text-slate-900">
                 {salvando === m.valor && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
                 {m.titulo}{ativo ? ' (atual)' : ''}
               </span>
-              <span className="mt-1 block text-sm text-slate-600">{m.valor === 'ABERTO' && !liberadoParaAbrir ? 'Ainda não liberado: depende do aviso de privacidade e das regras de uso.' : m.descricao}</span>
+              <span className="mt-1 block text-sm text-slate-600">{m.descricao}</span>
             </button>
           );
         })}
