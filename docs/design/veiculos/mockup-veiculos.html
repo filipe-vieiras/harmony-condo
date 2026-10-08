@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · Veículos & Garagem (proposta do designer)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#0B2545;--primary-hover:#134074;--accent:#00A8E8;--accent-strong:#0A6E9C;--accent-50:#EFF8FE;
+  --bg:#F4F7FB;--border:#E2E8F0;--text:#0F172A;--muted:#475569;
+  --pend-50:#FFFBEB;--pend-200:#FDE68A;--pend-800:#92400E;
+  --em-50:#ECFDF5;--em-200:#A7F3D0;--em-800:#065F46;--slate-50:#F8FAFC;--slate-100:#F1F5F9;--slate-500:#64748B;--red:#B91C1C;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E9EEF5;font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--text);font-size:14px;line-height:1.4}
+h1,h2,h3{font-family:"Bricolage Grotesque","Plus Jakarta Sans",sans-serif;margin:0;letter-spacing:-.01em}
+.page{max-width:1240px;margin:0 auto;padding:28px 20px 80px}
+.top h1{font-size:30px}.top p{color:var(--muted);max-width:760px}
+.sec{margin:46px 0 14px;padding-top:10px;border-top:2px solid #CBD5E1}
+.sec h2{font-size:22px}.sec .sub{color:var(--muted);margin:4px 0 18px;max-width:820px}
+.row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.tag{display:inline-block;font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;margin-bottom:8px}
+.tag.antes{background:#FEE2E2;color:#991B1B}.tag.depois{background:#D1FAE5;color:#065F46}.tag.alt{background:#E0F2FE;color:#075985}
+.cap{max-width:375px;color:var(--muted);font-size:13px;margin:8px 0 0}
+.phone{width:375px;background:var(--bg);border:1px solid #CBD5E1;border-radius:26px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,.12);position:relative}
+.phone .scr{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:640px}
+.desk{width:1120px;max-width:100%;background:var(--bg);border:1px solid #CBD5E1;border-radius:14px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:24px;display:flex;flex-direction:column;gap:16px}
+.hd{display:flex;align-items:center;gap:10px}
+.hd h3{font-size:20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:12px;font:600 14px "Plus Jakarta Sans";border:1px solid var(--border);background:#fff;color:var(--primary);cursor:pointer}
+.btn.p{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn.full{flex:1}
+.btn.danger{color:var(--red);border-color:transparent;background:transparent}
+.search{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 14px;border:1px solid var(--border);border-radius:14px;background:#fff;color:var(--muted);font-size:16px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.chip{flex:none;min-height:44px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border-radius:999px;border:1px solid var(--border);background:#fff;font-weight:600;color:var(--primary);cursor:pointer}
+.chip small{font-weight:500;color:var(--muted)}.chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}.chip.on small{color:#CBD5E1}
+.count{font-size:13px;color:var(--muted)}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.it{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.it.open{border-color:#94A3B8}
+.line{display:flex;align-items:stretch}
+.tog{all:unset;box-sizing:border-box;flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:10px 4px 10px 12px;min-height:64px;cursor:pointer}
+.tog:focus-visible{outline:2px solid var(--accent-strong);outline-offset:-2px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.l1{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.plate{display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:#fff;border-radius:8px;padding:4px 10px;font:700 16px ui-monospace,Menlo,monospace;letter-spacing:.08em}
+.plate svg{width:16px;height:16px;stroke:#fff}
+.apt{font-weight:600;color:var(--primary);font-size:14px;white-space:nowrap}
+.l2{display:flex;align-items:center;gap:8px;min-width:0}
+.nm{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tel{color:var(--muted);font-size:13px;white-space:nowrap}
+.chev{flex:none;width:20px;height:20px;stroke:var(--slate-500);transition:transform .2s}
+.open .chev{transform:rotate(180deg)}
+.call{flex:none;width:48px;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--border);color:var(--accent-strong);background:#fff;cursor:pointer;text-decoration:none}
+.call svg{width:20px;height:20px;stroke:var(--accent-strong)}
+.vis{flex:none;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--pend-50);color:var(--pend-800);border:1px solid var(--pend-200)}
+.panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s}
+.open .panel{grid-template-rows:1fr}
+.panel>div{overflow:hidden}
+.pi{background:var(--slate-50);border-top:1px solid var(--border);padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.f label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.f b{font-size:14px}.f.w{grid-column:1/-1}.f .big{font-size:15px}
+.f a{color:var(--accent-strong);font-weight:600;text-decoration:underline;min-height:44px;display:inline-flex;align-items:center;font-size:16px}
+.acts{grid-column:1/-1;display:flex;gap:12px;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;background:var(--slate-100);color:#334155;border:1px solid var(--border)}
+/* Alternativa B */
+.cardb{background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px;cursor:pointer}
+.cardb .r3{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:13px}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(15,23,42,.25);padding:10px 16px 18px;transform:translateY(105%);transition:transform .25s;z-index:5}
+.sheet.show{transform:none}
+.grab{width:40px;height:4px;border-radius:2px;background:#CBD5E1;margin:0 auto 10px}
+.veil{position:absolute;inset:0;background:rgba(15,23,42,.35);opacity:0;pointer-events:none;transition:opacity .25s;z-index:4}
+.veil.show{opacity:1;pointer-events:auto}
+/* tabela */
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:12px 14px;background:var(--slate-50);border-bottom:1px solid var(--border);white-space:nowrap}
+th button{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--slate-50)}
+.sub2{display:block;color:var(--muted);font-size:12px}
+.tb{display:flex;gap:10px;align-items:center}
+.grow{flex:1}
+.note{background:#fff;border:1px solid var(--border);border-left:4px solid var(--accent-strong);border-radius:10px;padding:12px 16px;max-width:820px;margin-top:14px}
+.q{background:var(--pend-50);border:1px solid var(--pend-200);border-radius:10px;padding:12px 16px;max-width:820px;color:var(--pend-800)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="car" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 0 4 0m6 0a2 2 0 1 0 4 0M3 13l2-6h14l2 6v4H3zM3 13h18"/></symbol>
+  <symbol id="moto" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="17" r="3"/><circle cx="19" cy="17" r="3"/><path d="M8 17h5l3-7h-4M15 6h3l1 4"/></symbol>
+  <symbol id="phone" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></symbol>
+  <symbol id="chev" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+</svg>
+<div class="page">
+  <div class="top">
+    <h1>Veículos & Garagem · proposta de layout</h1>
+    <p>Do celular ao desktop. Todos os nomes, placas e telefones aqui são <b>fictícios</b>. O mobile está interativo: toque numa linha para expandir (um aberto por vez). Esta é uma proposta visual, nada foi alterado no app.</p>
+  </div>
+
+  <div class="sec">
+    <h2>1 · Hoje no celular</h2>
+    <p class="sub">Cada veículo é um cartão com sete linhas rótulo/valor mais ações: ~313px de altura. Cabem um veículo e meio por tela, com Editar e Remover expostos em todos.</p>
+    <span class="tag antes">Antes</span>
+    <div class="phone"><div class="scr">
+      <div class="hd"><h3>Cadastro e Controle de Veículos</h3></div>
+      <div class="it" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between"><span class="muted" style="color:var(--muted);font-size:12px">PLACA</span><span class="plate">ABC1D23</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:12px">TIPO</span><span class="badge">Moto</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:12px">VEÍCULO / MODELO</span><b>Honda CG 160</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:12px">UNIDADE</span><b>Apto 403 · Bloco A</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:12px">VAGA</span><b>G1-Livre</b></div>
+        <div><span style="color:var(--muted);font-size:12px">MORADOR RESPONSÁVEL</span><br><b>Maria Souza Lima</b><br><span style="color:var(--muted)">(21) 99999-0001</span></div>
+        <div style="display:flex;gap:16px"><b style="color:var(--primary)">Editar veículo</b><b style="color:var(--red)">Remover</b></div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="sec">
+    <h2>2 · Mobile · Alternativa A (recomendada): linhas compactas com acordeão</h2>
+    <p class="sub">Linha recolhida de ~68px com placa em destaque, unidade e nome; botão de ligar de 44px na própria linha. Toque na linha para ver modelo, vaga, telefone e ações. Um aberto por vez. Cabem 4 a 5 veículos por tela.</p>
+    <div class="row">
+      <div>
+        <span class="tag depois">A · telefone como botão</span>
+        <div class="phone"><div class="scr" id="scrA">
+          <div class="hd"><svg width="22" height="22" stroke="#0A6E9C"><use href="#car"/></svg><h3>Veículos & Garagem</h3></div>
+          <div class="tb"><button class="btn p grow">+ Cadastrar Veículo</button><button class="btn" aria-label="Imprimir">🖨</button></div>
+          <div class="search"><svg width="20" height="20" stroke="currentColor"><use href="#search"/></svg>Buscar placa, apto, vaga ou nome</div>
+          <div class="chips"><span class="chip on">Todos <small>12</small></span><span class="chip">Carro <small>8</small></span><span class="chip">Moto <small>4</small></span></div>
+          <div class="count" aria-live="polite">12 veículos</div>
+          <ul class="list" data-acc="A"></ul>
+        </div></div>
+        <p class="cap">Placa em chip azul-marinho, unidade à direita, nome embaixo. O número do telefone aparece escrito ao expandir. "Outro" some quando é 0.</p>
+      </div>
+      <div>
+        <span class="tag alt">A2 · com o número visível</span>
+        <div class="phone"><div class="scr">
+          <div class="hd"><svg width="22" height="22" stroke="#0A6E9C"><use href="#car"/></svg><h3>Veículos & Garagem</h3></div>
+          <div class="search"><svg width="20" height="20" stroke="currentColor"><use href="#search"/></svg>Buscar placa, apto, vaga ou nome</div>
+          <div class="count">12 veículos</div>
+          <ul class="list" data-acc="A2"></ul>
+        </div></div>
+        <p class="cap">Variante com o telefone na linha, como você sugeriu: a linha ganha uma terceira linha e fica com ~88px (4 por tela em vez de 5). O botão de ligar continua.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>3 · Mobile · Alternativa B (ESCOLHIDA pelo dono): cartão de 3 linhas e folha inferior</h2>
+    <p class="sub">Escolhida em 2026-10-07, sem o ícone e o texto "Ligar" no cartão. O cartão mostra placa, unidade, nome e modelo; ao tocar, a folha inferior mostra tudo e as ações pertinentes ao perfil de quem abriu. O telefone aparece como link na folha. Toque num cartão.</p>
+    <span class="tag depois">B · escolhida</span>
+    <div class="phone" id="phoneB"><div class="scr">
+      <div class="hd"><svg width="22" height="22" stroke="#0A6E9C"><use href="#car"/></svg><h3>Veículos & Garagem</h3></div>
+      <div class="search"><svg width="20" height="20" stroke="currentColor"><use href="#search"/></svg>Buscar placa, apto, vaga ou nome</div>
+      <div class="count">12 veículos</div>
+      <div class="list" id="listB"></div>
+      <div class="veil" id="veil"></div>
+      <div class="sheet" id="sheet" role="dialog" aria-label="Detalhes do veículo"></div>
+    </div></div>
+  </div>
+
+  <div class="sec">
+    <h2>4 · Desktop (≥ 1024px)</h2>
+    <p class="sub">A tabela atual continua, com tudo à vista. Muda: cabeçalhos clicáveis para ordenar (Placa, Unidade, Morador), telefone formatado e clicável, ações mais enxutas e rodapé com a contagem. No tablet vale a lista do celular com uma linha mais rica.</p>
+    <div class="desk">
+      <div class="tb"><div class="hd grow"><svg width="26" height="26" stroke="#0A6E9C"><use href="#car"/></svg><h3>Cadastro e Controle de Veículos</h3></div><button class="btn p">+ Cadastrar Veículo</button><button class="btn">🖨 Imprimir</button></div>
+      <div class="tb"><div class="search grow">  <svg width="20" height="20" stroke="currentColor"><use href="#search"/></svg>Buscar placa, apto, vaga ou nome  <span style="margin-left:auto;font-size:12px">atalho: /</span></div>
+        <div class="chips"><span class="chip on">Todos <small>12</small></span><span class="chip">Carro <small>8</small></span><span class="chip">Moto <small>4</small></span></div></div>
+      <table>
+        <thead><tr><th><button>Placa ▲</button></th><th>Tipo</th><th>Veículo</th><th><button>Unidade</button></th><th>Vaga</th><th><button>Morador</button></th><th>Ações</th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+      <div class="count">Mostrando 12 de 12 veículos</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>5 · Decisões de comportamento</h2>
+    <div class="note"><b>Quem vê as ações.</b> Editar e Remover só aparecem no painel expandido, e só para quem pode (Morador nos próprios, exceto visitante; Síndico, Subsíndico e ADM em todos). Portaria, Conselho e Zelador não veem o bloco de ações. Remover é só texto vermelho, afastado do Editar, com a confirmação atual.</div>
+    <div class="note"><b>Portaria.</b> A busca filtra a cada tecla, ignora hífen e espaço, e quando sobra exatamente um veículo ele já abre expandido.</div>
+    <div class="note"><b>Morador.</b> Com até 3 veículos o primeiro já vem expandido, sem busca nem filtros. A unidade é redundante para ele, então a linha mostra modelo e cor no lugar.</div>
+    <div class="note"><b>Impressão.</b> A lista sai como tabela completa, sem depender do que está expandido; o botão de imprimir continua igual.</div>
+    <div class="note"><b>Estados.</b> Esqueletos de 68px ao carregar; vazio com botão; "Nenhum veículo encontrado para ABC" com "Limpar busca"; remoção com confirmação.</div>
+    <p class="q"><b>Pergunta para decidir:</b> o telefone na linha como botão de ligar (A, mais denso) ou com o número escrito (A2, mais informação, menos itens por tela)? E A (acordeão) ou B (folha inferior)? A recomendação do designer é A.</p>
+  </div>
+</div>
+
+<script>
+const D=[
+ {p:"ABC1D23",t:"moto",m:"Honda CG 160",c:"Preta",u:"Apto 403 · A",n:"Maria Souza Lima",tel:"(21) 99999-0001",v:"G1-Livre"},
+ {p:"QWE4R56",t:"carro",m:"Fiat Argo",c:"Branco",u:"Apto 101 · A",n:"João Pereira",tel:"(21) 98888-0002",v:"G2-014"},
+ {p:"RTY7U89",t:"carro",m:"VW Polo",c:"Prata",u:"Apto 202 · B",n:"Ana Beatriz Carvalho de Albuquerque",tel:"(21) 97777-0003",v:"G2-021"},
+ {p:"JKL2M34",t:"moto",m:"Yamaha Fazer 250",c:"Azul",u:"Apto 305 · B",n:"Carlos Eduardo",tel:"(21) 96666-0004",v:"G1-007",vis:true},
+ {p:"POI9L87",t:"carro",m:"Jeep Renegade",c:"Cinza",u:"Apto 501 · A",n:"Paula Mendes",tel:"",v:"G3-002"}
+];
+const ico=t=>`<svg stroke="#fff"><use href="#${t==='moto'?'moto':'car'}"/></svg>`;
+function render(ul,mode){
+  ul.innerHTML=D.map((d,i)=>`
+  <li class="it" data-i="${i}">
+    <div class="line">
+      <button class="tog" aria-expanded="false" aria-controls="p${mode}${i}">
+        <span class="main">
+          <span class="l1"><span class="plate">${ico(d.t)}${d.p}</span><span class="apt">${d.u}</span></span>
+          <span class="l2"><span class="nm">${d.n}</span>${mode==='A2'&&d.tel?`<span class="tel">${d.tel}</span>`:''}${d.vis?'<span class="vis">Visitante</span>':''}</span>
+        </span>
+        <svg class="chev" aria-hidden="true"><use href="#chev"/></svg>
+      </button>
+      ${d.tel?`<a class="call" href="#" aria-label="Ligar para ${d.n}" onclick="return false"><svg><use href="#phone"/></svg></a>`:''}
+    </div>
+    <div class="panel" id="p${mode}${i}"><div><div class="pi">
+      <div class="f w"><label>Veículo</label><b class="big">${d.m}</b></div>
+      <div class="f"><label>Cor</label><b>${d.c}</b></div>
+      <div class="f"><label>Tipo</label><span class="badge">${d.t==='moto'?'Moto':'Carro'}</span></div>
+      <div class="f"><label>Unidade</label><b>${d.u}</b></div>
+      <div class="f"><label>Vaga</label><b style="font-family:ui-monospace,monospace">${d.v}</b></div>
+      <div class="f w"><label>Morador responsável</label><b>${d.n}</b><br>${d.tel?`<a href="#" onclick="return false">${d.tel}</a>`:'<span class="muted" style="color:var(--muted)">Sem telefone</span>'}</div>
+      <div class="acts"><button class="btn full">✎ Editar veículo</button><button class="btn danger">🗑 Remover</button></div>
+    </div></div></div>
+  </li>`).join('');
+  ul.addEventListener('click',e=>{
+    const b=e.target.closest('.tog'); if(!b) return;
+    const li=b.closest('.it'), abrir=!li.classList.contains('open');
+    ul.querySelectorAll('.it.open').forEach(x=>{x.classList.remove('open');x.querySelector('.tog').setAttribute('aria-expanded','false')});
+    if(abrir){li.classList.add('open');b.setAttribute('aria-expanded','true');li.scrollIntoView({block:'nearest',behavior:'smooth'})}
+  });
+}
+document.querySelectorAll('[data-acc]').forEach(ul=>{render(ul,ul.dataset.acc); const first=ul.querySelector('.tog'); if(ul.dataset.acc==='A') first.click()});
+// B
+const lb=document.getElementById('listB'),sh=document.getElementById('sheet'),vl=document.getElementById('veil');
+lb.innerHTML=D.map((d,i)=>`<div class="cardb" data-i="${i}">
+  <div class="l1"><span class="plate">${ico(d.t)}${d.p}</span><span class="apt">${d.u}</span></div>
+  <div class="l2"><span class="nm">${d.n}</span>${d.vis?'<span class="vis">Visitante</span>':''}</div>
+  <div class="r3"><span>${d.m} · ${d.c}</span></div></div>`).join('');
+lb.addEventListener('click',e=>{const c=e.target.closest('.cardb'); if(!c) return; const d=D[c.dataset.i];
+  sh.innerHTML=`<div class="grab"></div><div class="l1" style="margin-bottom:10px"><span class="plate">${ico(d.t)}${d.p}</span><button class="btn" id="fx" style="min-height:44px">Fechar</button></div>
+  <div class="pi" style="background:#fff;border:none;padding:0 0 10px"><div class="f w"><label>Veículo</label><b class="big">${d.m} · ${d.c}</b></div>
+  <div class="f"><label>Unidade</label><b>${d.u}</b></div><div class="f"><label>Vaga</label><b>${d.v}</b></div>
+  <div class="f w"><label>Morador</label><b>${d.n}</b><br>${d.tel?`<a href="#" onclick="return false">${d.tel}</a>`:''}</div>
+  <div class="acts"><button class="btn full">✎ Editar veículo</button><button class="btn danger">🗑 Remover</button></div></div>`;
+  sh.classList.add('show');vl.classList.add('show');
+  document.getElementById('fx').onclick=fechar;});
+function fechar(){sh.classList.remove('show');vl.classList.remove('show')}
+vl.onclick=fechar;
+// desktop
+document.getElementById('tb').innerHTML=D.map(d=>`<tr>
+ <td><span class="plate">${d.p}</span></td><td><span class="badge">${d.t==='moto'?'Moto':'Carro'}</span></td>
+ <td><b>${d.m}</b><span class="sub2">${d.c}</span></td><td><b style="color:var(--primary)">${d.u}</b></td>
+ <td style="font-family:ui-monospace,monospace">${d.v}</td>
+ <td><b>${d.n}</b>${d.vis?' <span class="vis">Visitante</span>':''}<span class="sub2">${d.tel?`<a href="#" onclick="return false" style="color:var(--accent-strong)">${d.tel}</a>`:'Sem telefone'}</span></td>
+ <td><div class="tb"><button class="btn" style="min-height:40px">✎ Editar</button><button class="btn danger" style="min-height:40px">🗑 Remover</button></div></td></tr>`).join('');
+</script>
+</body>
+</html>

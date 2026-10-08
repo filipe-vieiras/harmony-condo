@@ -1,10 +1,11 @@
-// Bateria completa: fluxos por perfil + segurança. QA_ALVO=staging|producao.
+// Bateria completa: fluxos por perfil + segurança. SÓ STAGING (a trava está em lib.mjs; QA_ALVO=producao não existe mais).
 import { formatarData, formatarMoeda, formatarHorario, formatarIntervalo, pluralizar, situacaoDoPrazo, textoDoPrazo } from '../../src/lib/formatadores.ts';
 import { descreverAuditoria } from '../../src/lib/auditoria.ts';
 import { avaliarVinculo } from '../../src/lib/vinculoUnidade.ts';
 import { rodarTransferirCargo } from './transferir-cargo.mjs';
 import { rodarZelador } from './zelador.mjs';
 import { rodarHierarquia } from './hierarquia.mjs';
+import { rodarLivro } from './livro.mjs';
 import { admin, anon, api, cookieDe, clientDe, criarUsuario, ok, resumo, limparQA, DOMINIO, SENHA, ALVO } from './lib.mjs';
 
 const email = (n) => `${n}@${DOMINIO}`;
@@ -1266,6 +1267,7 @@ console.log('\n## Anular e apagar multa (spec 2026-10-02): regra no banco, por A
 await rodarTransferirCargo({ unidadeSemMorador: U['104'] });
 await rodarZelador({ U });
 await rodarHierarquia();
+await rodarLivro();
 
 await limparQA();
 resumo();

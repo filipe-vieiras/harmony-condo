@@ -18,6 +18,7 @@ export const ROTULOS_MODULO: Record<string, string> = {
   MULTAS: 'Multas',
   ESPACOS: 'Espaços',
   DOCUMENTOS: 'Documentos',
+  LIVRO: 'Livro',
   SISTEMA: 'Sistema',
 };
 

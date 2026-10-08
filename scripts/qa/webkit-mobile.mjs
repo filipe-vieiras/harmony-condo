@@ -4,6 +4,8 @@
 import { webkit, devices } from 'playwright';
 
 const SITE = process.env.QA_SITE ?? 'http://localhost:3000';
+// TRAVA: loga com contas de teste e cria/apaga dados. Nunca contra o site de produção.
+if (['harmony-condo-pm-track', 'znajvgkfhucidxtsfdip'].some((p) => SITE.includes(p))) throw new Error(`QA recusado: ${SITE} é produção. Estes scripts só rodam no staging.`);
 const SENHA = '123456';
 const LARGURA = 375;
 let problemas = 0;
@@ -108,9 +110,65 @@ const modal = async (page, nome) => {
   await page.context().close();
 }
 
+// Veículos (cartões e folha inferior), 375px: Síndico (com ações) e Morador (só os próprios). A folha precisa caber na
+// largura, ter alvos de 44px, fechar por Esc e devolver o foco ao cartão.
+for (const [conta, comAcoes] of [['sindico@staging.test', true], ['morador@staging.test', true], ['portaria@staging.test', false], ['conselho@staging.test', false], ['zelador@staging.test', false]]) {
+  const page = await novo();
+  await entrar(page, conta);
+  await page.goto(SITE + '/veiculos');
+  await page.waitForSelector('button[aria-haspopup=dialog]');
+  relatar(`${conta.split('@')[0]} /veiculos cartões`, await page.evaluate(medir));
+  const cartao = page.locator('button[aria-haspopup=dialog]').first();
+  await cartao.click();
+  await page.waitForSelector('[role=dialog][aria-label^="Detalhes do veículo"]');
+  await page.waitForTimeout(400);
+  relatar(`${conta.split('@')[0]} /veiculos folha`, await page.evaluate(medir, '[role=dialog][aria-label^="Detalhes do veículo"]'));
+  const acoes = await page.getByRole('button', { name: /Editar veículo|Remover/ }).count();
+  const bloqueado = await page.evaluate(() => document.body.style.overflow === 'hidden');
+  const pequenos = await page.evaluate(() => [...document.querySelectorAll('[role=dialog] button, [role=dialog] a')].filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => e.textContent.trim()));
+  console.log(`  ${comAcoes === (acoes > 0) ? '✓' : '✗ PROBLEMA'} ações na folha: ${acoes} (esperado ${comAcoes ? 'com' : 'sem'} ações do veículo)`);
+  if (comAcoes !== (acoes > 0)) problemas++;
+  console.log(`  ${bloqueado && pequenos.length === 0 ? '✓' : '✗ PROBLEMA'} rolagem travada e alvos >= 44px (pequenos: ${pequenos.join('|') || 'nenhum'})`);
+  if (!bloqueado || pequenos.length) problemas++;
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  const fechou = (await page.locator('[role=dialog][aria-label^="Detalhes do veículo"]').count()) === 0;
+  const foco = await page.evaluate(() => document.activeElement?.getAttribute('aria-haspopup'));
+  console.log(`  ${fechou && foco === 'dialog' ? '✓' : '✗ PROBLEMA'} Esc fecha a folha e o foco volta ao cartão (foco: ${foco})`);
+  if (!fechou || foco !== 'dialog') problemas++;
+  await page.context().close();
+}
+
+// Estouro horizontal de /veiculos (e das telas irmãs) em várias larguras, do celular ao desktop. O cabeçalho já cortou o botão
+// "Cadastrar Veículo" entre 640px e 1279px.
+{
+  const LARGURAS = [375, 600, 640, 768, 900, 1000, 1023, 1024, 1100, 1279, 1280];
+  const casos = [['sindico@staging.test', ['/veiculos', '/reservas', '/moradores', '/usuarios']], ['portaria@staging.test', ['/veiculos']], ['morador@staging.test', ['/veiculos']], ['zelador@staging.test', ['/veiculos']]];
+  for (const [conta, rotas] of casos) {
+    const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
+    const page = await ctx.newPage();
+    await entrar(page, conta);
+    for (const r of rotas) {
+      const ruins = [];
+      for (const w of LARGURAS) {
+        await page.setViewportSize({ width: w, height: 800 });
+        await page.goto(SITE + r);
+        await page.waitForTimeout(1200);
+        const { sw, cw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
+        if (sw > cw) ruins.push(`${w}px: ${sw}`);
+      }
+      if (ruins.length) problemas++;
+      console.log(`${ruins.length ? '✗ PROBLEMA' : '✓'} ${conta.split('@')[0]} ${r}: sem rolagem horizontal em ${LARGURAS.length} larguras${ruins.length ? ' (estouro em ' + ruins.join(', ') + ')' : ''}`);
+    }
+    await ctx.close();
+  }
+}
+
 // Telas principais (morador e síndico), 375px
-const telas = [['morador@staging.test', ['/', '/veiculos', '/moradores', '/multas', '/mural', '/links', '/reservas']],
-               ['sindico@staging.test', ['/', '/veiculos', '/moradores', '/multas', '/mural', '/links', '/relatorios', '/usuarios', '/autocadastro', '/reservas']]];
+const telas = [['morador@staging.test', ['/', '/veiculos', '/moradores', '/multas', '/mural', '/links', '/reservas', '/livro']],
+               ['sindico@staging.test', ['/', '/veiculos', '/moradores', '/multas', '/mural', '/links', '/relatorios', '/usuarios', '/autocadastro', '/reservas', '/livro', '/livro/remocoes']]];
+// /livro: com o Livro DESLIGADO (padrão) mede só o estado "indisponível"; as telas cheias (lista, editor, folha Citar, diálogos)
+// são medidas em WebKit 375px por scripts/qa/livro-tela.mjs.
 for (const [email, rotas] of telas) {
   const page = await novo();
   await entrar(page, email);

@@ -61,6 +61,13 @@
   --foreground: #0F172A;
 }
 
+/* O header é sticky (4.06rem) e cobre o topo da janela: sem isto, focus(), scrollIntoView e
+   âncoras rolam o campo para a borda e ele fica escondido atrás do header (visto no iPhone
+   e na WebView do Instagram). A margem faz o navegador parar a rolagem abaixo do header. */
+html {
+  scroll-padding-top: 5.5rem;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);
@@ -313,4 +320,13 @@ input[type="month"]::-webkit-date-and-time-value {
   input[type="month"] {
     min-height: 2.75rem;
   }
+}
+
+/* Folha inferior (detalhes do veículo no celular): sobe com animação curta; sem movimento para quem pediu menos. */
+@keyframes folha-sobe {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .folha-animada { animation: folha-sobe 0.22s ease-out; }
 }

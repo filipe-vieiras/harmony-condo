@@ -28,7 +28,7 @@ import { textoVazio } from '@/lib/textoLivre';
 import { avaliarVinculo, normalizarEmail, rotuloUnidade } from '@/lib/vinculoUnidade';
 import {
   fetchUnits, fetchUnidadesDoZelador, insertUnit, updateUnitDB, deleteUnitDB,
-  fetchVehicles, insertVehicle, deleteVehicleDB, updateVehicleDB,
+  fetchVehicles, fetchVehiclesComStatus, insertVehicle, deleteVehicleDB, updateVehicleDB,
   fetchNotices, insertNotice, deleteNoticeDB,
   fetchFines, insertFine, updateFineDB, anularFineDB, deleteFineDB,
   fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB, interditarEspacoDB, fetchInterdicoes,
@@ -47,7 +47,7 @@ import type { AlteracaoVeiculo, ErroReserva, InterdicaoInfo } from '@/lib/supaba
 
 /** Resultado de cadastrar/editar veículo; `placaDuplicada` = a placa já existe no condomínio. */
 const MSG_PLACA_DUPLICADA = 'Esta placa já está cadastrada.';
-export type ResultadoSalvarVeiculo = { success: boolean; message: string; veiculo?: Vehicle; placaDuplicada?: boolean };
+export type ResultadoSalvarVeiculo = { success: boolean; message: string; veiculo?: Vehicle; placaDuplicada?: boolean; semUnidade?: boolean };
 import { formatarData, formatarMoeda } from '@/lib/formatadores';
 import { fraseValorParaEquipe } from '@/lib/valorEspaco';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
@@ -123,6 +123,11 @@ interface AppContextType {
   deleteUnit: (id: string) => Promise<{ success: boolean; message: string }>;
   sendInviteForUnit: (unitId: string, opcoes?: OpcoesVinculo) => Promise<ResultadoUnidade>;
   vehicles: Vehicle[];
+  /** Carga dos veículos: a tela só mostra "sem veículos" depois de 'pronto'. */
+  veiculosStatus: 'carregando' | 'pronto' | 'erro';
+  /** As unidades já chegaram (o cadastro de veículo precisa delas para achar o unit_id). */
+  unidadesProntas: boolean;
+  recarregarVeiculos: () => Promise<void>;
   addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<ResultadoSalvarVeiculo>;
   deleteVehicle: (id: string) => Promise<{ success: boolean; message: string }>;
   atualizarVeiculo: (id: string, alteracao: AlteracaoVeiculo) => Promise<ResultadoSalvarVeiculo>;
@@ -244,6 +249,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [units, setUnits] = useState<Unit[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [unidadesProntas, setUnidadesProntas] = useState(false);
+  const [veiculosStatus, setVeiculosStatus] = useState<'carregando' | 'pronto' | 'erro'>('carregando');
   const [notices, setNotices] = useState<Notice[]>([]);
   const [fines, setFines] = useState<FineNotice[]>([]);
   const [spaces, setSpaces] = useState<CommonSpace[]>([]);
@@ -310,7 +317,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loadAllData = useCallback(async () => {
     const [u, v, n, f, s, r, notifs, docs, logs, zel, portal, invites, users, autos, aberto, transf, blocos, interd] = await Promise.all([
       carregarUnidades(),
-      fetchVehicles(supabase),
+      fetchVehiclesComStatus(supabase),
       fetchNotices(supabase),
       fetchFines(supabase),
       fetchSpaces(supabase),
@@ -329,7 +336,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchInterdicoes(supabase),
     ]);
     setUnits(u);
-    setVehicles(v);
+    setUnidadesProntas(true);
+    setVehicles(v.veiculos);
+    setVeiculosStatus(v.erro ? 'erro' : 'pronto');
     setNotices(n);
     setFines(f);
     setSpaces(s);
@@ -348,6 +357,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransferenciasCargo(transf);
   }, [supabase, carregarUnidades]);
 
+  // "Tentar de novo" da lista de veículos.
+  const recarregarVeiculos = useCallback(async () => {
+    setVeiculosStatus('carregando');
+    const r = await fetchVehiclesComStatus(supabase);
+    setVehicles(r.veiculos);
+    setVeiculosStatus(r.erro ? 'erro' : 'pronto');
+  }, [supabase]);
+
   // Escuta mudanças de sessão (login/logout)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -356,6 +373,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await loadUserProfile(session.user.id);
         } else {
           setCurrentUser(null);
+          setVeiculosStatus('carregando');
+          setUnidadesProntas(false);
         }
         setIsLoading(false);
       }
@@ -801,7 +820,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const matchedUnit = units.find(
       (u) => u.bloco === vehicleData.bloco && u.numero.trim().toLowerCase() === vehicleData.unidade.trim().toLowerCase()
     );
-    const r = await insertVehicle(supabase, { ...vehicleData, unitId: matchedUnit?.id });
+    // Sem a unidade não há unit_id e o banco recusa (RLS): melhor dizer o motivo certo do que "verifique a conexão".
+    if (!matchedUnit) {
+      return { success: false, message: 'Não encontramos a unidade informada. Se a tela acabou de abrir, espere um instante e tente de novo; se continuar, fale com o síndico.', semUnidade: true };
+    }
+    const r = await insertVehicle(supabase, { ...vehicleData, unitId: matchedUnit.id });
     if (!r.veiculo) {
       return { success: false, message: r.placaDuplicada ? MSG_PLACA_DUPLICADA : 'Erro ao cadastrar o veículo. Tente novamente.', placaDuplicada: r.placaDuplicada };
     }
@@ -1591,6 +1614,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteUnit,
         sendInviteForUnit,
         vehicles,
+        veiculosStatus,
+        unidadesProntas,
+        recarregarVeiculos,
         addVehicle,
         deleteVehicle,
         atualizarVeiculo,

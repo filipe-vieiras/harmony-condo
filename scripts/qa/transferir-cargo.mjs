@@ -99,9 +99,11 @@ export async function rodarTransferirCargo({ unidadeSemMorador }) {
   const rv = await api('/api/usuarios/transferir-cargo', { method: 'POST', body: { cargo: 'CONSELHO', origemId: cons1, destino: ex(mA) } });
   const bloqueado = (x) => x.status === 401 || (x.status === 307 && /\/login/.test(x.location ?? ''));
   ok(bloqueado(rv), `visitante (sem sessão) é barrado → ${rv.status}`);
-  for (const [nome, cookie] of [['Subsíndico', ck.subs], ['Morador', ck.mA]]) {
-    const c = await api('/api/usuarios/transferir-cargo/cancelar', { method: 'POST', cookie, body: { transferenciaId: UUID_FALSO } });
-    ok(c.status === 403, `${nome} NÃO cancela transferência → ${c.status}`);
+  for (const [nome, cookie, conta] of [['Subsíndico', ck.subs, 'subsindico'], ['Morador', ck.mA, 'candidatoa']]) {
+    let c = await api('/api/usuarios/transferir-cargo/cancelar', { method: 'POST', cookie, body: { transferenciaId: UUID_FALSO } });
+    // 401 intermitente já visto (getUser do servidor falhou uma vez): repete UMA vez com login novo antes de falhar.
+    if (c.status === 401) c = await api('/api/usuarios/transferir-cargo/cancelar', { method: 'POST', cookie: await cookieDe(email(conta)), body: { transferenciaId: UUID_FALSO } });
+    ok(c.status === 403, `${nome} NÃO cancela transferência → ${c.status}${c.status === 403 ? '' : ' resposta completa: ' + JSON.stringify({ status: c.status, data: c.data, location: c.location })}`);
   }
   ok(bloqueado(await api('/api/usuarios/transferir-cargo/cancelar', { method: 'POST', body: { transferenciaId: UUID_FALSO } })), 'visitante não cancela transferência');
   ok(bloqueado(await api('/api/usuarios/transferir-cargo/aceitar', { method: 'POST' })), 'visitante não aciona o aceite');

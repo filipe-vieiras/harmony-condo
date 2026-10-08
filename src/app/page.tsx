@@ -312,11 +312,11 @@ function DashboardContent() {
         
         {/* Card 1 */}
         <CartaoKpi href={ehMorador ? '/moradores' : undefined}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {currentUser.role === 'MORADOR' ? 'Minha Unidade' : 'Unidades'}
             </span>
-            <div className="rounded-xl bg-blue-50 p-2 text-primary">
+            <div className="shrink-0 rounded-xl bg-blue-50 p-2 text-primary">
               <Users className="h-5 w-5" />
             </div>
           </div>
@@ -333,9 +333,9 @@ function DashboardContent() {
 
         {/* Card 2 */}
         <CartaoKpi href={ehMorador ? '/veiculos' : undefined}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Veículos</span>
-            <div className="rounded-xl bg-cyan-50 p-2 text-accent">
+            <div className="shrink-0 rounded-xl bg-cyan-50 p-2 text-accent">
               <Car className="h-5 w-5" />
             </div>
           </div>
@@ -349,11 +349,11 @@ function DashboardContent() {
             href={ehMorador ? '/multas' : undefined}
             destaque={ehMorador && pendingScienceFines.length > 0}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {currentUser.role === 'MORADOR' ? 'Minhas Multas' : 'Notificações'}
               </span>
-              <div className="rounded-xl bg-red-50 p-2 text-red-600">
+              <div className="shrink-0 rounded-xl bg-red-50 p-2 text-red-600">
                 <ShieldAlert className="h-5 w-5" />
               </div>
             </div>
@@ -368,9 +368,9 @@ function DashboardContent() {
           </CartaoKpi>
         ) : (
           <CartaoKpi>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avisos do Mural</span>
-              <div className="rounded-xl bg-pendente-50 p-2 text-pendente-600">
+              <div className="shrink-0 rounded-xl bg-pendente-50 p-2 text-pendente-600">
                 <Megaphone className="h-5 w-5" />
               </div>
             </div>
@@ -381,9 +381,9 @@ function DashboardContent() {
 
         {/* Card 4 (Reservas de Áreas Comuns) */}
         <CartaoKpi href={ehMorador ? '/reservas' : undefined}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reservas</span>
-            <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
+            <div className="shrink-0 rounded-xl bg-emerald-50 p-2 text-emerald-600">
               <CalendarDays className="h-5 w-5" />
             </div>
           </div>
