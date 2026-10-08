@@ -69,8 +69,6 @@ export interface LivroAcesso {
   podeRemoverQualquer: boolean;
   podeVerRegistro: boolean;
   podeAlterarModo: boolean;
-  /** Trava de abertura aos moradores: só sai por migração (depende do #55 e do advogado). */
-  liberadoParaAbrir: boolean;
   regrasVersao: number;
   cienciaOk: boolean;
 }
@@ -147,7 +145,6 @@ export const MENSAGENS_DE_ERRO: Record<string, string> = {
   mensagem_propria: 'Você não pode avisar a gestão sobre a sua própria mensagem.',
   modo_invalido: 'Modo inválido.',
   limite_sinalizacao: 'Você já avisou a gestão várias vezes. Tente de novo mais tarde.',
-  abertura_nao_liberada: 'A abertura aos moradores ainda não foi liberada (aviso de privacidade e regras pendentes).',
   texto_invalido: 'O texto tem um caractere que não pode ser enviado. Apague e escreva de novo.',
 };
 
