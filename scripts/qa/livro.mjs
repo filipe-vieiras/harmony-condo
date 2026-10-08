@@ -354,10 +354,20 @@ export async function rodarLivro() {
 
   // ── Limite de 200 respostas e paginação ──
   const tcheio = await pub(cl.cons, null, 'QA livro tópico que vai encher de respostas');
-  await admin.from('livro_mensagens').insert(Array.from({ length: LIMITES.respostasPorTopico }, (_, i) => ({ pai_id: tcheio.data.id, autor_id: lv3, autor_nome: 'QA lv3', autor_unidade: 'Q-913', autor_papel: 'MORADOR', texto: `QA livro resposta ${i}`, criada_em: dias(2) })));
+  await admin.from('livro_mensagens').insert(Array.from({ length: LIMITES.respostasPorTopico }, (_, i) => ({ pai_id: tcheio.data.id, autor_id: null, autor_nome: 'QA lv3', autor_unidade: 'Q-913', autor_papel: 'MORADOR', texto: `QA livro resposta ${i}`, criada_em: dias(2) })));
   const { data: ct } = await admin.from('livro_mensagens').select('n_respostas').eq('id', tcheio.data.id).single();
   ok(ct.n_respostas === 200, `${T} o gatilho mantém n_respostas (${ct.n_respostas})`);
   ok(cod(await pub(cl.m2, tcheio.data.id, 'QA livro a resposta número duzentos e um')).includes('topico_cheio'), `${T} a 201ª resposta recebe "chegou ao limite"`);
+  // 0046: o teto de 200 conta só as NÃO removidas; removida abre vaga.
+  const { data: umaResp } = await admin.from('livro_mensagens').select('id').eq('pai_id', tcheio.data.id).limit(1).single();
+  await admin.from('livro_mensagens').update({ removida_em: new Date().toISOString(), removida_por: 'GESTAO', texto: '' }).eq('id', umaResp.id);
+  ok(!(await pub(cl.m2, tcheio.data.id, 'QA livro resposta que ocupa a vaga da removida')).error, `${T} 0046: resposta removida libera vaga no teto de 200`);
+  ok(cod(await pub(cl.m4, tcheio.data.id, 'QA livro de novo cheio depois da vaga')).includes('topico_cheio'), `${T} 0046: com 200 não removidas o tópico volta a recusar`);
+  // 0046: no máximo 20 respostas por autor no mesmo tópico.
+  const tauto = await pub(cl.cons, null, 'QA livro tópico para o teto de respostas por autor');
+  await admin.from('livro_mensagens').insert(Array.from({ length: 20 }, (_, i) => ({ pai_id: tauto.data.id, autor_id: lv3, autor_nome: 'QA lv3', autor_unidade: 'Q-913', autor_papel: 'MORADOR', texto: `QA livro resposta do mesmo autor ${i}`, criada_em: dias(2) })));
+  ok(cod(await pub(cl.m3, tauto.data.id, 'QA livro a vigésima primeira do mesmo autor')).includes('limite_respostas_autor'), `${T} 0046: a 21ª resposta do mesmo autor no tópico é recusada`);
+  ok(!(await pub(cl.m4, tauto.data.id, 'QA livro outro autor responde normalmente')).error, `${T} 0046: outro autor ainda responde no mesmo tópico`);
   const p1 = (await rpc(cl.m2, 'livro_listar_respostas', { p_topico: tcheio.data.id })).data;
   ok(p1.length === 30, `${T} respostas: 30 por vez`);
   const p2 = (await rpc(cl.m2, 'livro_listar_respostas', { p_topico: tcheio.data.id, p_depois_em: p1[29].criadaEm, p_depois_id: p1[29].id })).data;
