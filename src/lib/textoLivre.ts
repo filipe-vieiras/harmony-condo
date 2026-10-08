@@ -11,4 +11,11 @@ const INVISIVEIS = /[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u
  */
 export const textoVazio = (t: string | null | undefined): boolean => (t ?? '').replace(/[\p{Cc}\p{Cf}\s\u00A0\u034F\u115F\u1160\u17B4\u17B5\u180B-\u180D\u2800\u3164\uFFA0\uFE00-\uFE0F]/gu, '') === '';
 
+/**
+ * Nome que imita a etiqueta de status da lista de unidades ("Aguardando validação", com ou sem acento, caixa, espaço ou
+ * pontuação). Ninguém grava isso como nome. Espelha nome_reservado (0047).
+ */
+export const nomeReservado = (t: string | null | undefined): boolean =>
+  (t ?? '').normalize('NFD').toLowerCase().replace(/[^a-z]/g, '').includes('aguardandovalidacao');
+
 export const limparTextoLivre = (t: string): string => t.replace(INVISIVEIS, '');

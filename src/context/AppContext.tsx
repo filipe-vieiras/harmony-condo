@@ -926,11 +926,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const submitFineAppeal = async (fineId: string, texto: string, anexoNome?: string): Promise<{ success: boolean; message: string }> => {
+    // Mesma regra do banco (0047): sem recurso de uma palavra só.
+    const textoLimpo = texto.trim();
+    if (textoLimpo.length < 10) return { success: false, message: 'Escreva pelo menos 10 caracteres para explicar o recurso.' };
     const timestamp = new Date().toISOString();
     const updated = await updateFineDB(supabase, fineId, {
       status: 'EM_RECURSO',
       recurso_data: timestamp,
-      recurso_texto: texto,
+      recurso_texto: textoLimpo,
       recurso_status: 'EM_ANALISE',
       recurso_anexo_nome: anexoNome ?? null,
     });

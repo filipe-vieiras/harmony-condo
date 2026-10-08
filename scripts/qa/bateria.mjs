@@ -262,7 +262,88 @@ ok(!(await cSind.from('notifications').insert({ titulo: 'QA Multa Q-101', mensag
 await cM1.from('fines').update({ valor: 0, status: 'CONCLUIDA' }).eq('id', multa.id);
 ok((await admin.from('fines').select('valor').eq('id', multa.id).single()).data.valor == 150, 'morador não altera valor');
 ok(!(await cM1.from('fines').update({ status: 'CIENCIA_REGISTRADA', ciencia_data: new Date().toISOString(), ciencia_usuario_nome: 'QA morador1' }).eq('id', multa.id)).error, 'morador registra ciência');
-ok(!(await cM1.from('fines').update({ status: 'EM_RECURSO', recurso_texto: 'QA', recurso_data: new Date().toISOString(), recurso_status: 'EM_ANALISE' }).eq('id', multa.id)).error, 'morador abre recurso');
+ok(!(await cM1.from('fines').update({ status: 'EM_RECURSO', recurso_texto: 'QA recurso com texto de verdade', recurso_data: new Date().toISOString(), recurso_status: 'EM_ANALISE' }).eq('id', multa.id)).error, 'morador abre recurso');
+
+console.log('\n## H2. Multa: ciência e recurso uma vez só, no prazo e com texto (0047, M2/L5)');
+{
+  const novaMulta = async (proto, prazo) => (await cSind.from('fines').insert({ numero_protocolo: proto, bloco: 'Q', unidade: '101', unit_id: U['101'], morador_nome: 'QA morador1', data_infracao: hoje, prazo_recurso_data: prazo, artigo_regimento: 'Art. 1', descricao_infracao: 'QA', valor: 150, tipo: 'MULTA' }).select().single()).data;
+  const lerMulta = async (id) => (await admin.from('fines').select('status,ciencia_data,ciencia_usuario_nome,recurso_texto,recurso_data,recurso_status').eq('id', id).single()).data;
+  const darCiencia = (id) => cM1.from('fines').update({ status: 'CIENCIA_REGISTRADA', ciencia_data: new Date().toISOString(), ciencia_usuario_nome: 'QA morador1' }).eq('id', id);
+  const recurso = (id, texto) => cM1.from('fines').update({ status: 'EM_RECURSO', recurso_texto: texto, recurso_data: new Date().toISOString(), recurso_status: 'EM_ANALISE' }).eq('id', id);
+
+  // Recurso com 9 caracteres (depois do trim) é recusado; com 10 passa e o servidor aparece como autor da data.
+  const mA = await novaMulta('QA-002', daqui(10));
+  ok(!(await darCiencia(mA.id)).error, 'ciência normal na multa nova');
+  ok(!!(await recurso(mA.id, '123456789')).error && (await lerMulta(mA.id)).status === 'CIENCIA_REGISTRADA', 'recurso com 9 caracteres é recusado e nada muda');
+  ok(!!(await recurso(mA.id, '   12345678   ')).error, 'espaços nas pontas não contam para os 10 caracteres');
+  ok(!(await recurso(mA.id, '  1234567890  ')).error && (await lerMulta(mA.id)).recurso_texto === '1234567890', 'recurso com 10 caracteres passa e o texto é gravado sem os espaços das pontas');
+
+  // Reescrever ciência ou recurso já registrados (pelo morador, direto na API) é recusado.
+  const antes = await lerMulta(mA.id);
+  ok(!!(await cM1.from('fines').update({ ciencia_data: '2020-01-01T00:00:00Z' }).eq('id', mA.id)).error, 'morador NÃO reescreve a data da ciência');
+  ok(!!(await cM1.from('fines').update({ ciencia_usuario_nome: 'Outra Pessoa' }).eq('id', mA.id)).error, 'morador NÃO reescreve o nome da ciência');
+  ok(!!(await cM1.from('fines').update({ recurso_texto: 'texto trocado depois de enviado' }).eq('id', mA.id)).error, 'morador NÃO reescreve o texto do recurso enviado');
+  ok(!!(await cM1.from('fines').update({ recurso_data: '2020-01-01T00:00:00Z' }).eq('id', mA.id)).error, 'morador NÃO reescreve a data do recurso');
+  ok(!!(await cM1.from('fines').update({ recurso_anexo_nome: 'qa.pdf' }).eq('id', mA.id)).error, 'morador NÃO troca o anexo do recurso enviado');
+  ok(!!(await recurso(mA.id, 'segundo recurso do mesmo morador')).error, 'morador NÃO envia um segundo recurso');
+  ok(JSON.stringify(await lerMulta(mA.id)) === JSON.stringify(antes), 'depois de todas as tentativas a multa está intacta');
+
+  // Ciência: a data vem do servidor (a mandada pelo navegador é ignorada).
+  const mB = await novaMulta('QA-003', daqui(10));
+  await cM1.from('fines').update({ status: 'CIENCIA_REGISTRADA', ciencia_data: '2020-01-01T00:00:00Z', ciencia_usuario_nome: 'QA morador1' }).eq('id', mB.id);
+  ok(new Date((await lerMulta(mB.id)).ciencia_data).getFullYear() >= new Date().getFullYear(), 'a data da ciência é a do servidor, não a enviada pelo navegador');
+  ok(!!(await darCiencia(mB.id)).error, 'ciência registrada não se repete');
+
+  // PATCH só com recurso_status EM_ANALISE (sem ciência, sem texto, sem status) é recusado.
+  const mC = await novaMulta('QA-004', daqui(10));
+  ok(!!(await cM1.from('fines').update({ recurso_status: 'EM_ANALISE' }).eq('id', mC.id)).error && (await lerMulta(mC.id)).recurso_status === null, 'PATCH só com recurso_status EM_ANALISE é recusado');
+  ok(!!(await recurso(mC.id, 'recurso antes de registrar a ciência')).error, 'recurso sem a ciência registrada é recusado');
+
+  // Recurso depois do prazo (prazo de ontem, fuso de Brasília) é recusado.
+  const mD = await novaMulta('QA-005', daqui(-2));
+  ok(!(await darCiencia(mD.id)).error, 'ciência ainda vale com o prazo vencido');
+  ok(!!(await recurso(mD.id, 'recurso fora do prazo regimental')).error && (await lerMulta(mD.id)).status === 'CIENCIA_REGISTRADA', 'recurso depois do prazo é recusado');
+
+  // Quem não é dono da multa não mexe nela.
+  const mE = await novaMulta('QA-006', daqui(10));
+  ok(!(await cM2.from('fines').update({ status: 'CIENCIA_REGISTRADA', ciencia_data: new Date().toISOString(), ciencia_usuario_nome: 'QA morador2' }).eq('id', mE.id).select()).data?.length && (await lerMulta(mE.id)).status === 'PENDENTE_CIENCIA', 'outro morador NÃO registra ciência na multa alheia');
+  ok(!(await anon().from('fines').update({ status: 'CIENCIA_REGISTRADA' }).eq('id', mE.id).select()).data?.length, 'visitante NÃO altera multa');
+  await admin.from('fines').delete().in('numero_protocolo', ['QA-002', 'QA-003', 'QA-004', 'QA-005', 'QA-006']);
+}
+
+console.log('\n## H3. Links http(s), nomes reservados e reserva com horário válido (0047, L7/L10/L11)');
+{
+  const docIns = (c, link) => c.from('documents').insert({ titulo: 'QA link', descricao: 'QA', categoria: 'REGIMENTO', link_externo: link });
+  for (const ruim of ['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,x', 'ftp://example.com', 'https://exa mple.com', '//example.com', 'example.com']) {
+    ok(!!(await docIns(cSind, ruim)).error, `documents recusa o link ${JSON.stringify(ruim)}`);
+  }
+  ok(!(await docIns(cSind, 'https://example.com/x?a=1')).error && !(await docIns(cSind, 'HTTP://example.com')).error && !(await docIns(cSind, '#')).error, 'documents aceita https, http e o marcador "#"');
+  ok(!!(await cSind.from('portal_administradora').update({ link_externo: 'javascript:alert(1)' }).eq('id', 1)).error, 'portal_administradora recusa link javascript:');
+  ok(!!(await cSind.from('portal_administradora').update({ link_externo: 'ftp://example.com' }).eq('id', 1)).error, 'portal_administradora recusa link que não é http(s)');
+  ok(!(await cSind.from('portal_administradora').update({ link_externo: 'https://example.com/portal' }).eq('id', 1)).error, 'portal_administradora aceita https');
+  await cSind.from('portal_administradora').update({ link_externo: '' }).eq('id', 1);
+
+  const baseUn = { bloco: 'Q', proprietario_telefone: '', proprietario_email: '', tipo_ocupacao: 'PROPRIETARIO', moradores: [], vagas_garagem: [], animais: '' };
+  for (const [n, nome] of [['951', 'AGUARDANDO Validação'], ['952', 'aguardando   validacao'], ['953', 'Aguardando-Validação!'], ['954', 'A g u a r d a n d o v a l i d a ç ã o']]) {
+    ok(!!(await admin.from('units').insert({ ...baseUn, numero: n, proprietario_nome: nome })).error, `units recusa o titular ${JSON.stringify(nome)}`);
+  }
+  ok(!!(await admin.from('units').insert({ ...baseUn, numero: '955', proprietario_nome: 'QA titular', moradores: [{ id: 'qa-m1', nome: 'AGUARDANDO Validação', tipo: 'PROPRIETARIO' }] })).error, 'units recusa morador com nome reservado dentro do JSON');
+  ok(!(await admin.from('units').insert({ ...baseUn, numero: '956', proprietario_nome: 'Maria Validação Aguardando' })).error, 'units aceita nome comum que só tem as palavras em outra ordem');
+  const { data: uN } = await admin.from('units').select('id').eq('bloco', 'Q').eq('numero', '956').single();
+  ok(!!(await admin.from('units').update({ proprietario_nome: 'Aguardando validação' }).eq('id', uN.id)).error, 'units recusa trocar o titular para o nome reservado');
+  ok(!!(await admin.from('autocadastros').insert({ unit_id: U['101'], nome: 'AGUARDANDO Validação', email: `reservado@${DOMINIO}`, telefone: '11999990000', tipo: 'PROPRIETARIO' })).error, 'autocadastros recusa o nome reservado');
+
+  // Reserva: fim precisa ser depois do início.
+  const rvH = (fim, ini = '12:00', d = 40) => cSind.from('reservations').insert({ espaco_id: esp.id, espaco_nome: esp.nome, bloco: 'Q', unidade: '102', morador_nome: 'QA horário', data: daqui(d), horario_inicio: ini, horario_fim: fim, convidados_estimados: 5, status: 'PENDENTE' });
+  ok(!!(await rvH('12:00')).error, 'reserva com fim igual ao início é recusada');
+  ok(!!(await rvH('11:00', '12:00', 41)).error, 'reserva com fim antes do início é recusada');
+  ok(!!(await rvH('02:00', '22:00', 42)).error, 'reserva que cruzaria a meia-noite é recusada');
+  ok(!(await rvH('13:00', '12:00', 43)).error, 'reserva com fim depois do início é aceita');
+  // Limpeza: o que foi aceito aqui não deve mudar as contagens das seções seguintes.
+  await admin.from('reservations').delete().eq('morador_nome', 'QA horário');
+  await admin.from('documents').delete().eq('titulo', 'QA link');
+  await admin.from('units').delete().eq('bloco', 'Q').eq('numero', '956');
+}
 ok(!(await cM1.from('notifications').insert({ titulo: 'QA Novo recurso', mensagem: 'QA', tipo: 'MULTA', perfil_alvo: 'SINDICO', link_destino: `/multas/${multa.id}` })).error, 'morador avisa o Síndico do recurso (fluxo do app)');
 ok(!(await cSind.from('fines').update({ status: 'RECURSO_INDEFERIDO', recurso_status: 'INDEFERIDO', recurso_resposta: 'QA' }).eq('id', multa.id)).error, 'Síndico julga recurso');
 

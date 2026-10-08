@@ -136,7 +136,10 @@ function MultaDetalheContent() {
 
   const handleSendAppeal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!textoRecurso.trim()) return;
+    if (textoRecurso.trim().length < 10) {
+      setFeedbackMsg({ type: 'error', text: 'Escreva pelo menos 10 caracteres para explicar o recurso.' });
+      return;
+    }
     const res = await submitFineAppeal(fine.id, textoRecurso);
     setFeedbackMsg({ type: res.success ? 'success' : 'error', text: res.message });
     if (res.success) setShowRecursoForm(false);
@@ -249,7 +252,8 @@ function MultaDetalheContent() {
   const precisaCiencia = !fine.ciencia && currentUser.role === 'MORADOR' && !anulada;
   const ehMorador = currentUser.role === 'MORADOR';
   // Mesma regra que já mostra o botão de recurso no corpo da página.
-  const podeInterporRecurso = fine.status === 'CIENCIA_REGISTRADA' && ehMorador;
+  // O banco também recusa recurso fora do prazo (0047), então o botão some quando o prazo termina.
+  const podeInterporRecurso = fine.status === 'CIENCIA_REGISTRADA' && ehMorador && situacaoDoPrazo(fine.prazoRecursoData) !== 'ENCERRADO';
   const situacao = situacaoDaMulta(fine.status, ehMorador);
   // Só importa avisar que o prazo passou enquanto ainda não há recurso nem decisão.
   const prazoSemRecurso = fine.status === 'PENDENTE_CIENCIA' || fine.status === 'CIENCIA_REGISTRADA';
@@ -556,6 +560,7 @@ function MultaDetalheContent() {
                 ref={recursoTextoRef}
                 rows={4}
                 required
+                minLength={10}
                 value={textoRecurso}
                 onChange={(e) => setTextoRecurso(e.target.value)}
                 placeholder="Apresente seus argumentos e motivos para o cancelamento ou relevação da sanção..."
