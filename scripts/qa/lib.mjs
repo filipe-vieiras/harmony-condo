@@ -6,6 +6,7 @@
 // qualquer outro alvo, qualquer site de produção e qualquer credencial que não seja a do staging abortam ANTES da primeira
 // escrita. Só lê .env.staging.local (nunca .env.producao.local nem PROD_DB_*).
 import fs from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 
@@ -19,7 +20,10 @@ if (process.env.QA_ALVO && process.env.QA_ALVO !== 'staging') recusar(`QA_ALVO=$
 export const SITE = process.env.QA_SITE ?? 'http://localhost:3000';
 if (PRODUCAO.some((p) => SITE.includes(p))) recusar(`QA_SITE aponta para produção (${SITE})`);
 export const DOMINIO = 'qa.harmony.test';
-export const SENHA = 'Qa-Harmony-2026!';
+// Repositório público: a senha das contas QA não fica no código. Vem de QA_SENHA ou é gerada a cada execução
+// (todo script cria ou redefine as contas QA com esta mesma SENHA, então um valor novo por execução funciona).
+// Prefixo/sufixo garantem maiúscula, minúscula, dígito e símbolo para passar na validação de senha do app.
+export const SENHA = process.env.QA_SENHA || `Qa-${randomBytes(9).toString('base64url')}-9!`;
 
 const env = Object.fromEntries(
   fs.readFileSync(new URL('../../.env.staging.local', import.meta.url), 'utf8').split('\n')
