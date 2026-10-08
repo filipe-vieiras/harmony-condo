@@ -1,5 +1,7 @@
 # PRD: Livro de reclamações (livro aberto para área comum e serviços, privado para temas sensíveis)
 
+> **SUBSTITUÍDA pela v2 de 2026-10-07; o desenho de categorias privadas, denúncia, ocultação e prazo foi abandonado pelo dono.** Ver [`2026-10-07-livro-de-reclamacoes-v2.md`](2026-10-07-livro-de-reclamacoes-v2.md). O restante deste arquivo fica só como histórico.
+
 Autor: PM. Data: 2026-10-04. Status: **PROPOSTA, aguardando o dono** (nada decidido). Substitui a versão anterior da spec (desenho 100% privado, preservado em "Alternativas consideradas").
 Migração prevista: `0032` (a última existente é a 0031). Sem dados reais neste documento (repositório público).
 
@@ -215,6 +217,24 @@ group by 1,2,3;
 - **A, livro simples:** lista única sem categoria. Barato, mas sem categoria não dá para separar o sensível.
 - **B, categorias e prazo esperado:** base do desenho atual, sem lado público.
 - **C original, integrado a multas:** reclamação vira multa com um clique. Cortado: acopla com multas ainda não liberadas e reclamação não é prova.
+
+## 17. Atualização 2026-10-07 (acréscimo; nada acima foi apagado)
+Status continua **PROPOSTA, nada decidido**. Q1 e Q2 seguem em aberto. O cartão #48 está em Todo, sem comentários. Mudou no produto desde 04/10:
+
+1. **Número da migração.** A "0032" citada no topo e na seção 7 já foi usada (reservas). A última existente é a **0042**; a do livro será a próxima livre no momento de construir (hoje, 0043). Os padrões `is_admin()`, `get_user_role()`, `tem_perfil()` continuam valendo, com a ressalva do item 2.
+2. **Perfil de Zelador (0041, 0042; `docs/specs/2026-10-05-perfil-zelador.md`).** `tem_perfil()` e `get_user_role()` agora tratam conta desativada como sem perfil, e existe `tem_perfil_operacao()` (Síndico, Subsíndico, ADM **e Zelador**). **Regra para o livro (PROPOSTA):**
+   - O Zelador **não tem acesso ao livro na v1**: sem menu, sem leitura, sem comentário, sem denúncia, sem moderação, sem aviso no sino. Mesmo critério de Portaria (seção 3). Motivo: é funcionário externo, de alta rotatividade, e a categoria "Funcionário" e as de serviço podem ser **sobre ele**; ele já enxerga nome, telefone e e-mail de todos os moradores, não deve cruzar isso com queixas.
+   - **Proibido usar `tem_perfil_operacao()` nas policies do livro.** Usar lista explícita (`get_user_role() in ('SINDICO','SUBSINDICO','ADM')`, ou `is_admin()`, que o Zelador não satisfaz). Incluir o Zelador (ativo e desativado) nos testes obrigatórios da seção 7, ao lado de Portaria.
+   - **Quem recebe reclamação "Funcionário"** (Portaria, Zelador, limpeza, terceirizados): Síndico, Subsíndico e ADM, como já está; Conselho lê. Nenhum funcionário recebe aviso nem lê. Se o Síndico for o criticado, vale o R3/R7 (Conselho vê tudo).
+   - **Aviso (RF20):** a notificação "nova reclamação" tem alvo por perfil; o Zelador não pode estar no alvo (a policy de notificações da 0041 já lista perfis por tipo; conferir ao implementar).
+   - Reavaliar na fase 2 apenas um canal para o Zelador resolver **itens de área comum** (ex.: lista de tarefas sem autor nem texto), sem acesso ao livro.
+3. **Conselho segue só leitura**, e continua sem moderar. A decisão de 05/10 (#67) tirou RG/CPF do alcance do Conselho e da Portaria; **por coerência**, a Q1 deve decidir se o Conselho vê o **nome do autor** nas privadas (hoje a seção 3 diz "ver Q1"). Recomendação: Conselho vê o conteúdo e a unidade; nome do autor só nas públicas. Sai "Conselho vê tudo" em R3 apenas para o autor da privada; nas ocultações ele continua vendo quem ocultou e o motivo.
+4. **Hierarquia (#68, 0042).** Quem modera segue a hierarquia: Síndico, Subsíndico e ADM, com as mesmas permissões (P-e). Se Q2 optar por restringir a moderação, usar a mesma régua de nível, não perfis soltos.
+5. **Auditoria e notificações no servidor (#68; #72 no backlog).** A 0041 já mexeu em `audit_logs_insert_proprio` e `notifications_insert`. A seção 7 já exige gatilhos `security definer` e auditoria sem texto livre; manter e **não** depender de insert do navegador. Se #72 for feita antes, o livro herda o padrão.
+6. **Cobrança e Superlógica (`docs/pesquisas/2026-10-07-api-superlogica.md`; a PRD de integração ainda não existe).** A categoria "Cobrança ou taxa" é **privada** e **não depende** da integração: o livro **não lê** boleto, saldo nem inadimplência e **não** guarda situação financeira. Duas pontas a respeitar: (a) o ADM é parceiro externo e recebe a queixa sobre cobrança que pode ser sobre a **própria administradora** (conflito R7; Conselho vê); (b) se a integração mostrar cobrança da unidade um dia, não ligar uma coisa à outra sem nova decisão. Reclamação sobre cobrança não é disputa de dívida; a tela deve dizer que contestação de boleto segue com a administradora.
+7. **Interruptor de módulos continua adiado e não existe no código.** Busca em `src/` e `supabase/` não achou reclamações nem módulo desligável (o menu em `Sidebar.tsx` filtra só por perfil). A dependência da seção 11 **se mantém**. Alternativa mais barata se o dono quiser o livro antes do interruptor: item de menu só para uma lista fixa de perfis e rota que devolve "sem acesso" por uma constante de ambiente. A decidir só na Fase 1.
+8. **Esforço.** Continua **G**; o Zelador, o #68 e a hierarquia só aumentam a bateria (novo perfil nos testes). Não encurtar a bateria.
+9. **Outros pontos:** nada na 0042 muda as categorias, os estados ou as regras de moderação. Não há mudança na seção de métricas.
 
 ## 16. Trecho proposto para `docs/produto.md` (só após aprovação do dono)
 - **Livro de reclamações (proposto 2026-10-04, NÃO decidido):** livro aberto e com nome para moradores validados só em área comum e serviços; vizinho, funcionário, cobrança e saúde privados; a categoria define a visibilidade (imutável); comentários só nas públicas (500 caracteres, sem edição); denúncia e moderação que oculta e nunca apaga, visível ao Conselho; Portaria sem acesso (a confirmar); provisório bloqueado; nasce desligado (depende do interruptor de módulos). Validar manualmente por 2 semanas antes de construir. Em aberto: Q1 (regimento e o que aceitam público com nome) e Q2 (quem modera). Spec: `docs/specs/2026-10-04-livro-de-reclamacoes.md`.

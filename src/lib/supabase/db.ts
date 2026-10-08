@@ -225,6 +225,13 @@ export async function fetchVehicles(supabase: SupabaseClient): Promise<Vehicle[]
   return (data ?? []).map(rowToVehicle);
 }
 
+/** Como fetchVehicles, mas diz se a carga falhou (lista vazia de verdade x erro de rede), para a tela não mentir "sem veículos". */
+export async function fetchVehiclesComStatus(supabase: SupabaseClient): Promise<{ veiculos: Vehicle[]; erro: boolean }> {
+  const { data, error } = await supabase.from('vehicles').select('*').order('created_at', { ascending: false });
+  if (error) { console.error('fetchVehicles:', error); return { veiculos: [], erro: true }; }
+  return { veiculos: (data ?? []).map(rowToVehicle), erro: false };
+}
+
 /** Resultado de gravar um veículo: o veículo salvo, ou o motivo da falha (placa já cadastrada = 23505). */
 export type ResultadoVeiculo = { veiculo: Vehicle } | { veiculo: null; placaDuplicada: boolean };
 
@@ -243,7 +250,8 @@ export async function insertVehicle(supabase: SupabaseClient, v: Omit<Vehicle, '
     status: v.status,
     tipo_veiculo: v.tipoVeiculo,
   }).select().single();
-  if (error) { console.error('insertVehicle:', error); return { veiculo: null, placaDuplicada: error.code === '23505' }; }
+  // Placa repetida (23505) é recusa esperada: a tela mostra a mensagem, sem erro no console.
+  if (error) { if (error.code !== '23505') console.error('insertVehicle:', error); return { veiculo: null, placaDuplicada: error.code === '23505' }; }
   return { veiculo: rowToVehicle(data) };
 }
 

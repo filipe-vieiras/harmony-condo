@@ -4,11 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
+import { useLivro } from '@/context/LivroContext';
 import { isAdmin, isOperacao, isProvisorio, ADMIN_ROLES } from '@/lib/roles';
 import {
   ClipboardCheck,
   LayoutDashboard,
   Megaphone,
+  BookOpen,
   Users,
   Car,
   ShieldAlert,
@@ -26,6 +28,7 @@ interface SidebarProps {
 export function Sidebar({ onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
   const { currentUser, isLoading, fines, reservations, pendingInvites, autocadastros } = useApp();
+  const { acesso: acessoLivro } = useLivro();
 
   // Calcular alertas pendentes para badges na navegação
   const pendingFinesCount = fines.filter((f) => {
@@ -90,6 +93,15 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       badgeCount: pendingReservationsCount,
     },
     {
+      // O menu respeita o modo do Livro (o banco decide de verdade): quem não lê não vê o item. Síndico e ADM veem sempre,
+      // para chegar ao interruptor mesmo com o Livro desligado.
+      label: 'Livro de reclamações',
+      href: '/livro',
+      icon: BookOpen,
+      roles: [...ADMIN_ROLES, 'PORTARIA', 'CONSELHO', 'MORADOR', 'ZELADOR'],
+      livro: true,
+    },
+    {
       label: 'Links & Documentos',
       href: '/links',
       icon: Link2,
@@ -128,7 +140,10 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
   // abaixo cobre esse instante em vez de um menu com permissões erradas.
   const visibleItems = currentUser
     ? navItems.filter(
-        (item) => item.roles.includes(currentUser.role) && (!isProvisorio(currentUser) || ROTAS_PROVISORIO.includes(item.href))
+        (item) =>
+          item.roles.includes(currentUser.role) &&
+          (!isProvisorio(currentUser) || ROTAS_PROVISORIO.includes(item.href)) &&
+          (!item.livro || !!acessoLivro?.podeLer || !!acessoLivro?.podeAlterarModo)
       )
     : [];
 

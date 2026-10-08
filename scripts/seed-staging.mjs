@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
 const STAGING_REF = 'yusmuzifhhlowuqtcnid';
+if (process.env.QA_ALVO && process.env.QA_ALVO !== 'staging') { console.error('Abortado: este script só roda no staging.'); process.exit(1); }
 const SENHA = '123456';
 
 const env = Object.fromEntries(
@@ -48,6 +49,16 @@ const TABELAS = [
 for (const t of TABELAS) {
   const { error } = await admin.from(t).delete().not('id', 'is', null);
   falhar(`limpar ${t}`, error);
+}
+// Livro de reclamações (0043): mensagens (citações, remoções e sinalizações caem em cascata), ciência das regras e o interruptor
+// volta a DESLIGADO. O livro nunca nasce ligado: para ver a tela em staging, ligue pelo painel do Síndico/ADM no próprio Livro.
+{
+  const { error: e1 } = await admin.from('livro_mensagens').delete().not('id', 'is', null);
+  falhar('limpar livro_mensagens', e1);
+  const { error: e2 } = await admin.from('livro_ciencia').delete().not('usuario_id', 'is', null);
+  falhar('limpar livro_ciencia', e2);
+  const { error: e3 } = await admin.from('livro_config').update({ modo: 'DESLIGADO' }).eq('id', 1);
+  falhar('desligar o livro', e3);
 }
 const { data: lista, error: listErr } = await admin.auth.admin.listUsers({ perPage: 1000 });
 falhar('listar usuários', listErr);

@@ -107,6 +107,7 @@ function RelatoriosContent() {
     { id: 'MULTAS', label: 'Multas & Recursos' },
     { id: 'ESPACOS', label: 'Espaços Comuns' },
     { id: 'DOCUMENTOS', label: 'Links & Documentos' },
+    { id: 'LIVRO', label: 'Livro de reclamações' },
   ];
 
   return (

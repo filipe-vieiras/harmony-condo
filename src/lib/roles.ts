@@ -40,7 +40,8 @@ export function isZelador(role?: Role | null): boolean {
 }
 
 /** Telas que o Zelador abre. Qualquer outra rota o leva de volta ao Início, sem tela de erro. */
-export const ROTAS_DO_ZELADOR = ['/', '/reservas', '/moradores', '/veiculos', '/mural', '/links'];
+// O Zelador só lê o Livro (e só no modo Aberto: o banco decide); por isso a rota dele existe aqui.
+export const ROTAS_DO_ZELADOR = ['/', '/reservas', '/moradores', '/veiculos', '/mural', '/links', '/livro'];
 
 export function rotaPermitida(role: Role | undefined, pathname: string | null): boolean {
   if (role !== 'ZELADOR' || !pathname) return true;

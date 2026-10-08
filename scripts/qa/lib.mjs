@@ -2,29 +2,33 @@
 //
 //   node scripts/qa/bateria.mjs                      → staging, app local (npm run dev)
 //   QA_SITE=https://... node scripts/qa/bateria.mjs  → staging, outra URL (prévia)
-//   QA_ALVO=producao node scripts/qa/bateria.mjs     → PRODUÇÃO (só com ok explícito)
-//
-// Cria contas @qa.harmony.test e dados no bloco Q/R, e apaga tudo ao final.
-// Em staging ela reaproveita (e apaga) o Síndico/Subsíndico do seed: rode
-// `node scripts/seed-staging.mjs` depois para recriar a base de teste.
+// TRAVA: estes scripts ligam interruptores, trocam senhas e apagam dados. Só rodam no STAGING. Não existe mais QA_ALVO=producao:
+// qualquer outro alvo, qualquer site de produção e qualquer credencial que não seja a do staging abortam ANTES da primeira
+// escrita. Só lê .env.staging.local (nunca .env.producao.local nem PROD_DB_*).
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 
-export const ALVO = process.env.QA_ALVO ?? 'staging';
-export const SITE = ALVO === 'producao' ? 'https://harmony-condo-pm-track.vercel.app' : (process.env.QA_SITE ?? 'http://localhost:3000');
+const REF_STAGING = 'yusmuzifhhlowuqtcnid';
+// Identificadores de PRODUÇÃO, só para recusar (nunca para conectar).
+const PRODUCAO = ['znajvgkfhucidxtsfdip', 'harmony-condo-pm-track'];
+const recusar = (msg) => { throw new Error(`QA recusado: ${msg}. Estes scripts só rodam no staging.`); };
+
+export const ALVO = 'staging';
+if (process.env.QA_ALVO && process.env.QA_ALVO !== 'staging') recusar(`QA_ALVO=${process.env.QA_ALVO} (só "staging" é aceito)`);
+export const SITE = process.env.QA_SITE ?? 'http://localhost:3000';
+if (PRODUCAO.some((p) => SITE.includes(p))) recusar(`QA_SITE aponta para produção (${SITE})`);
 export const DOMINIO = 'qa.harmony.test';
 export const SENHA = 'Qa-Harmony-2026!';
 
 const env = Object.fromEntries(
-  fs.readFileSync(new URL(ALVO === 'producao' ? '../../.env.producao.local' : '../../.env.staging.local', import.meta.url), 'utf8').split('\n')
+  fs.readFileSync(new URL('../../.env.staging.local', import.meta.url), 'utf8').split('\n')
     .filter((l) => l.includes('=') && !l.trimStart().startsWith('#'))
     .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
 );
 export const URL_SB = env.NEXT_PUBLIC_SUPABASE_URL;
 export const ANON = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const REF = ALVO === 'producao' ? 'znajvgkfhucidxtsfdip' : 'yusmuzifhhlowuqtcnid';
-if (!URL_SB.includes(REF)) throw new Error(`credenciais não batem com ${ALVO}`);
+if (!URL_SB?.includes(REF_STAGING) || PRODUCAO.some((p) => URL_SB.includes(p))) recusar('a URL do Supabase não é a do staging');
 console.log(`[alvo: ${ALVO} — site ${SITE}]`);
 
 export const admin = createClient(URL_SB, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -78,6 +82,14 @@ export const resumo = () => console.log(`\n==> ${falhas === 0 ? 'TUDO OK' : falh
 export async function limparQA() {
   const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const idsQA = users.filter((x) => x.email?.endsWith('@' + DOMINIO)).map((x) => x.id);
+  // Livro de reclamações (0043): modo volta a DESLIGADO (o livro nunca fica ligado por padrão) e as mensagens dos QA saem
+  // antes das contas (a FK só anonimizaria). Remoções, citações e sinalizações caem em cascata.
+  await admin.from('livro_config').update({ modo: 'DESLIGADO', liberado_para_abrir: false }).eq('id', 1);
+  if (idsQA.length) {
+    await admin.from('livro_mensagens').delete().in('autor_id', idsQA);
+    await admin.from('livro_ciencia').delete().in('usuario_id', idsQA);
+  }
+  await admin.from('livro_mensagens').delete().eq('autor_nome', 'Ex-morador').like('texto', 'QA livro%');
   if (idsQA.length) {
     // Transferir cargo (issue #53): registros e avisos por usuário saem antes das contas (as FKs só zerariam a referência).
     for (const col of ['origem_id', 'destino_id', 'executor_id']) await admin.from('cargo_transferencias').delete().in(col, idsQA);

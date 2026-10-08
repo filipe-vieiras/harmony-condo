@@ -8,6 +8,7 @@ import { AppProvider, useApp } from '@/context/AppContext';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { DialogProvider } from '@/components/ui/DialogProvider';
+import { LivroProvider } from '@/context/LivroContext';
 
 /**
  * Enquanto o perfil carrega, as telas internas renderizam null (ficava tudo em
@@ -61,7 +62,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider>
       <DialogProvider>
-      <div className="flex min-h-screen flex-col bg-neutral-bg">
+      <LivroProvider>
+      <div className="flex min-h-dvh flex-col bg-neutral-bg">
         {/* Header no topo */}
         <Header 
           onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} 
@@ -71,7 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex w-full max-w-7xl flex-1 px-4 sm:px-6 lg:px-8">
           {/* Sidebar para desktop */}
           <div className="hidden w-64 shrink-0 py-6 lg:block">
-            <div className="sticky top-22 h-[calc(100vh-6.5rem)] rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
+            <div className="sticky top-22 h-[calc(100dvh-6.5rem)] rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
               <Sidebar />
             </div>
           </div>
@@ -125,6 +127,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      </LivroProvider>
       </DialogProvider>
     </AppProvider>
   );
