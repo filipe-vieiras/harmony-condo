@@ -133,17 +133,14 @@ export async function rodarLivro() {
   const refEq = (await rpc(cl.cons, 'livro_citaveis')).data.find((x) => x.rotulo === 'Unidade Q-912').ref;
   const tEq = await pub(cl.cons, null, 'QA livro citação em modo equipe a quem ainda não lê', [refEq]);
   ok(!tEq.error && (await avisosDe(lv2)).length === 0, `${T} M-2: modo EQUIPE, Morador citado NÃO recebe aviso (${(await avisosDe(lv2)).length})`);
-  // M-3: ABERTO exige a liberação fora do app.
-  ok(cod(await rpc(cl.sind, 'livro_definir_modo', { p_modo: 'ABERTO' })).includes('abertura_nao_liberada') && cod(await rpc(cl.adm, 'livro_definir_modo', { p_modo: 'ABERTO' })).includes('abertura_nao_liberada'), `${T} M-3: Síndico e ADM não abrem sem a liberação (abertura_nao_liberada)`);
-  ok((await acesso(cl.sind)).liberadoParaAbrir === false && (await admin.from('livro_config').select('modo').eq('id', 1).single()).data.modo === 'EQUIPE', `${T} M-3: o modo seguiu EQUIPE e a tela sabe que não está liberado`);
-  ok(!(await rpc(cl.sind, 'livro_definir_modo', { p_modo: 'DESLIGADO' })).error && !(await rpc(cl.sind, 'livro_definir_modo', { p_modo: 'EQUIPE' })).error, `${T} M-3: DESLIGADO e EQUIPE seguem livres`);
-  for (const k of ['sub', 'cons', 'm1', 'zel', 'port']) ok((await admin.from('livro_config').select('liberado_para_abrir').eq('id', 1).single()).data.liberado_para_abrir === false && nega(await rpc(cl[k], 'livro_definir_modo', { p_modo: 'ABERTO' })), `${T} M-3: ${papeisConta[k]} também não`);
-  ok(!!(await cl.sind.from('livro_config').update({ liberado_para_abrir: true }).eq('id', 1)).error && !!(await cl.adm.from('livro_config').update({ liberado_para_abrir: true }).eq('id', 1)).error, `${T} M-3: ninguém libera pelo navegador (UPDATE direto negado)`);
-  await admin.from('livro_config').update({ liberado_para_abrir: true }).eq('id', 1);
-  ok(!(await rpc(cl.sind, 'livro_definir_modo', { p_modo: 'ABERTO' })).error, `${T} M-3: com a liberação (feita pela migração/service role), Síndico abre`);
+  // M-3 (0044): a trava de liberação saiu; Síndico e ADM abrem direto, os demais não. O Livro segue em ABERTO como antes (o teste seguinte reaplica o modo).
+  for (const k of ['sub', 'cons', 'm1', 'zel', 'port']) ok(nega(await rpc(cl[k], 'livro_definir_modo', { p_modo: 'ABERTO' })), `${T} M-3: ${papeisConta[k]} não abre o Livro`);
+  ok((await admin.from('livro_config').select('modo').eq('id', 1).single()).data.modo === 'EQUIPE', `${T} M-3: as tentativas negadas não mudaram o modo`);
+  ok(!(await rpc(cl.adm, 'livro_definir_modo', { p_modo: 'ABERTO' })).error && (await admin.from('livro_config').select('modo').eq('id', 1).single()).data.modo === 'ABERTO', `${T} M-3: ADM abre o Livro sem liberação prévia`);
+  ok(!(await rpc(cl.adm, 'livro_definir_modo', { p_modo: 'EQUIPE' })).error, `${T} M-3: ADM volta para EQUIPE`);
+  ok(!(await rpc(cl.sind, 'livro_definir_modo', { p_modo: 'ABERTO' })).error, `${T} M-3: Síndico abre o Livro sem liberação prévia`);
   const tAb = await pub(cl.cons, null, 'QA livro citação depois que o livro abriu a todos', [refEq]);
   ok(!tAb.error && (await avisosDe(lv2)).filter((a) => a.link_destino === `/livro/${tAb.data.id}`).length === 1, `${T} M-2: em ABERTO, o Morador citado passa a receber o aviso`);
-  await admin.from('livro_config').update({ liberado_para_abrir: false }).eq('id', 1);
   await modo('ABERTO');
 
   // ── Ciência das regras ──
@@ -362,12 +359,12 @@ export async function rodarLivro() {
   const { data: umaResp } = await admin.from('livro_mensagens').select('id').eq('pai_id', tcheio.data.id).limit(1).single();
   await admin.from('livro_mensagens').update({ removida_em: new Date().toISOString(), removida_por: 'GESTAO', texto: '' }).eq('id', umaResp.id);
   ok(!(await pub(cl.m2, tcheio.data.id, 'QA livro resposta que ocupa a vaga da removida')).error, `${T} 0046: resposta removida libera vaga no teto de 200`);
-  ok(cod(await pub(cl.m4, tcheio.data.id, 'QA livro de novo cheio depois da vaga')).includes('topico_cheio'), `${T} 0046: com 200 não removidas o tópico volta a recusar`);
+  ok(cod(await pub(cl.m9, tcheio.data.id, 'QA livro de novo cheio depois da vaga')).includes('topico_cheio'), `${T} 0046: com 200 não removidas o tópico volta a recusar`);
   // 0046: no máximo 20 respostas por autor no mesmo tópico.
   const tauto = await pub(cl.cons, null, 'QA livro tópico para o teto de respostas por autor');
   await admin.from('livro_mensagens').insert(Array.from({ length: 20 }, (_, i) => ({ pai_id: tauto.data.id, autor_id: lv3, autor_nome: 'QA lv3', autor_unidade: 'Q-913', autor_papel: 'MORADOR', texto: `QA livro resposta do mesmo autor ${i}`, criada_em: dias(2) })));
   ok(cod(await pub(cl.m3, tauto.data.id, 'QA livro a vigésima primeira do mesmo autor')).includes('limite_respostas_autor'), `${T} 0046: a 21ª resposta do mesmo autor no tópico é recusada`);
-  ok(!(await pub(cl.m4, tauto.data.id, 'QA livro outro autor responde normalmente')).error, `${T} 0046: outro autor ainda responde no mesmo tópico`);
+  ok(!(await pub(cl.m10, tauto.data.id, 'QA livro outro autor responde normalmente')).error, `${T} 0046: outro autor ainda responde no mesmo tópico`);
   const p1 = (await rpc(cl.m2, 'livro_listar_respostas', { p_topico: tcheio.data.id })).data;
   ok(p1.length === 30, `${T} respostas: 30 por vez`);
   const p2 = (await rpc(cl.m2, 'livro_listar_respostas', { p_topico: tcheio.data.id, p_depois_em: p1[29].criadaEm, p_depois_id: p1[29].id })).data;

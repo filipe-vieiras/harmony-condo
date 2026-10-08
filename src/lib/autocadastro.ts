@@ -1,6 +1,6 @@
 import type { AutocadastroDependente, AutocadastroVeiculo } from '@/types';
 import { ehTipoVeiculo } from '@/lib/tiposVeiculo';
-import { textoVazio } from '@/lib/textoLivre';
+import { nomeReservado, textoVazio } from '@/lib/textoLivre';
 
 export const MAX_VEICULOS = 5;
 export const MAX_DEPENDENTES = 10;
@@ -45,6 +45,7 @@ export function validarDados(body: unknown): { ok: true; dados: AutocadastroDado
 
   if (!unitId) return { ok: false, erro: 'Selecione a sua unidade.' };
   if (textoVazio(nome) || nome.length < 3) return { ok: false, erro: 'Informe o nome completo.' };
+  if (nomeReservado(nome)) return { ok: false, erro: 'Esse nome não pode ser usado. Informe o seu nome completo.' };
   if (telefone.replace(/\D/g, '').length < 10) return { ok: false, erro: 'Informe um telefone com DDD.' };
   if (!tipo) return { ok: false, erro: 'Informe se você é proprietário ou inquilino.' };
 
@@ -55,6 +56,7 @@ export function validarDados(body: unknown): { ok: true; dados: AutocadastroDado
     const r = (d ?? {}) as Record<string, unknown>;
     const depNome = texto(r.nome);
     if (!depNome || textoVazio(depNome)) continue;
+    if (nomeReservado(depNome)) return { ok: false, erro: 'Esse nome não pode ser usado. Informe o nome completo do morador.' };
     dependentes.push({ nome: depNome, telefone: texto(r.telefone, 30) });
   }
 

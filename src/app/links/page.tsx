@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useApp } from '@/context/AppContext';
 import { DocumentLink } from '@/types';
 import { isAdmin } from '@/lib/roles';
+import { urlHttpSegura } from '@/lib/links';
 import { useEscapeToClose } from '@/lib/useEscapeToClose';
 import { useModalFocus } from '@/lib/useModalFocus';
 import {
@@ -90,7 +91,13 @@ function LinksContent() {
 
   const handleSavePortal = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updatePortalAdministradora({ descricao: pDescricao, linkExterno: pLink });
+    // type="url" aceita javascript: e similares; só http(s) é link de verdade (o banco também recusa).
+    const link = urlHttpSegura(pLink);
+    if (!link) {
+      setFeedbackMsg({ type: 'error', text: 'O link do portal precisa começar com http:// ou https://.' });
+      return;
+    }
+    await updatePortalAdministradora({ descricao: pDescricao, linkExterno: link });
     setShowPortalModal(false);
     setFeedbackMsg({ type: 'success', text: 'Portal da Administradora atualizado com sucesso!' });
   };
@@ -111,12 +118,17 @@ function LinksContent() {
   const handleSaveDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!titulo || !linkExterno) return;
+    const link = urlHttpSegura(linkExterno);
+    if (!link) {
+      setFeedbackMsg({ type: 'error', text: 'O link precisa começar com http:// ou https://.' });
+      return;
+    }
 
     const res = await addDocument({
       titulo,
       descricao,
       categoria,
-      linkExterno,
+      linkExterno: link,
       telefone: categoria === 'EMERGENCIA' ? telefone : undefined,
       tamanhoArquivo: categoria !== 'EMERGENCIA' ? tamanhoArquivo : undefined,
       arquivoNome: `${titulo.toLowerCase().replace(/\s+/g, '_')}.pdf`,
@@ -247,9 +259,9 @@ function LinksContent() {
                       {c.telefone || 'Consulte a portaria'}
                     </a>
                   </div>
-                  {c.linkExterno && c.linkExterno !== '#' && (
+                  {urlHttpSegura(c.linkExterno) && (
                     <a
-                      href={c.linkExterno}
+                      href={urlHttpSegura(c.linkExterno) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-accent-strong hover:underline flex items-center gap-1"
@@ -332,9 +344,9 @@ function LinksContent() {
               </p>
 
               <div className="mt-4 border-t border-slate-100 pt-3">
-                {portalAdministradora?.linkExterno ? (
+                {urlHttpSegura(portalAdministradora?.linkExterno) ? (
                   <a
-                    href={portalAdministradora.linkExterno}
+                    href={urlHttpSegura(portalAdministradora?.linkExterno) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-accent-strong hover:underline"
@@ -404,7 +416,7 @@ function LinksContent() {
                     </span>
 
                     <a
-                      href={doc.linkExterno}
+                      href={urlHttpSegura(doc.linkExterno) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-1.5 font-bold text-primary transition hover:bg-primary hover:text-white no-print"
