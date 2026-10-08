@@ -1,7 +1,7 @@
 # Harmony — contexto de produto
 
 Memória viva do produto. Quem decide algo relevante atualiza este arquivo (o agente
-`product-manager` propõe o trecho; o dono do produto aprova). Última revisão: 2026-10-01.
+`product-manager` propõe o trecho; o dono do produto aprova). Última revisão: 2026-10-08.
 
 ## O que é
 Portal web de gestão condominial. Hoje atende **um condomínio** (Harmony Residence). A
@@ -28,10 +28,20 @@ de ações · usuários e convites (links de acesso) · **autocadastro por link 
 validação do síndico · exportação de moradores e veículos para Excel · menu lateral
 animado no celular.
 
+**Entregue entre 02/10 e 08/10/2026** (fontes: `docs/qa/`, `docs/specs/`):
+- **Perfil Zelador e hierarquia entre perfis** de gestão (um perfil não age sobre igual ou superior; auditoria no servidor) · **transferir cargo** (Síndico, Subsíndico etc.).
+- **Reservas:** calendário, bloqueio entre espaços e valor por faixa · **anulação de multa**.
+- **Veículos:** tipo e edição pelo morador, e lista nova de veículos (cartão com folha de detalhes).
+- **Documento (RG/CPF) do titular** legível só pela gestão e pelo próprio morador.
+- **Livro de reclamações:** construído e em produção, mas **desligado** (modo DESLIGADO). Só liga quando o dono decidir (ver Pendências).
+- **Endurecimento no banco (lote 0044–0047, 08/10):** ver Decisões.
+
 ## Ambientes e forma de trabalho
 Produção (dados reais, só o `main`) e staging (testes). Trabalho no branch `develop`,
 prévia da Vercel liga no banco de staging, merge no `main` só com ok explícito do dono.
-Migrações rodam primeiro em staging. Bateria de QA em `scripts/qa/`.
+Migrações rodam primeiro em staging. Bateria de QA em `scripts/qa/`. O fluxo completo
+de entrega, com as regras de produção (uma migração por vez, uma vez cada; banco antes
+do código), está em `docs/processo-de-entrega.md`.
 
 **Quadro de tarefas (GitHub Project "Harmony"):** colunas Todo → In Progress → **Teste** → Done. Decidido em 02/10/2026: nenhuma tarefa vai para Done sem passar pela coluna Teste, onde o agente `qa` (`.claude/agents/qa.md`) executa o roteiro no staging e grava o relatório em `docs/qa/`. Só com o QA aprovado (e o dono ciente) o cartão vai para Done.
 
@@ -72,6 +82,10 @@ Migrações rodam primeiro em staging. Bateria de QA em `scripts/qa/`.
   estados vazios; Início do morador só reordenado, carregamento, menu e login). O visual rejeitado
   (cartão de próxima ação + abas embaixo) **não** foi recriado. Pendente: logo com fundo transparente ou
   versão horizontal, a fornecer pelo dono (o arquivo atual é um quadrado opaco com texto pequeno).
+- **A administradora usa Superlógica (07/10/2026).** A Garden usa o Superlógica Condomínios, confirmado pelo dono em 07/10. Passa a ser fato, não hipótese; a integração segue a ordem já decidida (atalho para o portal primeiro, leitura por API só se a administradora liberar). Spec: `docs/specs/2026-10-07-integracao-superlogica.md`.
+- **Prazo do recurso da multa (08/10/2026, decidido pelo dono).** O morador pode recorrer até o **fim do dia** de `prazo_recurso_data`, no horário de Brasília (America/Sao_Paulo). A regra é aplicada **no banco**, não só na tela. O recurso exige pelo menos 10 caracteres úteis (L5). Ciência e recurso só podem ser registrados **uma vez** pelo morador e depois ficam imutáveis para ele (data e nome saem do servidor); a gestão mantém o que já podia. Migração 0047.
+- **Livro de reclamações, modo Aberto sem trava externa (08/10/2026, migração 0044).** Síndico e ADM podem ligar o modo Aberto sem uma "liberação" externa; saiu a trava `liberado_para_abrir` (a coluna fica sem efeito). As regras de uso continuam: o morador aceita a ciência antes de entrar. Com a 0046, mudar o modo avisa a gestão no sino e o teto de respostas conta só as não removidas (200 por tópico, 20 por autor). **Continua desligado e ainda depende do dono**: aviso de privacidade (#55), conversa com advogado e uma semana em modo Equipe (rollout em duas etapas da v2). Spec: `docs/specs/2026-10-07-livro-de-reclamacoes-v2.md`.
+- **Lote 0044–0047 aplicado em staging e produção (08/10/2026).** 0044 (livro sem trava), 0045 (nome de cadastro pendente só para a gestão no diretório, #56), 0046 (ajustes do modo Aberto), 0047 (recurso da multa, links só http(s) em documentos e portal da administradora, nome reservado "Aguardando validação" barrado, horário de reserva com fim depois do início). Incidente: a 0044 foi reaplicada depois da 0046 e desfez a 0046 (a função `livro_definir_modo` voltou à versão antiga); corrigido reaplicando a 0046 e confirmado pelo `checar`, que passou a verificar a versão da função. O livro estava desligado, sem impacto. Regra nova: **uma migração por vez, uma vez cada, em produção** (`docs/processo-de-entrega.md`).
 - **Limpeza da base pelo painel (botão "digite DELETE"): adiado**, por risco em produção.
   Se voltar: só Síndico, exportação obrigatória antes, registro que não pode ser apagado.
 
@@ -84,7 +98,8 @@ diferencial, **a validar com um síndico**.
 ## Hipóteses em aberto
 - O canal (aviso por WhatsApp de vencimento, multa, reserva) pode importar mais que o
   módulo de pagamento. Não validado.
-- Qual sistema a administradora usa (Superlógica, uCondo, outro)? Define a integração.
+- Quando o dono quer ligar o Livro: quem escreve o aviso de privacidade (#55), quando falar com o advogado e quando começa a semana em modo Equipe? Sem datas nas fontes.
+- A Garden vai liberar o link do portal e um usuário de API de consulta? (a integração Superlógica depende disso; a spec trata como a confirmar).
 - O que o dono não gostou no Início novo do morador?
 
 ## Pendências conhecidas
