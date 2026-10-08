@@ -3,13 +3,13 @@
 Status: aprovado pelo dono do produto em 2026-10-01 · Etapa 1 de 2 · Implementação: agente `developer`
 
 ## Problema
-O síndico (Adriano) já tinha conta de Síndico e cadastrou a unidade **A-101** com o próprio
+O síndico (Carlos) já tinha conta de Síndico e cadastrou a unidade **A-101** com o próprio
 e-mail como titular. O sistema tentou **criar um usuário novo** para esse e-mail, o Supabase
 recusou (*"A user with this email address has already been registered"*) e o resultado foi:
 - um convite de Morador com **"Erro ao gerar"** parado na fila, assustando o síndico;
 - a A-101 **sem usuário vinculado** (status do convite "pendente").
 
-A conta do Adriano não foi afetada. O problema é o ruído e a unidade não ligada à pessoa certa.
+A conta do Carlos não foi afetada. O problema é o ruído e a unidade não ligada à pessoa certa.
 Um e-mail é uma conta; a mesma pessoa pode ter várias unidades (síndico, subsíndico, proprietário
 com mais de um apartamento).
 
@@ -25,14 +25,14 @@ existentes. O e-mail é comparado sem diferenciar maiúsculas e sem espaços nas
 1. **E-mail sem conta:** nada muda. Continua o fluxo atual (convite de acesso).
 2. **E-mail com conta:** o sistema **não cria usuário nem convite**. Antes de salvar, mostra
    uma confirmação com o nome e o perfil da conta:
-   *"Este e-mail já tem conta: Adriano Rocha (Síndico). Vincular a unidade A-101 a ela?"*
+   *"Este e-mail já tem conta: Carlos Exemplo (Síndico). Vincular a unidade A-101 a ela?"*
    - **Confirmar:** salva a unidade, grava `units.usuario_id` com o id da conta e
-     `status_convite = 'ATIVO'`, e avisa *"Unidade A-101 vinculada à conta de Adriano Rocha."*
+     `status_convite = 'ATIVO'`, e avisa *"Unidade A-101 vinculada à conta de Carlos Exemplo."*
    - **Cancelar:** volta ao formulário, **sem salvar nada**.
 3. **Limpeza:** se a unidade tinha convite pendente ou com erro, ele é removido ao vincular
    (some o "Erro ao gerar").
 4. **Auditoria:** registrar no histórico (módulo Unidades): *"Vinculou a Unidade A-101 à conta
-   de Adriano Rocha"*.
+   de Carlos Exemplo"*.
 
 ### Quando NÃO vincula (mensagem clara em português, nada é criado)
 - **Conta de Morador que já tem unidade:** *"Esta conta já está ligada à unidade X. Moradores
@@ -63,7 +63,7 @@ unidade**. Portaria e Conselho: permitido, mostrando o perfil na confirmação.
 2. Unidade nova com e-mail de conta **Síndico, Subsíndico ou ADM**: aparece a confirmação com
    nome e perfil; confirmar grava `usuario_id`, `status_convite = ATIVO`, **zero convites**
    criados e nenhuma mensagem de erro; cancelar não cria a unidade.
-3. O e-mail `" RCH.Adriano@Gmail.com "` é reconhecido como o de `rch.adriano@gmail.com`.
+3. O e-mail `" Sindico.Exemplo@Exemplo.com "` é reconhecido como o de `sindico.exemplo@exemplo.com`.
 4. Conta de **Morador sem unidade**: vincula igual ao item 2.
 5. Conta de **Morador com unidade**, conta **provisória** e unidade **já vinculada a outra
    conta**: cada uma mostra a sua mensagem e **não cria unidade, convite nem vínculo**.
@@ -93,7 +93,7 @@ unidade**. Portaria e Conselho: permitido, mostrando o perfil na confirmação.
 - Estado meio funcionando de morador com 2 unidades: evitado pela regra de bloqueio acima.
 
 ## Fora do código (não é tarefa do developer)
-Produção: apagar o convite com erro do Adriano e ligar a A-101 à conta dele. São dados reais,
+Produção: apagar o convite com erro do Carlos e ligar a A-101 à conta dele. São dados reais,
 então só com autorização do dono do produto.
 
 ## Decisão a registrar em `docs/produto.md` ao concluir
