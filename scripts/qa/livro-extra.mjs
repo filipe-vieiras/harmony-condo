@@ -189,7 +189,7 @@ ok(rep.filter((r) => !r.error).length === 1, `${T} mesmo texto 5x em paralelo: p
 // 4c) topico com 199 respostas, 4 pessoas respondem juntas -> 1 passa
 await reset();
 const top = await pub(cl.conselho, null, 'QA extra topico quase cheio para concorrência');
-await admin.from('livro_mensagens').insert(Array.from({ length: 199 }, (_, i) => ({ pai_id: top.data.id, autor_id: idDe('conselho2'), autor_nome: 'x', autor_unidade: 'B-102', autor_papel: 'MORADOR', texto: `QA extra r${i}`, criada_em: new Date(Date.now() - 864e5 * 2).toISOString() })));
+await admin.from('livro_mensagens').insert(Array.from({ length: 199 }, (_, i) => ({ pai_id: top.data.id, autor_id: null, autor_nome: 'x', autor_unidade: 'B-102', autor_papel: 'MORADOR', texto: `QA extra r${i}`, criada_em: new Date(Date.now() - 864e5 * 2).toISOString() })));
 const jun = await Promise.all(['morador', 'inquilino', 'subsindico', 'sindico'].map((n, i) => pub(cl[n], top.data.id, `QA extra corrida pela ultima vaga ${i}`)));
 const { data: cheio } = await admin.from('livro_mensagens').select('n_respostas').eq('id', top.data.id).single();
 ok(jun.filter((r) => !r.error).length === 1 && cheio.n_respostas === 200, `${T} última vaga com 4 concorrentes: passaram ${jun.filter((r) => !r.error).length}, n_respostas=${cheio.n_respostas}`);
