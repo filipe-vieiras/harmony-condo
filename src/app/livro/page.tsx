@@ -97,7 +97,7 @@ function LivroConteudo() {
         <section aria-label="Regras de uso do Livro" className="rounded-2xl border border-slate-200 bg-white p-4"><ListaDeRegras /></section>
       )}
 
-      {acesso.podeAlterarModo && <PainelModo supabase={supabase} modo={acesso.modo} liberadoParaAbrir={acesso.liberadoParaAbrir} onMudou={recarregar} />}
+      {acesso.podeAlterarModo && <PainelModo supabase={supabase} modo={acesso.modo} onMudou={recarregar} />}
 
       {!podeLer ? (
         <div role="status" className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
