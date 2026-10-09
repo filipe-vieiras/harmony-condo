@@ -22,7 +22,7 @@ import { reservasFuturasDoEspaco, textoEmManutencao } from '@/lib/interdicao';
 import { MenuMais } from '@/components/reservas/MenuMais';
 import { PedidosAguardando } from '@/components/reservas/PedidosAguardando';
 import { SeletorEspacos, type SeletorEspacosRef } from '@/components/reservas/SeletorEspacos';
-import { erroDoLimiteGratis, faixaParaBanco, previaDaFaixa, regraDoEspaco, resumoCurtoDoValor, textoValorPedido, valorDaReserva, valorInvalido, type RegraValor } from '@/lib/valorEspaco';
+import { erroDoLimiteGratis, faixaParaBanco, previaDaFaixa, regraDeValorMudou, regraDoEspaco, resumoCurtoDoValor, textoValorPedido, valorDaReserva, valorInvalido, type RegraValor } from '@/lib/valorEspaco';
 import { dataLonga, hojeBrasilia, somarDias } from '@/lib/datasReservas';
 import {
   CalendarDays,
@@ -138,8 +138,13 @@ function ReservasContent() {
   const [spaceFaixaAte, setSpaceFaixaAte] = useState('');
   const [spaceFaixaCentavos, setSpaceFaixaCentavos] = useState('');
   const [spaceBloqueios, setSpaceBloqueios] = useState<string[]>([]);
+  // Regra de valor como estava salva (só na edição): serve para avisar que mudar vale só para novos pedidos.
+  const [spaceFaixaSalva, setSpaceFaixaSalva] = useState<{ faixaGratisAte: number | null; faixaValor: number | null } | null>(null);
   const [spaceBloqueiosOriginais, setSpaceBloqueiosOriginais] = useState<string[]>([]);
   const [tentouSalvarEspaco, setTentouSalvarEspaco] = useState(false);
+  // Trava de duplo clique no salvar do espaço: o ref barra o 2º clique no mesmo tick (o state só vale no próximo render).
+  const [salvandoEspaco, setSalvandoEspaco] = useState(false);
+  const salvandoEspacoRef = useRef(false);
   // Seções do formulário do espaço: só "Dados do espaço" começa aberta.
   const [secoes, setSecoes] = useState({ dados: true, pedidos: false, bloqueios: false });
   const [espacoFormError, setEspacoFormError] = useState<string | null>(null);
@@ -193,6 +198,7 @@ function ReservasContent() {
     // substituí-lo. handleSaveSpace ainda cai num horário/imagem padrão se o
     // campo ficar mesmo vazio no envio.
     setEditingSpaceId(null);
+    setSpaceFaixaSalva(null);
     setSpaceNome('');
     setSpaceDescricao('');
     setSpaceCapacidadeMax(20);
@@ -227,6 +233,7 @@ function ReservasContent() {
     setSpaceValorModo(regra);
     setSpaceFaixaAte(regra === 'FAIXA' ? String(s.faixaGratisAte) : '');
     setSpaceFaixaCentavos(regra !== 'GRATIS' ? String(Math.round((s.faixaValor ?? 0) * 100)) : '');
+    setSpaceFaixaSalva({ faixaGratisAte: s.faixaGratisAte ?? null, faixaValor: s.faixaValor ?? null });
     // O bloqueio vindo do outro lado aparece marcado do mesmo jeito: o par é um só.
     const atuais = bloqueiosDoEspaco(s.id);
     setSpaceBloqueios(atuais);
@@ -244,12 +251,13 @@ function ReservasContent() {
   const erroFaixaAte = erroDoLimiteGratis(spaceValorModo, faixaAteNum, capacidadeNum, tentouSalvarEspaco);
   const erroFaixaValor = spaceValorModo !== 'GRATIS' && tentouSalvarEspaco && !(faixaValorNum > 0) ? 'Informe o valor em reais, maior que zero.' : '';
   const faixaInvalida = valorInvalido(spaceValorModo, faixaAteNum, capacidadeNum, faixaValorNum);
+  const regraMudou = !!editingSpaceId && !!spaceFaixaSalva && regraDeValorMudou(spaceFaixaSalva, faixaParaBanco(spaceValorModo, faixaAteNum, faixaValorNum));
   const taxaNum = spaceTaxaLimpeza.trim() === '' ? 0 : Number(spaceTaxaLimpeza);
   const previaFaixa = previaDaFaixa(spaceValorModo, faixaAteNum, faixaValorNum > 0 ? faixaValorNum : null);
 
   const handleSaveSpace = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!spaceNome) return;
+    if (!spaceNome || salvandoEspacoRef.current) return;
     setEspacoFormError(null);
     if (faixaInvalida) {
       setTentouSalvarEspaco(true);
@@ -278,9 +286,19 @@ function ReservasContent() {
     const bloqueiosMudaram = spaceBloqueios.length !== spaceBloqueiosOriginais.length
       || spaceBloqueios.some((id) => !spaceBloqueiosOriginais.includes(id));
 
-    const res = editingSpaceId
-      ? await updateSpace(editingSpaceId, dados, bloqueiosMudaram ? spaceBloqueios : undefined)
-      : await addSpace(dados, spaceBloqueios);
+    salvandoEspacoRef.current = true;
+    setSalvandoEspaco(true);
+    let res;
+    try {
+      res = editingSpaceId
+        ? await updateSpace(editingSpaceId, dados, bloqueiosMudaram ? spaceBloqueios : undefined)
+        : await addSpace(dados, spaceBloqueios);
+    } catch {
+      res = { success: false, bloqueiosFalharam: false };
+    } finally {
+      salvandoEspacoRef.current = false;
+      setSalvandoEspaco(false);
+    }
     if (!res.success) {
       setEspacoFormError('Não foi possível salvar o espaço agora. Seus dados continuam aqui, tente de novo.');
       return;
@@ -1424,6 +1442,8 @@ function ReservasContent() {
             </div>
 
             <form onSubmit={handleSaveSpace} onInvalidCapture={aoCampoInvalido} className="flex min-h-0 flex-1 flex-col">
+              {/* Durante o salvar, campos e botões ficam travados; "contents" mantém o layout e o texto continua legível. */}
+              <fieldset disabled={salvandoEspaco} className="contents [&_input:disabled]:text-slate-900 [&_textarea:disabled]:text-slate-900">
               <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
                 <Acordeao id="espaco-dados" titulo="Dados do espaço" aberto={secoes.dados} onAlternar={() => alternarSecao('dados')}>
                   <div className="space-y-4">
@@ -1600,6 +1620,11 @@ function ReservasContent() {
                         </div>
                       )}
                       <p aria-live="polite" className="mt-2 text-xs font-semibold text-slate-900">{previaFaixa}</p>
+                      {regraMudou && (
+                        <p role="note" className="mt-2 rounded-xl bg-accent-50 px-3 py-2.5 text-[12px] font-semibold text-accent-strong">
+                          Mudar a regra vale só para novos pedidos. Reservas já feitas mantêm o valor de quando foram pedidas.
+                        </p>
+                      )}
                       <p className="mt-1 text-[12px] text-slate-600">A taxa de higienização não entra neste valor.</p>
                     </div>
 
@@ -1692,18 +1717,19 @@ function ReservasContent() {
                   <button
                     type="button"
                     onClick={() => setShowSpaceModal(false)}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11"
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover min-h-11"
+                    className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover min-h-11 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {editingSpaceId ? 'Salvar espaço' : 'Cadastrar espaço'}
+                    {salvandoEspaco ? 'Salvando…' : editingSpaceId ? 'Salvar espaço' : 'Cadastrar espaço'}
                   </button>
                 </div>
               </div>
+              </fieldset>
             </form>
           </div>
         </div>

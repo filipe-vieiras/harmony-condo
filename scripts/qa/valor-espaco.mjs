@@ -9,7 +9,7 @@ register('data:text/javascript,' + encodeURIComponent(`
     return next(spec, ctx);
   }
 `));
-const { regraDoEspaco, faixaParaBanco, erroDoLimiteGratis, valorInvalido, previaDaFaixa, resumoCurtoDoValor, valorUsoDoEspaco } = await import('../../src/lib/valorEspaco.ts');
+const { regraDoEspaco, faixaParaBanco, erroDoLimiteGratis, valorInvalido, regraDeValorMudou, previaDaFaixa, resumoCurtoDoValor, valorUsoDoEspaco } = await import('../../src/lib/valorEspaco.ts');
 
 const igual = (a, b, m) => assert.equal(String(a).replace(/\s/g, ' '), b, m);
 
@@ -49,3 +49,15 @@ igual(resumoCurtoDoValor({ faixaGratisAte: 0, faixaValor: 350 }), 'R$ 350,00 por
 igual(valorUsoDoEspaco({ faixaGratisAte: 10, faixaValor: 350 }), 'R$ 350,00 acima de 10 pessoas');
 igual(valorUsoDoEspaco({ faixaGratisAte: 0, faixaValor: 350 }), 'R$ 350,00 por reserva');
 console.log('valor-espaco: ok');
+
+// "Regra mudou?" (nota "vale só para novos pedidos"): compara salva x atual no formato do banco
+const G = { faixaGratisAte: null, faixaValor: null };
+assert.equal(regraDeValorMudou(G, faixaParaBanco('GRATIS', 7, 99)), false, 'grátis com sobras de outra opção não é mudança');
+assert.equal(regraDeValorMudou(G, faixaParaBanco('PAGA', null, 90)), true);
+assert.equal(regraDeValorMudou({ faixaGratisAte: 10, faixaValor: 350 }, faixaParaBanco('FAIXA', 10, 350)), false);
+assert.equal(regraDeValorMudou({ faixaGratisAte: 10, faixaValor: 350 }, faixaParaBanco('FAIXA', 11, 350)), true);
+assert.equal(regraDeValorMudou({ faixaGratisAte: 10, faixaValor: 350 }, faixaParaBanco('FAIXA', 10, 351)), true);
+assert.equal(regraDeValorMudou({ faixaGratisAte: 10, faixaValor: 350 }, faixaParaBanco('PAGA', 10, 350)), true);
+assert.equal(regraDeValorMudou({ faixaGratisAte: 0, faixaValor: 90 }, faixaParaBanco('PAGA', null, 90)), false);
+assert.equal(regraDeValorMudou({ faixaGratisAte: 0, faixaValor: 90 }, faixaParaBanco('GRATIS', null, 0)), true);
+console.log('regraDeValorMudou ok');

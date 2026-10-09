@@ -28,6 +28,15 @@ export function faixaParaBanco(regra: RegraValor, limite: number | null, valor: 
   return { faixaGratisAte: null, faixaValor: null };
 }
 
+/**
+ * A regra de valor mudou em relação à salva? Compara no formato do banco (centavos, grátis = nulos),
+ * então trocar de opção e voltar, ou limite/valor que sobram de outra opção, não contam como mudança.
+ */
+export function regraDeValorMudou(salva: Faixa, atual: Faixa): boolean {
+  const norm = (f: Faixa) => temFaixa(f) ? `${f.faixaGratisAte}|${Math.round(f.faixaValor * 100)}` : 'GRATIS';
+  return norm(salva) !== norm(atual);
+}
+
 /** Erro do limite "Grátis até (pessoas)"; vazio = sem erro. `tentou` evita gritar antes de a pessoa tentar salvar. */
 export function erroDoLimiteGratis(regra: RegraValor, limite: number | null, capacidade: number, tentou: boolean): string {
   if (regra !== 'FAIXA') return '';
