@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Lock, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { ehTipoLinkAcesso, type TipoLinkAcesso } from '@/lib/linkAcesso';
+import { mensagemErroSenha } from '@/lib/erroSenha';
 
 export default function DefinirSenhaPage() {
   // Criado uma única vez por montagem (não a cada render): essa página
@@ -112,7 +113,7 @@ export default function DefinirSenhaPage() {
     setIsLoading(false);
 
     if (updateError) {
-      setError('Não foi possível salvar a senha. O link pode ter expirado — solicite um novo convite ou uma nova redefinição de senha.');
+      setError(mensagemErroSenha(updateError));
       return;
     }
 
