@@ -12,13 +12,13 @@ import { createServerClient } from '@supabase/ssr';
 
 const REF_STAGING = 'yusmuzifhhlowuqtcnid';
 // Identificadores de PRODUÇÃO, só para recusar (nunca para conectar).
-const PRODUCAO = ['znajvgkfhucidxtsfdip', 'harmony-condo-pm-track'];
+const PRODUCAO = ['znajvgkfhucidxtsfdip', 'harmony-condo-pm-track', 'donawanda'];
 const recusar = (msg) => { throw new Error(`QA recusado: ${msg}. Estes scripts só rodam no staging.`); };
 
 export const ALVO = 'staging';
 if (process.env.QA_ALVO && process.env.QA_ALVO !== 'staging') recusar(`QA_ALVO=${process.env.QA_ALVO} (só "staging" é aceito)`);
 export const SITE = process.env.QA_SITE ?? 'http://localhost:3000';
-if (PRODUCAO.some((p) => SITE.includes(p))) recusar(`QA_SITE aponta para produção (${SITE})`);
+if (PRODUCAO.some((p) => SITE.toLowerCase().includes(p))) recusar(`QA_SITE aponta para produção (${SITE})`);
 export const DOMINIO = 'qa.harmony.test';
 // Repositório público: a senha das contas QA não fica no código. Vem de QA_SENHA ou é gerada a cada execução
 // (todo script cria ou redefine as contas QA com esta mesma SENHA, então um valor novo por execução funciona).
