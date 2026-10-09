@@ -22,7 +22,7 @@ import { reservasFuturasDoEspaco, textoEmManutencao } from '@/lib/interdicao';
 import { MenuMais } from '@/components/reservas/MenuMais';
 import { PedidosAguardando } from '@/components/reservas/PedidosAguardando';
 import { SeletorEspacos, type SeletorEspacosRef } from '@/components/reservas/SeletorEspacos';
-import { previaDaFaixa, resumoCurtoDoValor, textoValorPedido, valorDaReserva } from '@/lib/valorEspaco';
+import { erroDoLimiteGratis, faixaParaBanco, previaDaFaixa, regraDeValorMudou, regraDoEspaco, resumoCurtoDoValor, textoValorPedido, valorDaReserva, valorInvalido, type RegraValor } from '@/lib/valorEspaco';
 import { dataLonga, hojeBrasilia, somarDias } from '@/lib/datasReservas';
 import {
   CalendarDays,
@@ -134,12 +134,17 @@ function ReservasContent() {
   const [spaceExigeAprovacao, setSpaceExigeAprovacao] = useState(true);
   // Valor de uso por faixa e bloqueios entre espaços (issue #81). Os valores digitados de cada opção
   // ficam guardados ao trocar de rádio, mas só os da opção marcada vão para o banco.
-  const [spaceValorModo, setSpaceValorModo] = useState<'GRATIS' | 'FAIXA'>('GRATIS');
+  const [spaceValorModo, setSpaceValorModo] = useState<RegraValor>('GRATIS');
   const [spaceFaixaAte, setSpaceFaixaAte] = useState('');
   const [spaceFaixaCentavos, setSpaceFaixaCentavos] = useState('');
   const [spaceBloqueios, setSpaceBloqueios] = useState<string[]>([]);
+  // Regra de valor como estava salva (só na edição): serve para avisar que mudar vale só para novos pedidos.
+  const [spaceFaixaSalva, setSpaceFaixaSalva] = useState<{ faixaGratisAte: number | null; faixaValor: number | null } | null>(null);
   const [spaceBloqueiosOriginais, setSpaceBloqueiosOriginais] = useState<string[]>([]);
   const [tentouSalvarEspaco, setTentouSalvarEspaco] = useState(false);
+  // Trava de duplo clique no salvar do espaço: o ref barra o 2º clique no mesmo tick (o state só vale no próximo render).
+  const [salvandoEspaco, setSalvandoEspaco] = useState(false);
+  const salvandoEspacoRef = useRef(false);
   // Seções do formulário do espaço: só "Dados do espaço" começa aberta.
   const [secoes, setSecoes] = useState({ dados: true, pedidos: false, bloqueios: false });
   const [espacoFormError, setEspacoFormError] = useState<string | null>(null);
@@ -193,6 +198,7 @@ function ReservasContent() {
     // substituí-lo. handleSaveSpace ainda cai num horário/imagem padrão se o
     // campo ficar mesmo vazio no envio.
     setEditingSpaceId(null);
+    setSpaceFaixaSalva(null);
     setSpaceNome('');
     setSpaceDescricao('');
     setSpaceCapacidadeMax(20);
@@ -222,10 +228,12 @@ function ReservasContent() {
     setSpaceRegras(s.regras.join('\n'));
     setSpaceImagemUrl(s.imagemUrl);
     setSpaceExigeAprovacao(s.exigeAprovacao !== false);
-    const comFaixa = s.faixaGratisAte != null && s.faixaValor != null;
-    setSpaceValorModo(comFaixa ? 'FAIXA' : 'GRATIS');
-    setSpaceFaixaAte(comFaixa ? String(s.faixaGratisAte) : '');
-    setSpaceFaixaCentavos(comFaixa ? String(Math.round((s.faixaValor ?? 0) * 100)) : '');
+    // Limite 0 (o banco já cobra de todos) abre como "Paga em toda reserva"; o campo de limite fica vazio.
+    const regra = regraDoEspaco(s);
+    setSpaceValorModo(regra);
+    setSpaceFaixaAte(regra === 'FAIXA' ? String(s.faixaGratisAte) : '');
+    setSpaceFaixaCentavos(regra !== 'GRATIS' ? String(Math.round((s.faixaValor ?? 0) * 100)) : '');
+    setSpaceFaixaSalva({ faixaGratisAte: s.faixaGratisAte ?? null, faixaValor: s.faixaValor ?? null });
     // O bloqueio vindo do outro lado aparece marcado do mesmo jeito: o par é um só.
     const atuais = bloqueiosDoEspaco(s.id);
     setSpaceBloqueios(atuais);
@@ -240,20 +248,16 @@ function ReservasContent() {
   const capacidadeNum = Number(spaceCapacidadeMax);
   const faixaAteNum = spaceFaixaAte.trim() === '' ? null : Number(spaceFaixaAte);
   const faixaValorNum = Number(spaceFaixaCentavos || '0') / 100;
-  const erroFaixaAte = spaceValorModo !== 'FAIXA' ? ''
-    : faixaAteNum === null
-      ? (tentouSalvarEspaco ? 'Informe quantas pessoas entram sem pagar. Use 0 se o valor vale para todos.' : '')
-      : faixaAteNum >= capacidadeNum
-        ? `O limite grátis precisa ser menor que a capacidade máxima (${capacidadeNum} pessoas). Para ser sempre grátis, escolha a primeira opção.`
-        : '';
-  const erroFaixaValor = spaceValorModo === 'FAIXA' && tentouSalvarEspaco && !(faixaValorNum > 0) ? 'Informe o valor em reais, maior que zero.' : '';
-  const faixaInvalida = spaceValorModo === 'FAIXA' && (faixaAteNum === null || faixaAteNum >= capacidadeNum || !(faixaValorNum > 0));
+  const erroFaixaAte = erroDoLimiteGratis(spaceValorModo, faixaAteNum, capacidadeNum, tentouSalvarEspaco);
+  const erroFaixaValor = spaceValorModo !== 'GRATIS' && tentouSalvarEspaco && !(faixaValorNum > 0) ? 'Informe o valor em reais, maior que zero.' : '';
+  const faixaInvalida = valorInvalido(spaceValorModo, faixaAteNum, capacidadeNum, faixaValorNum);
+  const regraMudou = !!editingSpaceId && !!spaceFaixaSalva && regraDeValorMudou(spaceFaixaSalva, faixaParaBanco(spaceValorModo, faixaAteNum, faixaValorNum));
   const taxaNum = spaceTaxaLimpeza.trim() === '' ? 0 : Number(spaceTaxaLimpeza);
   const previaFaixa = previaDaFaixa(spaceValorModo, faixaAteNum, faixaValorNum > 0 ? faixaValorNum : null);
 
   const handleSaveSpace = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!spaceNome) return;
+    if (!spaceNome || salvandoEspacoRef.current) return;
     setEspacoFormError(null);
     if (faixaInvalida) {
       setTentouSalvarEspaco(true);
@@ -276,16 +280,25 @@ function ReservasContent() {
       // Espaço novo nasce ativo; interditar e reabrir são pela função do banco (com motivo e auditoria), nunca por este formulário.
       ...(editingSpaceId ? {} : { ativo: true }),
       exigeAprovacao: spaceExigeAprovacao,
-      // Só os valores da opção marcada vão para o banco (null = grátis para qualquer número de pessoas).
-      faixaGratisAte: spaceValorModo === 'FAIXA' ? faixaAteNum : null,
-      faixaValor: spaceValorModo === 'FAIXA' ? faixaValorNum : null,
+      // Só os valores da opção marcada vão para o banco (null = grátis; "Paga em toda reserva" = limite 0).
+      ...faixaParaBanco(spaceValorModo, faixaAteNum, faixaValorNum),
     };
     const bloqueiosMudaram = spaceBloqueios.length !== spaceBloqueiosOriginais.length
       || spaceBloqueios.some((id) => !spaceBloqueiosOriginais.includes(id));
 
-    const res = editingSpaceId
-      ? await updateSpace(editingSpaceId, dados, bloqueiosMudaram ? spaceBloqueios : undefined)
-      : await addSpace(dados, spaceBloqueios);
+    salvandoEspacoRef.current = true;
+    setSalvandoEspaco(true);
+    let res;
+    try {
+      res = editingSpaceId
+        ? await updateSpace(editingSpaceId, dados, bloqueiosMudaram ? spaceBloqueios : undefined)
+        : await addSpace(dados, spaceBloqueios);
+    } catch {
+      res = { success: false, bloqueiosFalharam: false };
+    } finally {
+      salvandoEspacoRef.current = false;
+      setSalvandoEspaco(false);
+    }
     if (!res.success) {
       setEspacoFormError('Não foi possível salvar o espaço agora. Seus dados continuam aqui, tente de novo.');
       return;
@@ -614,8 +627,8 @@ function ReservasContent() {
   const outrosEspacos = spaces.filter((o) => o.id !== editingSpaceId);
   const resumoPedidos = `${spaceExigeAprovacao ? 'Precisa de aprovação' : 'Confirma na hora'} · Higienização: ${taxaNum > 0 ? formatarMoeda(taxaNum) : 'isento'} · Valor: ${
     spaceValorModo === 'GRATIS' ? 'grátis'
-      : faixaInvalida ? 'informe o limite e o valor'
-      : resumoCurtoDoValor({ faixaGratisAte: faixaAteNum, faixaValor: faixaValorNum })
+      : faixaInvalida ? (spaceValorModo === 'PAGA' ? 'informe o valor' : 'informe o limite e o valor')
+      : resumoCurtoDoValor(faixaParaBanco(spaceValorModo, faixaAteNum, faixaValorNum))
   }`;
   const nomesMarcados = spaceBloqueios.map((id) => spaces.find((o) => o.id === id)?.nome).filter((n): n is string => !!n);
   const resumoBloqueios = nomesMarcados.length > 0 ? `Não reservável no mesmo dia que ${nomesMarcados.join(', ')}` : 'Nenhum';
@@ -1429,6 +1442,8 @@ function ReservasContent() {
             </div>
 
             <form onSubmit={handleSaveSpace} onInvalidCapture={aoCampoInvalido} className="flex min-h-0 flex-1 flex-col">
+              {/* Durante o salvar, campos e botões ficam travados; "contents" mantém o layout e o texto continua legível. */}
+              <fieldset disabled={salvandoEspaco} className="contents [&_input:disabled]:text-slate-900 [&_textarea:disabled]:text-slate-900">
               <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
                 <Acordeao id="espaco-dados" titulo="Dados do espaço" aberto={secoes.dados} onAlternar={() => alternarSecao('dados')}>
                   <div className="space-y-4">
@@ -1535,45 +1550,62 @@ function ReservasContent() {
                       {!spaceExigeAprovacao && (
                         <div className="mt-3 flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 p-3 text-[12px] text-pendente-900">
                           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-pendente-700" aria-hidden="true" />
-                          <span>Atenção: novos pedidos serão confirmados sem passar pela equipe. Reservas que já estão aguardando continuam aguardando.</span>
+                          <span>
+                            Atenção: novos pedidos serão confirmados sem passar pela equipe. Reservas que já estão aguardando continuam aguardando.
+                            {spaceValorModo !== 'GRATIS' && ' Reservas com valor serão confirmadas sem passar pela equipe, e o síndico combina a cobrança com o morador.'}
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Valor de uso: o Harmony só calcula e mostra; a cobrança é da administradora (o banco calcula, 0039) */}
+                    {/* Valor de uso: a Dona Wanda só calcula e mostra; a cobrança é do síndico, por fora (o banco calcula, 0039) */}
                     <div className="border-t border-slate-100 pt-3">
                       <h4 className="text-[12px] font-bold uppercase tracking-wider text-slate-600">Valor de uso</h4>
-                      <p className="mt-1 text-[12px] text-slate-600">O Harmony só calcula e mostra o valor ao morador. A cobrança é feita pela administradora.</p>
-                      <fieldset className="mt-1">
-                        <legend className="sr-only">Como o valor de uso é cobrado</legend>
-                        {([['GRATIS', 'Grátis independente do número de pessoas'], ['FAIXA', 'Grátis até certo número de pessoas e, acima disso, valor fixo']] as const).map(([modo, rotulo]) => (
-                          <label key={modo} className="flex min-h-11 cursor-pointer items-center gap-2.5">
+                      <p className="mt-1 text-[12px] text-slate-600">A Dona Wanda só calcula e mostra o valor ao morador. A cobrança é feita pelo síndico, por fora.</p>
+                      <fieldset className="mt-2">
+                        <legend className="text-xs font-semibold text-slate-700">Quando este espaço é pago?</legend>
+                        {([
+                          ['GRATIS', 'Grátis', 'Qualquer número de pessoas pode usar sem pagar.'],
+                          ['FAIXA', 'Grátis até certo número de pessoas', 'Acima desse número, o morador paga.'],
+                          ['PAGA', 'Paga em toda reserva', 'O valor vale desde a primeira pessoa, qualquer que seja o número de pessoas.'],
+                        ] as const).map(([modo, rotulo, apoio]) => (
+                          <label key={modo} className="flex min-h-11 cursor-pointer items-start gap-2.5 py-2">
                             <input
                               type="radio"
                               name="espaco-valor-modo"
                               checked={spaceValorModo === modo}
-                              onChange={() => setSpaceValorModo(modo)}
-                              className="size-5 shrink-0 border-slate-300 text-primary focus:ring-accent-strong"
+                              onChange={() => {
+                                // Um "0" vindo da regra paga não deve reaparecer como erro no campo de limite.
+                                if (modo === 'FAIXA' && spaceFaixaAte === '0') setSpaceFaixaAte('');
+                                setSpaceValorModo(modo);
+                              }}
+                              aria-describedby={`espaco-valor-${modo}-apoio`}
+                              className="mt-0.5 size-5 shrink-0 border-slate-300 text-primary focus:ring-accent-strong"
                             />
-                            <span className="text-xs font-semibold text-slate-700">{rotulo}</span>
+                            <span>
+                              <span className="block text-xs font-semibold text-slate-700">{rotulo}</span>
+                              <span id={`espaco-valor-${modo}-apoio`} className="block text-[12px] text-slate-600">{apoio}</span>
+                            </span>
                           </label>
                         ))}
                       </fieldset>
-                      {spaceValorModo === 'FAIXA' && (
+                      {spaceValorModo !== 'GRATIS' && (
                         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <CampoVeiculo
-                            id="espaco-faixa-ate"
-                            label="Grátis até (pessoas)"
-                            type="text"
-                            inputMode="numeric"
-                            autoComplete="off"
-                            value={spaceFaixaAte}
-                            onChange={(e) => setSpaceFaixaAte(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                            erro={erroFaixaAte}
-                          />
+                          {spaceValorModo === 'FAIXA' && (
+                            <CampoVeiculo
+                              id="espaco-faixa-ate"
+                              label="Grátis até (pessoas)"
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="off"
+                              value={spaceFaixaAte}
+                              onChange={(e) => setSpaceFaixaAte(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                              erro={erroFaixaAte}
+                            />
+                          )}
                           <CampoVeiculo
                             id="espaco-faixa-valor"
-                            label="Valor acima disso (R$)"
+                            label={spaceValorModo === 'PAGA' ? 'Valor (R$)' : 'Valor acima disso (R$)'}
                             type="text"
                             inputMode="decimal"
                             autoComplete="off"
@@ -1588,6 +1620,11 @@ function ReservasContent() {
                         </div>
                       )}
                       <p aria-live="polite" className="mt-2 text-xs font-semibold text-slate-900">{previaFaixa}</p>
+                      {regraMudou && (
+                        <p role="note" className="mt-2 rounded-xl bg-accent-50 px-3 py-2.5 text-[12px] font-semibold text-accent-strong">
+                          Mudar a regra vale só para novos pedidos. Reservas já feitas mantêm o valor de quando foram pedidas.
+                        </p>
+                      )}
                       <p className="mt-1 text-[12px] text-slate-600">A taxa de higienização não entra neste valor.</p>
                     </div>
 
@@ -1680,18 +1717,19 @@ function ReservasContent() {
                   <button
                     type="button"
                     onClick={() => setShowSpaceModal(false)}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11"
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 min-h-11 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover min-h-11"
+                    className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover min-h-11 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {editingSpaceId ? 'Salvar espaço' : 'Cadastrar espaço'}
+                    {salvandoEspaco ? 'Salvando…' : editingSpaceId ? 'Salvar espaço' : 'Cadastrar espaço'}
                   </button>
                 </div>
               </div>
+              </fieldset>
             </form>
           </div>
         </div>

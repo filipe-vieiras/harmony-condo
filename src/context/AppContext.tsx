@@ -1435,7 +1435,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let message: string;
     // Texto do valor gravado: "Grátis" não é omissão, é decisão do espaço.
     const aviso = valor > 0
-      ? `Valor desta reserva: ${formatarMoeda(valor)}. A administração lança o valor na sua taxa.`
+      ? `Valor desta reserva: ${formatarMoeda(valor)}. O síndico combina a cobrança com você.`
       : 'Esta reserva não tem valor de uso.';
     if (registradoPelaEquipe) {
       message = confirmada
