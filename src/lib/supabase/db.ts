@@ -5,6 +5,7 @@ import type {
   Notice,
   FineNotice,
   CommonSpace,
+  CotaMinima,
   Reservation,
   InAppNotification,
   DocumentLink,
@@ -474,6 +475,8 @@ function rowToSpace(r: Record<string, unknown>): CommonSpace {
     exigeAprovacao: (r.exige_aprovacao as boolean) ?? true,
     faixaGratisAte: r.faixa_gratis_ate == null ? null : Number(r.faixa_gratis_ate),
     faixaValor: r.faixa_valor == null ? null : Number(r.faixa_valor),
+    valorTipo: r.valor_tipo === 'PERCENTUAL' ? 'PERCENTUAL' : 'FIXO',
+    faixaPercentual: r.faixa_percentual == null ? null : Number(r.faixa_percentual),
     motivoInterdicao: (r.motivo_interdicao as string | null) ?? null,
   };
 }
@@ -484,7 +487,62 @@ export async function fetchSpaces(supabase: SupabaseClient): Promise<CommonSpace
     .select('*')
     .order('nome', { ascending: true });
   if (error) { console.error('fetchSpaces:', error); return []; }
-  return (data ?? []).map(rowToSpace);
+  const espacos = (data ?? []).map(rowToSpace);
+  // Espaço em percentual: o R$ cheio de hoje vem do banco (0048), sem a cota. Se a consulta falhar, fica sem valor
+  // ("a combinar"); nunca se calcula no navegador.
+  if (espacos.some((e) => e.valorTipo === 'PERCENTUAL')) {
+    const { data: valores, error: erroValores } = await supabase.rpc('valores_espacos_percentual');
+    if (erroValores) console.error('valores_espacos_percentual:', erroValores);
+    const mapa = new Map<string, number>(((valores ?? []) as { espaco_id: string; valor: number | string }[]).map((v) => [v.espaco_id, Number(v.valor)]));
+    for (const e of espacos) if (e.valorTipo === 'PERCENTUAL') e.valorCalculado = mapa.get(e.id) ?? null;
+  }
+  return espacos;
+}
+
+// ──────────────────────────────────────────────
+// COTA MÍNIMA DO CONDOMÍNIO (0048) — só a gestão lê e grava
+// ──────────────────────────────────────────────
+
+export type ResultadoCota =
+  | { ok: true; cota: CotaMinima }
+  | { ok: false; erro: 'SEM_PERMISSAO' | 'INVALIDA' | 'ERRO' };
+
+/** Lê a cota. A RLS só entrega a linha a Síndico, Subsíndico e ADM: para os demais volta sem linha (`ok: false`). */
+export async function fetchCotaMinima(supabase: SupabaseClient): Promise<ResultadoCota> {
+  const { data, error } = await supabase
+    .from('condominio_config')
+    .select('cota_minima, atualizado_por_nome, atualizado_em')
+    .eq('id', 1)
+    .maybeSingle();
+  if (error) { console.error('fetchCotaMinima:', error); return { ok: false, erro: 'ERRO' }; }
+  if (!data) return { ok: false, erro: 'SEM_PERMISSAO' };
+  return {
+    ok: true,
+    cota: {
+      valor: data.cota_minima == null ? null : Number(data.cota_minima),
+      atualizadoPorNome: (data.atualizado_por_nome as string | null) ?? undefined,
+      atualizadoEm: (data.atualizado_em as string | null) ?? undefined,
+    },
+  };
+}
+
+/** Grava a cota pela função do banco (valida, grava e audita na mesma transação). */
+export async function definirCotaMinimaDB(supabase: SupabaseClient, valor: number): Promise<ResultadoCota> {
+  const { data, error } = await supabase.rpc('definir_cota_minima', { p_valor: valor });
+  if (error) {
+    console.error('definirCotaMinimaDB:', error);
+    if (error.code === '42501' || error.message?.includes('sem_permissao')) return { ok: false, erro: 'SEM_PERMISSAO' };
+    if (error.code === '22023' || error.message?.includes('cota_invalida')) return { ok: false, erro: 'INVALIDA' };
+    return { ok: false, erro: 'ERRO' };
+  }
+  return {
+    ok: true,
+    cota: {
+      valor: data?.cota_minima == null ? null : Number(data.cota_minima),
+      atualizadoPorNome: (data?.atualizado_por_nome as string | null) ?? undefined,
+      atualizadoEm: (data?.atualizado_em as string | null) ?? undefined,
+    },
+  };
 }
 
 export async function insertSpace(
@@ -503,6 +561,8 @@ export async function insertSpace(
     exige_aprovacao: space.exigeAprovacao,
     faixa_gratis_ate: space.faixaGratisAte ?? null,
     faixa_valor: space.faixaValor ?? null,
+    valor_tipo: space.valorTipo ?? 'FIXO',
+    faixa_percentual: space.faixaPercentual ?? null,
   }).select().single();
   if (error) { console.error('insertSpace:', error); return null; }
   return rowToSpace(data);
@@ -563,6 +623,8 @@ export async function updateSpaceDB(
   // null é um valor de verdade aqui (volta a "grátis"); undefined = não mexe.
   if (space.faixaGratisAte !== undefined) payload.faixa_gratis_ate = space.faixaGratisAte;
   if (space.faixaValor !== undefined) payload.faixa_valor = space.faixaValor;
+  if (space.valorTipo !== undefined) payload.valor_tipo = space.valorTipo;
+  if (space.faixaPercentual !== undefined) payload.faixa_percentual = space.faixaPercentual;
 
   const { data, error } = await supabase.from('spaces').update(payload).eq('id', id).select().single();
   if (error) { console.error('updateSpaceDB:', error); return null; }
@@ -633,7 +695,7 @@ export async function fetchReservations(supabase: SupabaseClient): Promise<Reser
 }
 
 /** Por que o banco recusou a reserva (mensagens curtas das migrações 0032, 0034, 0038 e 0039). */
-export type ErroReserva = 'CONFLITO' | 'DIA_PASSADO' | 'INDISPONIVEL' | 'BLOQUEADO' | 'PESSOAS_INVALIDAS' | 'ERRO';
+export type ErroReserva = 'CONFLITO' | 'DIA_PASSADO' | 'INDISPONIVEL' | 'BLOQUEADO' | 'PESSOAS_INVALIDAS' | 'COTA_INDEFINIDA' | 'ERRO';
 
 export async function insertReservation(
   supabase: SupabaseClient,
@@ -662,6 +724,8 @@ export async function insertReservation(
     // Espaço que bloqueia (ou é bloqueado por) outro que já tem pedido no dia (0038).
     if (error.message === 'reserva_dia_indisponivel') return { reserva: null, erro: 'BLOQUEADO' };
     if (error.message === 'reserva_pessoas_invalidas') return { reserva: null, erro: 'PESSOAS_INVALIDAS' };
+    // Espaço em percentual cobrado sem cota cadastrada (0048): o banco recusa em vez de gravar valor 0.
+    if (error.message === 'reserva_cota_indefinida') return { reserva: null, erro: 'COTA_INDEFINIDA' };
     return { reserva: null, erro: 'ERRO' };
   }
   return { reserva: rowToReservation(data) };
@@ -684,12 +748,14 @@ export async function fetchDisponibilidade(
 
 /**
  * Valor de uso de uma reserva com `pessoas` pessoas no espaço, pela MESMA função que o gatilho de
- * criação usa (0039): a prévia da tela nunca calcula sozinha. Nulo quando a consulta falha.
+ * criação usa (0039): a prévia da tela nunca calcula sozinha. Nulo quando a consulta falha; 'COTA_INDEFINIDA' quando o espaço é em percentual e a cota não foi cadastrada.
  */
-export async function fetchValorReserva(supabase: SupabaseClient, espacoId: string, pessoas: number): Promise<number | null> {
+export async function fetchValorReserva(supabase: SupabaseClient, espacoId: string, pessoas: number): Promise<number | null | 'COTA_INDEFINIDA'> {
   const { data, error } = await supabase.rpc('valor_reserva', { p_espaco_id: espacoId, p_pessoas: pessoas });
   if (error || data === null || data === undefined) {
     if (error) console.error('fetchValorReserva:', error);
+    // Espaço em percentual sem cota cadastrada (0048): a tela explica em vez de mostrar erro técnico.
+    if (error?.message?.includes('reserva_cota_indefinida')) return 'COTA_INDEFINIDA';
     return null;
   }
   return Number(data);

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { PrintReportHeader } from '@/components/reports/PrintReportHeader';
 import { useDialog } from '@/components/ui/DialogProvider';
@@ -22,7 +23,7 @@ import { reservasFuturasDoEspaco, textoEmManutencao } from '@/lib/interdicao';
 import { MenuMais } from '@/components/reservas/MenuMais';
 import { PedidosAguardando } from '@/components/reservas/PedidosAguardando';
 import { SeletorEspacos, type SeletorEspacosRef } from '@/components/reservas/SeletorEspacos';
-import { erroDoLimiteGratis, faixaParaBanco, previaDaFaixa, regraDeValorMudou, regraDoEspaco, resumoCurtoDoValor, textoValorPedido, valorDaReserva, valorInvalido, type RegraValor } from '@/lib/valorEspaco';
+import { calcularPercentual, ehPercentual, erroDoLimiteGratis, erroDoPercentual, lerPercentual, limparPercentualDigitado, previaDaFaixa, previaDoCalculo, regraDeValorMudou, regraDoEspaco, resumoCurtoDoValor, textoTotalPedido, textoValorPedido, valorDaReserva, valorInvalido, valorParaBanco, type RegraValor, type TipoValor } from '@/lib/valorEspaco';
 import { dataLonga, hojeBrasilia, somarDias } from '@/lib/datasReservas';
 import {
   CalendarDays,
@@ -76,6 +77,7 @@ function ReservasContent() {
     requestReservation, 
     buscarDisponibilidade,
     buscarValorReserva,
+    buscarCotaMinima,
     judgeReservation,
     cancelReservation,
     interditarEspaco,
@@ -93,7 +95,9 @@ function ReservasContent() {
   const [convidados, setConvidados] = useState('15');
   const [tentouEnviar, setTentouEnviar] = useState(false);
   // Valor devolvido pelo banco para (espaço, pessoas); `chave` impede mostrar o valor de outra conta.
-  const [previaValor, setPreviaValor] = useState<{ chave: string; valor: number | null } | null>(null);
+  const [previaValor, setPreviaValor] = useState<{ chave: string; valor: number | null | 'COTA_INDEFINIDA' } | null>(null);
+  const buscarCotaRef = useRef(buscarCotaMinima);
+  useEffect(() => { buscarCotaRef.current = buscarCotaMinima; });
   const buscarValorRef = useRef(buscarValorReserva);
   useEffect(() => { buscarValorRef.current = buscarValorReserva; });
   const [termoAceito, setTermoAceito] = useState(false);
@@ -137,9 +141,14 @@ function ReservasContent() {
   const [spaceValorModo, setSpaceValorModo] = useState<RegraValor>('GRATIS');
   const [spaceFaixaAte, setSpaceFaixaAte] = useState('');
   const [spaceFaixaCentavos, setSpaceFaixaCentavos] = useState('');
+  // Fase 2 (0048): valor fixo em R$ ou percentual da cota mínima do condomínio. Cada tipo guarda o que foi digitado.
+  const [spaceValorTipo, setSpaceValorTipo] = useState<TipoValor>('FIXO');
+  const [spacePercentual, setSpacePercentual] = useState('');
+  // Cota mínima, lida só para a gestão e só com o formulário do espaço aberto (o morador nunca a recebe).
+  const [cota, setCota] = useState<{ estado: 'carregando' | 'ok' | 'erro'; valor: number | null }>({ estado: 'carregando', valor: null });
   const [spaceBloqueios, setSpaceBloqueios] = useState<string[]>([]);
   // Regra de valor como estava salva (só na edição): serve para avisar que mudar vale só para novos pedidos.
-  const [spaceFaixaSalva, setSpaceFaixaSalva] = useState<{ faixaGratisAte: number | null; faixaValor: number | null } | null>(null);
+  const [spaceFaixaSalva, setSpaceFaixaSalva] = useState<Pick<CommonSpace, 'faixaGratisAte' | 'faixaValor' | 'valorTipo' | 'faixaPercentual'> | null>(null);
   const [spaceBloqueiosOriginais, setSpaceBloqueiosOriginais] = useState<string[]>([]);
   const [tentouSalvarEspaco, setTentouSalvarEspaco] = useState(false);
   // Trava de duplo clique no salvar do espaço: o ref barra o 2º clique no mesmo tick (o state só vale no próximo render).
@@ -191,6 +200,24 @@ function ReservasContent() {
     return () => { cancelado = true; };
   }, [showModal, dataValida, dataReserva, recarregarKey]);
 
+  // Cota para o formulário do espaço (só a gestão a lê; o banco nega aos demais). Relê ao voltar para a aba, porque a gestão
+  // costuma cadastrar a cota em outra aba (Configurações) sem fechar o formulário.
+  const carregarCota = useCallback(async () => {
+    const r = await buscarCotaRef.current();
+    setCota(r.ok ? { estado: 'ok', valor: r.cota.valor } : { estado: 'erro', valor: null });
+  }, []);
+  useEffect(() => {
+    if (!showSpaceModal || !isSindico) return;
+    void carregarCota();
+    const aoVoltar = () => { if (document.visibilityState === 'visible') void carregarCota(); };
+    document.addEventListener('visibilitychange', aoVoltar);
+    window.addEventListener('focus', aoVoltar);
+    return () => {
+      document.removeEventListener('visibilitychange', aoVoltar);
+      window.removeEventListener('focus', aoVoltar);
+    };
+  }, [showSpaceModal, isSindico, carregarCota]);
+
   const handleOpenNewSpace = () => {
     // Campos de texto começam vazios (o "Ex: ..." fica só no placeholder) —
     // um valor de exemplo como state inicial engana quem digita por cima sem
@@ -198,6 +225,7 @@ function ReservasContent() {
     // substituí-lo. handleSaveSpace ainda cai num horário/imagem padrão se o
     // campo ficar mesmo vazio no envio.
     setEditingSpaceId(null);
+    setCota({ estado: 'carregando', valor: null });
     setSpaceFaixaSalva(null);
     setSpaceNome('');
     setSpaceDescricao('');
@@ -210,6 +238,8 @@ function ReservasContent() {
     setSpaceValorModo('GRATIS');
     setSpaceFaixaAte('');
     setSpaceFaixaCentavos('');
+    setSpaceValorTipo('FIXO');
+    setSpacePercentual('');
     setSpaceBloqueios([]);
     setSpaceBloqueiosOriginais([]);
     setTentouSalvarEspaco(false);
@@ -220,6 +250,7 @@ function ReservasContent() {
 
   const handleOpenEditSpace = (s: CommonSpace) => {
     setEditingSpaceId(s.id);
+    setCota({ estado: 'carregando', valor: null });
     setSpaceNome(s.nome);
     setSpaceDescricao(s.descricao);
     setSpaceCapacidadeMax(s.capacidadeMax);
@@ -232,8 +263,10 @@ function ReservasContent() {
     const regra = regraDoEspaco(s);
     setSpaceValorModo(regra);
     setSpaceFaixaAte(regra === 'FAIXA' ? String(s.faixaGratisAte) : '');
-    setSpaceFaixaCentavos(regra !== 'GRATIS' ? String(Math.round((s.faixaValor ?? 0) * 100)) : '');
-    setSpaceFaixaSalva({ faixaGratisAte: s.faixaGratisAte ?? null, faixaValor: s.faixaValor ?? null });
+    setSpaceFaixaCentavos(regra !== 'GRATIS' && !ehPercentual(s) ? String(Math.round((s.faixaValor ?? 0) * 100)) : '');
+    setSpaceValorTipo(ehPercentual(s) ? 'PERCENTUAL' : 'FIXO');
+    setSpacePercentual(ehPercentual(s) && s.faixaPercentual != null ? String(s.faixaPercentual).replace('.', ',') : '');
+    setSpaceFaixaSalva({ faixaGratisAte: s.faixaGratisAte ?? null, faixaValor: s.faixaValor ?? null, valorTipo: s.valorTipo ?? 'FIXO', faixaPercentual: s.faixaPercentual ?? null });
     // O bloqueio vindo do outro lado aparece marcado do mesmo jeito: o par é um só.
     const atuais = bloqueiosDoEspaco(s.id);
     setSpaceBloqueios(atuais);
@@ -249,11 +282,18 @@ function ReservasContent() {
   const faixaAteNum = spaceFaixaAte.trim() === '' ? null : Number(spaceFaixaAte);
   const faixaValorNum = Number(spaceFaixaCentavos || '0') / 100;
   const erroFaixaAte = erroDoLimiteGratis(spaceValorModo, faixaAteNum, capacidadeNum, tentouSalvarEspaco);
-  const erroFaixaValor = spaceValorModo !== 'GRATIS' && tentouSalvarEspaco && !(faixaValorNum > 0) ? 'Informe o valor em reais, maior que zero.' : '';
-  const faixaInvalida = valorInvalido(spaceValorModo, faixaAteNum, capacidadeNum, faixaValorNum);
-  const regraMudou = !!editingSpaceId && !!spaceFaixaSalva && regraDeValorMudou(spaceFaixaSalva, faixaParaBanco(spaceValorModo, faixaAteNum, faixaValorNum));
+  const usaPercentual = spaceValorModo !== 'GRATIS' && spaceValorTipo === 'PERCENTUAL';
+  const percentualNum = lerPercentual(spacePercentual);
+  const cotaCadastrada = cota.estado === 'ok' && cota.valor !== null;
+  const erroFaixaValor = spaceValorModo !== 'GRATIS' && !usaPercentual && tentouSalvarEspaco && !(faixaValorNum > 0) ? 'Informe o valor em reais, maior que zero.' : '';
+  const erroPercentual = erroDoPercentual(spaceValorModo, spaceValorTipo, spacePercentual, tentouSalvarEspaco);
+  // Percentual sem cota cadastrada (ou sem conseguir ler): não salva; o banco recusa do mesmo jeito (cota_nao_cadastrada).
+  const faixaInvalida = valorInvalido(spaceValorModo, faixaAteNum, capacidadeNum, faixaValorNum, spaceValorTipo, percentualNum, cotaCadastrada);
+  const valorBanco = valorParaBanco(spaceValorModo, spaceValorTipo, faixaAteNum, faixaValorNum, percentualNum);
+  const regraMudou = !!editingSpaceId && !!spaceFaixaSalva && regraDeValorMudou(spaceFaixaSalva, valorBanco);
   const taxaNum = spaceTaxaLimpeza.trim() === '' ? 0 : Number(spaceTaxaLimpeza);
-  const previaFaixa = previaDaFaixa(spaceValorModo, faixaAteNum, faixaValorNum > 0 ? faixaValorNum : null);
+  const previaFaixa = previaDaFaixa(spaceValorModo, faixaAteNum, faixaValorNum > 0 ? faixaValorNum : null, spaceValorTipo, percentualNum);
+  const previaCalculo = usaPercentual && cotaCadastrada ? previaDoCalculo(spaceValorModo, faixaAteNum, percentualNum, cota.valor) : '';
 
   const handleSaveSpace = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -281,7 +321,7 @@ function ReservasContent() {
       ...(editingSpaceId ? {} : { ativo: true }),
       exigeAprovacao: spaceExigeAprovacao,
       // Só os valores da opção marcada vão para o banco (null = grátis; "Paga em toda reserva" = limite 0).
-      ...faixaParaBanco(spaceValorModo, faixaAteNum, faixaValorNum),
+      ...valorBanco,
     };
     const bloqueiosMudaram = spaceBloqueios.length !== spaceBloqueiosOriginais.length
       || spaceBloqueios.some((id) => !spaceBloqueiosOriginais.includes(id));
@@ -434,12 +474,16 @@ function ReservasContent() {
     return () => { cancelado = true; clearTimeout(t); };
   }, [showModal, chavePrevia, recarregarKey]);
   const previaAtual = chavePrevia && previaValor?.chave === chavePrevia ? previaValor : null;
+  // Espaço em percentual sem cota cadastrada: não há valor para pedir (o banco recusa; nunca grava 0 em silêncio).
+  const semValorDefinido = previaAtual?.valor === 'COTA_INDEFINIDA';
+  const totalPedido = espacoEscolhido && typeof previaAtual?.valor === 'number' ? textoTotalPedido(previaAtual.valor, espacoEscolhido.taxaLimpeza) : '';
   let textoValor = '';
   if (pessoasZero) textoValor = 'O número de pessoas precisa ser de pelo menos 1.';
   else if (!pessoasInformadas) textoValor = 'Informe o número de pessoas para ver o valor.';
   else if (chavePrevia) {
     if (!previaAtual) textoValor = 'Calculando o valor…';
     else if (previaAtual.valor === null) textoValor = 'Não foi possível mostrar o valor agora. Ele é calculado ao enviar.';
+    else if (previaAtual.valor === 'COTA_INDEFINIDA') textoValor = 'O valor desta reserva ainda não foi definido. Fale com a administração.';
     else if (espacoEscolhido) textoValor = textoValorPedido(espacoEscolhido, previaAtual.valor, isStaff);
   }
 
@@ -627,8 +671,8 @@ function ReservasContent() {
   const outrosEspacos = spaces.filter((o) => o.id !== editingSpaceId);
   const resumoPedidos = `${spaceExigeAprovacao ? 'Precisa de aprovação' : 'Confirma na hora'} · Higienização: ${taxaNum > 0 ? formatarMoeda(taxaNum) : 'isento'} · Valor: ${
     spaceValorModo === 'GRATIS' ? 'grátis'
-      : faixaInvalida ? (spaceValorModo === 'PAGA' ? 'informe o valor' : 'informe o limite e o valor')
-      : resumoCurtoDoValor(faixaParaBanco(spaceValorModo, faixaAteNum, faixaValorNum))
+      : faixaInvalida ? (usaPercentual ? (cotaCadastrada ? (spaceValorModo === 'PAGA' ? 'informe o percentual' : 'informe o limite e o percentual') : 'cadastre a cota') : spaceValorModo === 'PAGA' ? 'informe o valor' : 'informe o limite e o valor')
+      : resumoCurtoDoValor({ ...valorBanco, valorCalculado: usaPercentual && percentualNum !== null && cotaCadastrada ? calcularPercentual(cota.valor as number, percentualNum) : null }, true)
   }`;
   const nomesMarcados = spaceBloqueios.map((id) => spaces.find((o) => o.id === id)?.nome).filter((n): n is string => !!n);
   const resumoBloqueios = nomesMarcados.length > 0 ? `Não reservável no mesmo dia que ${nomesMarcados.join(', ')}` : 'Nenhum';
@@ -1306,7 +1350,7 @@ function ReservasContent() {
                         <span>Este espaço comporta até {espacoEscolhido.capacidadeMax} pessoas. Reduza o número para continuar.</span>
                       </p>
                     ) : espacoEscolhido && textoValor !== 'Calculando o valor…' ? (
-                      <p className={pessoasInformadas && previaAtual?.valor != null ? 'text-slate-900' : pessoasZero ? 'text-red-700' : 'font-normal text-slate-600'}>{textoValor}</p>
+                      <p className={semValorDefinido ? 'text-red-700' : pessoasInformadas && typeof previaAtual?.valor === 'number' ? 'text-slate-900' : pessoasZero ? 'text-red-700' : 'font-normal text-slate-600'}>{textoValor}</p>
                     ) : null}
                   </div>
                   {/* Só visual: "calculando" não é anunciado a cada pausa de digitação; o leitor de tela recebe só o resultado. */}
@@ -1319,6 +1363,11 @@ function ReservasContent() {
                   <p className="text-xs text-slate-700">
                     Taxa de higienização: <strong className="text-primary">{espacoEscolhido.taxaLimpeza > 0 ? formatarMoeda(espacoEscolhido.taxaLimpeza) : 'Isento'}</strong>
                   </p>
+                )}
+
+                {/* TOTAL a pagar (valor de uso + higienização). Só o total final: a cota e o percentual nunca aparecem aqui. */}
+                {totalPedido && (
+                  <p aria-live="polite" className="font-display text-sm font-bold text-slate-900">{totalPedido}</p>
                 )}
 
                 {/* Um aviso só, em uma linha: muda com a regra do espaço escolhido (a regra de verdade é do banco) */}
@@ -1396,7 +1445,7 @@ function ReservasContent() {
                 {!bloqueadoNoDia && (
                   <button
                     type="submit"
-                    disabled={enviando || (!espacoFixo && !espacoEscolhido)}
+                    disabled={enviando || semValorDefinido || (!espacoFixo && !espacoEscolhido)}
                     className="min-h-11 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {enviando ? 'Enviando…'
@@ -1590,6 +1639,58 @@ function ReservasContent() {
                         ))}
                       </fieldset>
                       {spaceValorModo !== 'GRATIS' && (
+                        <fieldset className="mt-3">
+                          <legend className="text-xs font-semibold text-slate-700">Como o valor é definido?</legend>
+                          {([
+                            ['FIXO', 'Valor fixo', 'Um valor em reais, igual em todas as reservas.'],
+                            ['PERCENTUAL', 'Percentual da cota do condomínio', 'Um percentual da cota mínima. Se a cota mudar, o valor muda nos novos pedidos.'],
+                          ] as const).map(([tipo, rotulo, apoio]) => {
+                            // Percentual precisa da cota cadastrada. Se o espaço já era percentual e a cota sumiu, o aviso aparece e não deixa salvar.
+                            const bloqueado = tipo === 'PERCENTUAL' && !cotaCadastrada;
+                            return (
+                              <label key={tipo} className={`flex min-h-11 items-start gap-2.5 py-2 ${bloqueado ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                <input
+                                  type="radio"
+                                  name="espaco-valor-tipo"
+                                  checked={spaceValorTipo === tipo}
+                                  disabled={bloqueado && spaceValorTipo !== tipo}
+                                  aria-disabled={bloqueado ? 'true' : undefined}
+                                  onChange={() => setSpaceValorTipo(tipo)}
+                                  aria-describedby={`espaco-valor-${tipo}-apoio${bloqueado ? ' espaco-cota-aviso' : ''}`}
+                                  className="mt-0.5 size-5 shrink-0 border-slate-300 text-primary focus:ring-accent-strong"
+                                />
+                                <span>
+                                  <span className="block text-xs font-semibold text-slate-700">{rotulo}</span>
+                                  <span id={`espaco-valor-${tipo}-apoio`} className="block text-[12px] text-slate-600">{apoio}</span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                          {cota.estado === 'carregando' && (
+                            <p id="espaco-cota-aviso" aria-live="polite" className="text-[12px] text-slate-600">Verificando a cota do condomínio…</p>
+                          )}
+                          {cota.estado === 'erro' && (
+                            <div id="espaco-cota-aviso" className="flex flex-wrap items-center gap-x-3 text-[12px] text-red-700">
+                              <span role="alert">Não foi possível ler a cota agora. Tente de novo. Se preferir, use valor fixo.</span>
+                              <button type="button" onClick={() => { setCota({ estado: 'carregando', valor: null }); void carregarCota(); }} className="inline-flex min-h-11 items-center font-semibold text-accent-strong underline underline-offset-2">
+                                Tentar de novo
+                              </button>
+                            </div>
+                          )}
+                          {cota.estado === 'ok' && cota.valor === null && (
+                            <div id="espaco-cota-aviso" className="flex items-start gap-2 rounded-xl border border-pendente-200 bg-pendente-50 p-3 text-[12px] text-pendente-900">
+                              <Info className="mt-0.5 h-4 w-4 shrink-0 text-pendente-700" aria-hidden="true" />
+                              <span>
+                                Para usar percentual, cadastre antes a cota do condomínio.{' '}
+                                <Link href="/configuracoes#reservas" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-accent-strong underline underline-offset-2 sm:min-h-0">
+                                  Cadastrar a cota<span className="sr-only"> (abre em outra aba)</span>
+                                </Link>
+                              </span>
+                            </div>
+                          )}
+                        </fieldset>
+                      )}
+                      {spaceValorModo !== 'GRATIS' && (
                         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                           {spaceValorModo === 'FAIXA' && (
                             <CampoVeiculo
@@ -1603,23 +1704,48 @@ function ReservasContent() {
                               erro={erroFaixaAte}
                             />
                           )}
-                          <CampoVeiculo
-                            id="espaco-faixa-valor"
-                            label={spaceValorModo === 'PAGA' ? 'Valor (R$)' : 'Valor acima disso (R$)'}
-                            type="text"
-                            inputMode="decimal"
-                            autoComplete="off"
-                            prefixo="R$"
-                            placeholder="0,00"
-                            value={spaceFaixaCentavos ? (Number(spaceFaixaCentavos) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
-                            // Máscara de moeda: só dígitos, lidos como centavos (150,00 = "15000").
-                            onChange={(e) => setSpaceFaixaCentavos(e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9))}
-                            apoio="Digite só os números: 15000 = R$ 150,00."
-                            erro={erroFaixaValor}
-                          />
+                          {usaPercentual ? (
+                            <CampoVeiculo
+                              id="espaco-faixa-percentual"
+                              label={spaceValorModo === 'PAGA' ? 'Percentual da cota (%)' : 'Percentual acima disso (%)'}
+                              type="text"
+                              inputMode="decimal"
+                              autoComplete="off"
+                              placeholder="5"
+                              maxLength={6}
+                              value={spacePercentual}
+                              // Só dígitos e um separador decimal (ponto ou vírgula): "7,5" e "7.5" valem; o banco confere de novo (0,01 a 100).
+                              onChange={(e) => setSpacePercentual(limparPercentualDigitado(e.target.value))}
+                              apoio="Digite 5 para 5% da cota. Pode usar vírgula: 7,5."
+                              erro={erroPercentual}
+                            />
+                          ) : (
+                            <CampoVeiculo
+                              id="espaco-faixa-valor"
+                              label={spaceValorModo === 'PAGA' ? 'Valor (R$)' : 'Valor acima disso (R$)'}
+                              type="text"
+                              inputMode="decimal"
+                              autoComplete="off"
+                              prefixo="R$"
+                              placeholder="0,00"
+                              value={spaceFaixaCentavos ? (Number(spaceFaixaCentavos) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                              // Máscara de moeda: só dígitos, lidos como centavos (150,00 = "15000").
+                              onChange={(e) => setSpaceFaixaCentavos(e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9))}
+                              apoio="Digite só os números: 15000 = R$ 150,00."
+                              erro={erroFaixaValor}
+                            />
+                          )}
                         </div>
                       )}
                       <p aria-live="polite" className="mt-2 text-xs font-semibold text-slate-900">{previaFaixa}</p>
+                      {previaCalculo && (
+                        <p aria-live="polite" className="mt-1 text-xs text-slate-700">
+                          {previaCalculo}{' '}
+                          <Link href="/configuracoes#reservas" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-accent-strong underline underline-offset-2 sm:min-h-0">
+                            Alterar a cota<span className="sr-only"> do condomínio (abre em outra aba)</span>
+                          </Link>
+                        </p>
+                      )}
                       {regraMudou && (
                         <p role="note" className="mt-2 rounded-xl bg-accent-50 px-3 py-2.5 text-[12px] font-semibold text-accent-strong">
                           Mudar a regra vale só para novos pedidos. Reservas já feitas mantêm o valor de quando foram pedidas.

@@ -54,7 +54,7 @@ export function EspacosCadastrados({ spaces, aberto, onAlternar, onEditar, onInt
                   <td data-label="Espaço" className="px-4 py-3 font-bold text-slate-900">{s.nome}</td>
                   <td data-label="Capacidade" className="px-4 py-3">Até {s.capacidadeMax} pessoas</td>
                   <td data-label="Aprovação" className="px-4 py-3">{s.exigeAprovacao !== false ? 'Precisa de aprovação' : 'Confirma na hora'}</td>
-                  <td data-label="Valor de uso" className="px-4 py-3">{resumoCurtoDoValor(s).replace(/^./, (c) => c.toUpperCase())}</td>
+                  <td data-label="Valor de uso" className="px-4 py-3">{resumoCurtoDoValor(s, true).replace(/^./, (c) => c.toUpperCase())}</td>
                   <td data-label="Higienização" className="px-4 py-3">{s.taxaLimpeza > 0 ? formatarMoeda(s.taxaLimpeza) : 'Isento'}</td>
                   <td data-label="Situação" className="px-4 py-3">
                     {ativo

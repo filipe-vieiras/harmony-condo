@@ -35,6 +35,13 @@ union all select 'livro_definir_modo é a versão da 0046 (trava for update; dev
 union all select 'diretorio_unidades usa is_admin (0045 aplicada se true)', coalesce((select (position('is_admin' in pg_get_functiondef(p.oid))>0)::text from pg_proc p where proname='diretorio_unidades' limit 1),'sem função')
 union all select 'limite_respostas_autor no livro (0046 aplicada se true)', coalesce((select (position('limite_respostas_autor' in pg_get_functiondef(p.oid))>0)::text from pg_proc p where proname='livro_msg_antes' limit 1),'sem função')
 union all select 'url_http_valida (0047 aplicada se 1)', (select count(*) from pg_proc where proname='url_http_valida')::text
+union all select 'condominio_config (0048 aplicada se 1)', (select count(*) from information_schema.tables where table_schema='public' and table_name='condominio_config')::text
+union all select 'definir_cota_minima (0048 aplicada se 1)', (select count(*) from pg_proc where proname='definir_cota_minima')::text
+union all select 'valor_reserva é a versão da 0048 (calcular_valor_reserva; deve ser true)', coalesce((select (position('calcular_valor_reserva' in pg_get_functiondef(p.oid))>0)::text from pg_proc p where proname='valor_reserva' limit 1),'sem função')
+union all select 'gatilho 12 é a versão da 0048 (reservas_valor_base; deve ser true)', coalesce((select (position('reservas_valor_base' in pg_get_functiondef(p.oid))>0)::text from pg_proc p where proname='reservations_calcular_valor' limit 1),'sem função')
+union all select 'policies de condominio_config (0048: deve ser 1, só is_admin)', (select count(*) from pg_policies where tablename='condominio_config')::text
+union all select 'grants de escrita em condominio_config para authenticated/anon (deve ser 0)', (select count(*) from information_schema.role_table_grants where table_name='condominio_config' and grantee in ('authenticated','anon') and privilege_type<>'SELECT')::text
+union all select 'spaces.valor_tipo (0048 aplicada se 1)', (select count(*) from information_schema.columns where table_name='spaces' and column_name='valor_tipo')::text
 union all select 'unit_documentos (0040)', (select count(*) from information_schema.tables where table_name='unit_documentos')::text
 union all select 'convite_links (0042)', (select count(*) from information_schema.tables where table_name='convite_links')::text;" \
       -c "select 'links fora de http(s) (deve ser 0)' as dado, count(*)::text as valor from documents where link_externo !~* '^https?://\S+\$' and link_externo <> '#'

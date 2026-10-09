@@ -33,7 +33,7 @@ import {
   fetchFines, insertFine, updateFineDB, anularFineDB, deleteFineDB,
   fetchSpaces, insertSpace, updateSpaceDB, deleteSpaceDB, interditarEspacoDB, fetchInterdicoes,
   fetchReservations, insertReservation, updateReservationDB, fetchDisponibilidade,
-  fetchSpaceBlocks, definirBloqueiosEspacoDB, fetchValorReserva,
+  fetchSpaceBlocks, definirBloqueiosEspacoDB, fetchValorReserva, fetchCotaMinima, definirCotaMinimaDB,
   fetchNotifications, insertNotification, markNotifReadDB, markAllNotifsReadDB,
   fetchDocuments, insertDocument, updateDocumentDB, deleteDocumentDB,
   fetchAuditLogs, insertAuditLog,
@@ -43,13 +43,13 @@ import {
   fetchProfiles, fetchCargoTransferencias,
   fetchAutocadastros, fetchAutocadastroAberto, updateAutocadastroAbertoDB, importUnitsDB,
 } from '@/lib/supabase/db';
-import type { AlteracaoVeiculo, ErroReserva, InterdicaoInfo } from '@/lib/supabase/db';
+import type { AlteracaoVeiculo, ErroReserva, InterdicaoInfo, ResultadoCota } from '@/lib/supabase/db';
 
 /** Resultado de cadastrar/editar veículo; `placaDuplicada` = a placa já existe no condomínio. */
 const MSG_PLACA_DUPLICADA = 'Esta placa já está cadastrada.';
 export type ResultadoSalvarVeiculo = { success: boolean; message: string; veiculo?: Vehicle; placaDuplicada?: boolean; semUnidade?: boolean };
 import { formatarData, formatarMoeda } from '@/lib/formatadores';
-import { fraseValorParaEquipe } from '@/lib/valorEspaco';
+import { fraseValorParaEquipe, textoTotalPedido } from '@/lib/valorEspaco';
 import { NOTICE_CATEGORY_LABELS } from '@/lib/labels';
 
 /**
@@ -200,7 +200,11 @@ interface AppContextType {
     unidade?: string;
   }) => Promise<{ success: boolean; message: string; erro?: ErroReserva; status?: ReservationStatus; valorUso?: number }>;
   /** Valor de uso para N pessoas, pela função do banco (a mesma do gatilho). null = falhou. */
-  buscarValorReserva: (espacoId: string, pessoas: number) => Promise<number | null>;
+  buscarValorReserva: (espacoId: string, pessoas: number) => Promise<number | null | 'COTA_INDEFINIDA'>;
+  /** Cota mínima do condomínio (0048). Só Síndico, Subsíndico e ADM leem; para os demais volta `ok: false`. */
+  buscarCotaMinima: () => Promise<ResultadoCota>;
+  /** Grava a cota pela função do banco (valida, grava e audita na mesma transação). */
+  salvarCotaMinima: (valor: number) => Promise<ResultadoCota>;
   /** Dias ocupados por espaço (função do banco, sem nome nem unidade). null = falhou. */
   buscarDisponibilidade: (inicio: string, fim: string) => Promise<{ espacoId: string; data: string }[] | null>;
   /** true se a decisão foi gravada. */
@@ -1003,7 +1007,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addSpace = async (spaceData: Omit<CommonSpace, 'id'>, bloqueios?: string[]): Promise<ResultadoEspaco> => {
     const created = await insertSpace(supabase, spaceData);
     if (!created) return { success: false, bloqueiosFalharam: false };
-    setSpaces((prev) => [...prev, created]);
+    // Relê do banco: o R$ de um espaço em percentual vem de uma função à parte (0048). Se a leitura falhar, fica o que o
+    // banco acabou de devolver (a lista nunca esvazia por causa de uma falha de rede).
+    const lista = await fetchSpaces(supabase);
+    setSpaces(lista.length > 0 ? lista : (prev) => [...prev, created]);
     await recordAudit(`Cadastrou novo espaço comum: ${created.nome}`, 'ESPACOS', {
       id: created.id,
       nome: created.nome,
@@ -1023,7 +1030,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateSpace = async (id: string, spaceData: Partial<Omit<CommonSpace, 'id'>>, bloqueios?: string[]): Promise<ResultadoEspaco> => {
     const updated = await updateSpaceDB(supabase, id, spaceData);
     if (!updated) return { success: false, bloqueiosFalharam: false };
-    setSpaces((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    const lista = await fetchSpaces(supabase);
+    setSpaces(lista.length > 0 ? lista : (prev) => prev.map((s) => (s.id === id ? updated : s)));
     await recordAudit(`Atualizou espaço comum: ${updated.nome}`, 'ESPACOS', { id });
     if (bloqueios) {
       const gravou = await definirBloqueiosEspacoDB(supabase, id, bloqueios);
@@ -1407,6 +1415,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { success: false, erro, message: 'Este dia acabou de ficar indisponível. Escolha outro dia.' };
       }
       if (erro === 'PESSOAS_INVALIDAS') return { success: false, erro, message: `Informe de 1 a ${targetSpace.capacidadeMax} pessoas.` };
+      if (erro === 'COTA_INDEFINIDA') return { success: false, erro, message: 'O valor desta reserva ainda não foi definido. Fale com a administração.' };
       return { success: false, erro: 'ERRO', message: 'Não foi possível enviar agora. Seus dados continuam aqui, tente de novo.' };
     }
 
@@ -1434,9 +1443,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     let message: string;
     // Texto do valor gravado: "Grátis" não é omissão, é decisão do espaço.
+    const taxa = created.taxaHigienizacao ?? 0;
+    const total = textoTotalPedido(valor, taxa);
     const aviso = valor > 0
-      ? `Valor desta reserva: ${formatarMoeda(valor)}. O síndico combina a cobrança com você.`
-      : 'Esta reserva não tem valor de uso.';
+      ? `Valor desta reserva: ${formatarMoeda(valor)}.${taxa > 0 ? ` Higienização: ${formatarMoeda(taxa)}. ${total}` : ''} O síndico combina a cobrança com você.`
+      : taxa > 0
+        ? `Esta reserva não tem valor de uso. Higienização: ${formatarMoeda(taxa)}. ${total} O síndico combina a cobrança com você.`
+        : 'Esta reserva não tem valor de uso.';
     if (registradoPelaEquipe) {
       message = confirmada
         ? `Reserva confirmada para ${created.moradorNome}, Apto ${created.unidade}.${valor > 0 ? ` ${fraseValorParaEquipe(targetSpace, valor)}` : ''}`
@@ -1451,6 +1464,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const buscarDisponibilidade = (inicio: string, fim: string) => fetchDisponibilidade(supabase, inicio, fim);
   const buscarValorReserva = (espacoId: string, pessoas: number) => fetchValorReserva(supabase, espacoId, pessoas);
+  const buscarCotaMinima = () => fetchCotaMinima(supabase);
+  const salvarCotaMinima = async (valor: number): Promise<ResultadoCota> => {
+    const res = await definirCotaMinimaDB(supabase, valor);
+    // A função do banco já gravou a auditoria; só relê o histórico para quem o vê.
+    if (res.ok && isAdmin(currentUser?.role)) void fetchAuditLogs(supabase).then(setAuditLogs);
+    return res;
+  };
 
   const judgeReservation = async (reservationId: string, aprovado: boolean, motivoRecusa?: string) => {
     const timestamp = new Date().toISOString();
@@ -1668,6 +1688,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         requestReservation,
         buscarDisponibilidade,
         buscarValorReserva,
+        buscarCotaMinima,
+        salvarCotaMinima,
         judgeReservation,
         cancelReservation,
         notifications: visibleNotifications,

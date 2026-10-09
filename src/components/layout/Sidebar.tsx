@@ -19,6 +19,7 @@ import {
   Link2,
   Printer,
   UserCog,
+  Settings,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -126,6 +127,12 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       icon: ClipboardCheck,
       roles: [...ADMIN_ROLES],
       badgeCount: pendingAutocadastrosCount,
+    },
+    {
+      label: 'Configurações',
+      href: '/configuracoes',
+      icon: Settings,
+      roles: [...ADMIN_ROLES],
     },
   ];
 

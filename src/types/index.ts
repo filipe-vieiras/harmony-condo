@@ -199,8 +199,27 @@ export interface CommonSpace {
    */
   faixaGratisAte?: number | null;
   faixaValor?: number | null;
+  /**
+   * Fase 2 (0048): o valor da faixa é um R$ fixo ou um percentual da cota mínima do condomínio. Ausente = FIXO.
+   * Com PERCENTUAL, `faixaValor` é nulo e vale `faixaPercentual` (0,01 a 100).
+   */
+  valorTipo?: 'FIXO' | 'PERCENTUAL';
+  faixaPercentual?: number | null;
+  /**
+   * Só para espaço PERCENTUAL: o R$ cheio de hoje (cota x percentual), vindo do banco sem a cota (valores_espacos_percentual).
+   * Nulo/ausente = cota ainda não cadastrada. Serve só para mostrar; a reserva grava o valor que o banco calcula no pedido.
+   */
+  valorCalculado?: number | null;
   /** Motivo curto (até 140) escrito ao interditar; o morador lê "Em manutenção: {motivo}". Só existe com `ativo === false`. */
   motivoInterdicao?: string | null;
+}
+
+/** Cota mínima do condomínio (0048). Só Síndico, Subsíndico e ADM leem; o morador nunca recebe este dado. */
+export interface CotaMinima {
+  /** Nulo = ainda não cadastrada. */
+  valor: number | null;
+  atualizadoPorNome?: string;
+  atualizadoEm?: string;
 }
 
 export type ReservationStatus = 'PENDENTE' | 'APROVADA' | 'RECUSADA' | 'CANCELADA';
