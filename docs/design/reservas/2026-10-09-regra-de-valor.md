@@ -113,7 +113,7 @@ Vitrine do espaço para todos (`valorUsoDoEspaco`/`valorUsoPorExtenso`): "Gráti
 
 ### 3.1 Princípios
 - O morador precisa de **um número em reais** antes de enviar; percentual sozinho é abstração para leigo e idoso.
-- Nunca vê cota, percentual aplicado ou valor de outra unidade. Nenhuma tela ou resposta de rede devolve cota de outra unidade; o cálculo roda no banco para a unidade do usuário logado.
+- Nunca vê cota, percentual aplicado ou valor de outra unidade **na tela**. Nenhuma tela devolve cota de outra unidade; pela API a cota pode ser inferida (percentual do espaço + R$ final), risco aceito pelo dono; o cálculo roda no banco para a unidade do usuário logado.
 - Para o morador a palavra é "taxa do condomínio" (já usada em `textoValorPedido`), não "cota condominial". Na gestão, "cota condominial" (palavra do dono). Ver P2.
 - Deixar claro quem cobra: "Cobrado pela administradora na sua taxa do condomínio". A Dona Wanda não cobra.
 

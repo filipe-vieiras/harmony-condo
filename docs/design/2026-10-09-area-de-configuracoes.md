@@ -11,7 +11,7 @@ Relacionados: `docs/design/reservas/2026-10-09-regra-de-valor.md` e a atualizaç
 1. **Item de menu "Configurações"**, ícone `Settings` (engrenagem, lucide), **último da lista**, depois de "Autocadastro", visível só para `ADMIN_ROLES` (Síndico, Subsíndico, ADM). Rota `/configuracoes`. Sem selo de contagem.
 2. **Página com cartões por assunto.** Na v1 há um só: "Reservas de espaços" com o campo "Cota condominial de referência". O padrão de cartão (cabeçalho cinza em caixa-alta + corpo) é o mesmo de `/usuarios`, para crescer por repetição, sem reinventar a tela.
 3. **Modo leitura primeiro, edição sob demanda.** Com cota cadastrada, a tela mostra o valor grande e "Atualizada em 09/10/2026 por Nome", com botão "Alterar cota". A edição pede **confirmação que explica o efeito**: vale para novos pedidos; reservas já feitas mantêm o valor. O primeiro cadastro não pede confirmação (não há nada a perder).
-4. **A cota nunca fica "vazia" depois de cadastrada.** Não existe "remover cota": só trocar por outro valor maior que zero. Isso elimina o estado perigoso "espaço percentual sem base".
+4. **A cota nunca fica "vazia" depois de cadastrada.** Não existe "remover cota": só trocar por outro valor de R$ 1,00 a R$ 100.000,00. Isso elimina o estado perigoso "espaço percentual sem base".
 
 ## 1. O que existe hoje (conferido no código)
 
@@ -75,7 +75,7 @@ O morador **nunca** vê esta tela nem a cota (ver seção 10, P1 sobre a vitrine
 - Tamanho de fonte 16px no celular e `text-xs` (que vale 14px) a partir de `sm`: `text-base sm:text-xs`.
 - Classes do campo: `min-h-11 w-full rounded-xl border border-slate-200 px-3 py-2 focus:border-accent-strong focus:outline-none focus:ring-2 focus:ring-accent-strong/30`. Em erro: `border-red-500` + mensagem com ícone.
 - Dica de digitação abaixo do campo (`text-[12px] text-slate-600`): "Digite só os números: 122500 = R$ 1.225,00."
-- Limites: maior que zero e até R$ 100.000,00 (SUPOSIÇÃO; evita erro de digitação com zero a mais; confirmar na seção 10, P4).
+- Limites: de R$ 1,00 (piso decidido pelo dono) a R$ 100.000,00 (evita erro de digitação).
 - Botão principal: **"Salvar cota"** (primeiro cadastro) / **"Salvar nova cota"** (alteração). Botão secundário (só na alteração): "Cancelar".
 
 ## 4. Estados
@@ -142,7 +142,7 @@ Mensagem vermelha (`role="alert"`, ícone `AlertTriangle`) **dentro do bloco**, 
 - Falha de rede ou servidor: "Não foi possível salvar a cota. Nada foi alterado. Tente de novo; se continuar, avise o suporte."
 - Sem permissão (sessão perdeu o cargo): "Você não tem mais permissão para alterar a cota. Fale com o Síndico."
 - Validação (abaixo do campo, `aria-invalid="true"`, `aria-describedby`, ícone + `text-red-700`):
-  - Vazio ou zero: "Informe a cota em reais, maior que zero."
+  - Vazio ou zero: "Informe a cota em reais, de no mínimo R$ 1,00."; abaixo de R$ 1,00: "A cota mínima é de R$ 1,00. Confira o valor digitado."
   - Acima do limite: "Esse valor parece alto demais. Confira se não sobrou algum zero. O máximo é R$ 100.000,00."
 - Erros de validação aparecem ao tentar salvar ou ao sair do campo, não a cada tecla. Ao salvar com erro, o foco vai ao campo.
 
@@ -214,7 +214,7 @@ Evitar: "Submeter", "base de cálculo", "alíquota", "parâmetro", "fração ide
 | ...                                                               |
 | Valor da cota (R$)                                                |
 | [R$ 0,00                                  ]                       |
-| (!) Informe a cota em reais, maior que zero.                      |
+| (!) Informe a cota em reais, de no mínimo R$ 1,00.                |
 | Digite só os números: 122500 = R$ 1.225,00.                       |
 |                                                                   |
 | [ Salvar nova cota ]  [ Cancelar ]                                |
@@ -272,7 +272,7 @@ Evitar: "Submeter", "base de cálculo", "alíquota", "parâmetro", "fração ide
 2. Abrir `/configuracoes` por link direto com perfil sem acesso mostra "Área restrita"; por API, a leitura e a gravação da cota são negadas a esses perfis (teste direto no banco com a sessão de cada perfil).
 3. Sem cota cadastrada: cartão com aviso "A cota ainda não foi cadastrada...", campo aberto e botão "Salvar cota"; nenhum "R$ 0,00" aparece como se fosse valor salvo.
 4. A máscara de centavos funciona como em "Valor de uso": digitar `122500` mostra `R$ 1.225,00`; colar texto com letras ignora as letras; apagar tudo volta ao placeholder.
-5. Salvar vazio ou zero é recusado com "Informe a cota em reais, maior que zero.", ligada ao campo (`aria-invalid`, `aria-describedby`), com ícone e foco no campo; acima de R$ 100.000,00 mostra a mensagem do limite.
+5. Salvar vazio ou zero é recusado com "Informe a cota em reais, de no mínimo R$ 1,00." (abaixo de R$ 1,00 também é recusado), ligada ao campo (`aria-invalid`, `aria-describedby`), com ícone e foco no campo; acima de R$ 100.000,00 mostra a mensagem do limite.
 6. Primeiro cadastro salva **sem** diálogo de confirmação e mostra "Cota cadastrada: R$ ...".
 7. Alterar abre o diálogo com título "Alterar a cota para R$ X?", valor antigo e novo e a frase de que reservas já feitas mantêm o valor; "Voltar" não grava; "Alterar cota" grava.
 8. Depois de salvar, a tela mostra "Atualizada em dd/mm/aaaa por Nome" com a data de hoje e o nome de quem salvou; recarregar a página mantém o dado.

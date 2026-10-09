@@ -9,13 +9,15 @@
 --   3) O valor em R$ é calculado NO BANCO, no pedido: round(cota x percentual / 100, 2), meio para cima, nunca menos de R$ 0,01
 --      (um percentual não vira "grátis" por arredondamento). CONGELADO: a reserva grava valor_uso no momento do pedido e
 --      depois ele não muda (gatilho 05 da 0039). Mudar a cota ou o percentual do espaço vale só para pedidos novos.
---   4) A cota NÃO é exposta ao morador: a tabela só é lida por is_admin(); o morador recebe só o R$ final (valor_reserva e
---      valores_espacos_percentual). A cota e o percentual usados em cada reserva ficam numa tabela à parte, só da gestão
---      (reservas_valor_base), para que `select *` em reservations (morador, Portaria, Conselho) não vaze a cota.
+--   4) A cota NÃO é exibida na tela do morador: a tabela só é lida por is_admin(); o morador recebe só o R$ final (valor_reserva
+--      e valores_espacos_percentual). A cota e o percentual usados em cada reserva ficam numa tabela à parte, só da gestão
+--      (reservas_valor_base), para que `select *` em reservations (morador, Portaria, Conselho) não traga a cota.
+--      RISCO ACEITO PELO DONO: pela API dá para INFERIR a cota (spaces.faixa_percentual, que o morador lê, e o R$ final de
+--      valor_reserva/valores_espacos_percentual: cota = R$ x 100 / %). Ver docs/seguranca/2026-10-09-revisao-cota-minima-0048.md.
 --   5) Escrita da cota só pela função definir_cota_minima(), que valida, grava e registra a auditoria na MESMA transação
 --      (sem alteração sem rastro; o registro não traz valores, porque o Conselho lê o histórico).
 --
--- Limites assumidos (a confirmar com o dono): cota de R$ 0,01 a R$ 100.000,00, até 2 casas; percentual de 0,01 a 100, até 2 casas.
+-- Limites: cota de R$ 1,00 a R$ 100.000,00 (piso decidido pelo dono), até 2 casas; valor FIXO do espaço > 0 e até R$ 100.000,00, sem NaN; percentual de 0,01 a 100, até 2 casas.
 -- A cota não pode ser apagada depois de cadastrada (a função recusa nulo; nenhum perfil tem update direto).
 --
 -- Aditiva e idempotente (add column if not exists, create or replace, constraints e gatilhos recriados). Não altera nenhuma
@@ -26,7 +28,7 @@
 -- ──────────────────────────────────────────────
 create table if not exists public.condominio_config (
   id smallint primary key default 1 check (id = 1),
-  cota_minima numeric(12,2) check (cota_minima is null or (cota_minima > 0 and cota_minima <= 100000)),
+  cota_minima numeric(12,2) check (cota_minima is null or (cota_minima >= 1 and cota_minima <= 100000)),
   atualizado_por uuid references auth.users(id) on delete set null,
   atualizado_por_nome text,
   atualizado_em timestamptz
@@ -65,12 +67,12 @@ begin
     raise exception 'sem_permissao' using errcode = '42501';
   end if;
 
-  -- Nulo, NaN, infinito, zero, negativo, acima do teto ou com mais de 2 casas: recusa (nunca assume 0).
+  -- Nulo, NaN, infinito, abaixo de R$ 1,00 (piso), acima do teto ou com mais de 2 casas: recusa (nunca assume 0).
   if p_valor is null
      or p_valor = 'NaN'::numeric
      or p_valor = 'Infinity'::numeric
      or p_valor = '-Infinity'::numeric
-     or p_valor <= 0
+     or p_valor < 1
      or p_valor > 100000
      or p_valor <> round(p_valor, 2) then
     raise exception 'cota_invalida' using errcode = '22023';
@@ -118,6 +120,20 @@ end $$;
 
 -- Mesma regra da 0039 para FIXO (linhas existentes continuam válidas) e a nova para PERCENTUAL.
 -- Grátis = os três nulos. Fixo e percentual nunca juntos. Limite sempre menor que a capacidade.
+-- FIXO agora também recusa NaN (em numeric o NaN é MAIOR que qualquer número, então `> 0` o deixava passar e o valor
+-- cobrado virava NaN) e impõe teto de R$ 100.000,00. Antes de recriar, confere as linhas existentes: se alguma violar o teto,
+-- a migração para com mensagem clara (nada é alterado) em vez de falhar no meio ou deixar a constraint sem cobrir a linha.
+do $$
+declare
+  v_ruins integer;
+begin
+  select count(*) into v_ruins from public.spaces
+  where valor_tipo = 'FIXO' and faixa_valor is not null and (faixa_valor = 'NaN'::numeric or faixa_valor > 100000);
+  if v_ruins > 0 then
+    raise exception 'spaces_faixa_check: % espaço(s) com valor fixo NaN ou acima de R$ 100.000,00; corrija antes de aplicar', v_ruins;
+  end if;
+end $$;
+
 alter table public.spaces drop constraint if exists spaces_faixa_check;
 alter table public.spaces add constraint spaces_faixa_check check (
   (valor_tipo = 'FIXO' and faixa_gratis_ate is null and faixa_valor is null and faixa_percentual is null)
@@ -125,6 +141,7 @@ alter table public.spaces add constraint spaces_faixa_check check (
     valor_tipo = 'FIXO' and faixa_percentual is null
     and faixa_gratis_ate is not null and faixa_valor is not null
     and faixa_gratis_ate >= 0 and faixa_valor > 0
+    and faixa_valor <> 'NaN'::numeric and faixa_valor <= 100000
     and faixa_gratis_ate < capacidade_max
   )
   or (

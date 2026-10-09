@@ -131,7 +131,7 @@ function ConfiguracoesContent() {
       if (!r.ok) {
         setErroSalvar(
           r.erro === 'SEM_PERMISSAO' ? 'Você não tem mais permissão para alterar a cota. Fale com o Síndico.'
-          : r.erro === 'INVALIDA' ? 'Esse valor não foi aceito. Use um valor maior que zero, de até R$ 100.000,00.'
+          : r.erro === 'INVALIDA' ? 'Esse valor não foi aceito. Use um valor de R$ 1,00 até R$ 100.000,00.'
           : 'Não foi possível salvar a cota. Nada foi alterado. Tente de novo; se continuar, avise o suporte.',
         );
         return;
@@ -264,7 +264,7 @@ function ConfiguracoesContent() {
                     value={centavos ? centavosParaReais(centavos) : ''}
                     // Máscara de centavos, como no valor de uso do espaço: só dígitos (122500 = R$ 1.225,00).
                     onChange={(e) => setCentavos(mascaraCentavos(e.target.value))}
-                    apoio="Digite só os números: 122500 = R$ 1.225,00. O máximo é R$ 100.000,00."
+                    apoio="Digite só os números: 122500 = R$ 1.225,00. De R$ 1,00 a R$ 100.000,00."
                     erro={erroCampo}
                   />
                 </div>

@@ -197,7 +197,7 @@ Variações: "Calculando o valor…"; "Informe o número de pessoas para ver o v
 
 ## SEÇÃO 12 (substitui os critérios 8, 9 e 10 e acrescenta 12 e 13)
 
-8. Morador, em espaço com percentual, vê R$ calculado com a cota única e a frase "O síndico combina a cobrança com você"; a **cota em si não aparece** em nenhuma tela, `title` ou rótulo acessível dele (se a decisão P1 for manter oculta).
+8. Morador, em espaço com percentual, vê R$ calculado com a cota única e a frase "O síndico combina a cobrança com você"; a **cota em si não é exibida** em nenhuma tela (pela API ela pode ser inferida: risco aceito pelo dono), `title` ou rótulo acessível dele (se a decisão P1 for manter oculta).
 9. Lista de unidades, cartões e tabelas continuam sem cota; não existe cota por unidade em nenhuma tabela.
 10. A gestão vê a prévia "5% da cota de R$ X = R$ Y" apenas no tipo Percentual; ela bate com a cota de Configurações e com o valor gravado numa reserva nova do mesmo espaço; o link "Alterar a cota" abre `/configuracoes#reservas`.
 12. **Cota não cadastrada:** no formulário do espaço, o cartão "Percentual da cota condominial" fica desabilitado com o motivo escrito e o link "Cadastrar a cota"; não é possível salvar espaço com tipo percentual; nenhum texto antigo de "cotas das unidades" aparece.

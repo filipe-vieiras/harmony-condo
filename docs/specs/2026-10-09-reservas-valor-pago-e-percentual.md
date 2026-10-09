@@ -120,7 +120,7 @@ A alteração da cota é registrada em `audit_logs` **pelo servidor** (`gravarAu
 - O banco calcula `round(cota × percentual / 100, 2)`, **meio para cima**, uma única vez, na criação. Percentual com até 2 casas decimais, maior que 0 e até 100 (SUPOSIÇÃO: acima de 100% seria erro de digitação).
 - O percentual vale para o **valor cobrado** em "pago em toda reserva" e em "grátis até N, acima disso valor". Um espaço não mistura fixo e percentual.
 - O banco **ignora qualquer valor vindo do cliente** (inclusive `cota_base`).
-- Cota: faixa aceita, **R$ 0,01 a R$ 99.999.999,99** (limite do `numeric(12,2)`; SUPOSIÇÃO de teto prático menor, ex.: R$ 100.000,00, para pegar erro de digitação: **a confirmar com o dono**, RECOMENDO limite de R$ 100.000,00).
+- Cota: faixa aceita, **R$ 1,00 a R$ 100.000,00** (piso e teto decididos pelo dono em 09/10/2026, para pegar erro de digitação; o `numeric(12,2)` aguentaria mais). O valor FIXO do espaço também vai até R$ 100.000,00 e não aceita NaN.
 
 ---
 
@@ -131,7 +131,7 @@ A alteração da cota é registrada em `audit_logs` **pelo servidor** (`gravarAu
 | **Cota mínima (R$)** | **Só Síndico, Subsíndico e ADM** | RECOMENDO. A cota do condomínio é provavelmente conhecida de todos pelo boleto (SUPOSIÇÃO), mas mostrá-la no app não traz benefício ao morador e abre pergunta de suporte ("por que 5% de X deu isso?"). Pergunta residual P7 (seção 9). |
 | **Percentual do espaço** | Gestão sempre; morador, Portaria e Conselho veem no cartão do espaço "5% da cota" **só se** o dono quiser; padrão **não mostrar**: cartão e formulário do morador exibem R$ | Percentual e cota em R$ dariam a conta; sem a cota visível, o R$ já basta. |
 | **Valor em R$ da reserva** | Morador: **só as da própria unidade**. Portaria e Conselho: todas (já leem reservas hoje, comportamento existente). Gestão: todas | Com cota única, o R$ de uma reserva não revela dado individual; a inferência por unidade (P5 antiga) deixa de existir. |
-| **Cota e percentual aplicados na reserva** (`cota_base`, `percentual_aplicado`) | Gestão. Morador: não vê esses campos (vê só o R$) | Evitar que as colunas apareçam em listas do morador, Portaria e Conselho: **selecionar colunas explícitas** nas telas (sem `select *`). Se Portaria e Conselho já leem `reservations` inteira, `cota_base` vaza a cota para eles. **Item de segurança para o developer:** ou mover essas duas colunas para uma tabela filha só da gestão, ou aceitar que Portaria e Conselho vejam a cota (decidir com o dono em P7; **RECOMENDO aceitar**, é dado do condomínio, não de uma unidade; mas a cota "não visível ao morador" fica valendo). |
+| **Cota e percentual aplicados na reserva** (`cota_base`, `percentual_aplicado`) | Gestão. Morador: não vê esses campos (vê só o R$) | Evitar que as colunas apareçam em listas do morador, Portaria e Conselho: **selecionar colunas explícitas** nas telas (sem `select *`). Se Portaria e Conselho já leem `reservations` inteira, `cota_base` vaza a cota para eles. **Item de segurança para o developer:** ou mover essas duas colunas para uma tabela filha só da gestão, ou aceitar que Portaria e Conselho vejam a cota (decidir com o dono em P7; **RECOMENDO aceitar**, é dado do condomínio, não de uma unidade; mas a cota "não exibida na tela do morador" fica valendo; pela API ela pode ser inferida (percentual do espaço + valor final), risco aceito pelo dono). |
 
 ---
 
@@ -202,7 +202,7 @@ Todo "Não" é testado **por API** (consulta direta ao banco e à rota com a ses
 18. Cota inválida (zero, negativa, texto, acima do teto) é recusada pelo banco com mensagem em português na tela.
 19. **Auditoria:** alterar a cota gera linha em `audit_logs` gravada pelo servidor, com quem e quando, **sem valores**; o histórico visível ao Conselho não mostra a cota.
 20. Reservas anteriores à migração mantêm `cota_base` e `percentual_aplicado` nulos e valores idênticos (conferência de soma em staging e, só leitura, em produção pelo `checar`).
-21. Morador, na lista e no formulário, **não vê a cota** nem `cota_base` (resposta da API sem esses campos nas telas do morador).
+21. Morador, na lista e no formulário, **não vê a cota** nem `cota_base` **na tela** (a resposta da API de reservas não traz esses campos). Inferir a cota pela API (percentual do espaço + R$ final) é possível: risco aceito pelo dono.
 
 **Bateria:** casos 3 a 9 (Fase 1) e 12 a 21 (Fase 2) entram em `scripts/qa/bateria.mjs`, com dados fictícios, por perfil.
 
@@ -230,7 +230,7 @@ Todo "Não" é testado **por API** (consulta direta ao banco e à rota com a ses
 |---|---|---|
 | **P7** | **O morador pode ver o valor da cota mínima na tela, ou só o R$ da própria reserva?** | **Só o R$ da reserva**; cota visível só a Síndico, Subsíndico e ADM. |
 
-Premissas que declarei (o dono contesta se discordar): cota mínima entre R$ 0,01 e R$ 100.000,00; a cota não pode ser apagada depois de cadastrada, só alterada; o texto "Cota mínima do condomínio"; a cobrança por fora é do síndico (não da Garden), então o relatório "a lançar" vira melhoria opcional.
+Premissas que declarei (o dono contesta se discordar): cota mínima entre R$ 1,00 e R$ 100.000,00; a cota não pode ser apagada depois de cadastrada, só alterada; o texto "Cota mínima do condomínio"; a cobrança por fora é do síndico (não da Garden), então o relatório "a lançar" vira melhoria opcional.
 
 **O que eu cortaria e NÃO fazer agora:** pagamento antecipado ou online; cota por unidade; leitura da cota do Superlógica; histórico de cotas por vigência; percentual para higienização; mais de uma cota; mostrar percentual ou cota ao morador; relatório antes de o síndico dizer que precisa.
 
