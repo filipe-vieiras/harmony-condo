@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dumps de produção (dados reais; repositório público)
+/backups/
+
+# template de variáveis (só nomes, sem valores): este arquivo é versionado
+!.env.example

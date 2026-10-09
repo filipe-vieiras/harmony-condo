@@ -5,7 +5,7 @@ import { webkit, devices } from 'playwright';
 
 const SITE = process.env.QA_SITE ?? 'http://localhost:3000';
 // TRAVA: loga com contas de teste e cria/apaga dados. Nunca contra o site de produção.
-if (['harmony-condo-pm-track', 'znajvgkfhucidxtsfdip'].some((p) => SITE.includes(p))) throw new Error(`QA recusado: ${SITE} é produção. Estes scripts só rodam no staging.`);
+if (['harmony-condo-pm-track', 'znajvgkfhucidxtsfdip', 'donawanda'].some((p) => SITE.toLowerCase().includes(p))) throw new Error(`QA recusado: ${SITE} é produção. Estes scripts só rodam no staging.`);
 const SENHA = '123456';
 const LARGURA = 375;
 let problemas = 0;
