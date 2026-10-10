@@ -14,6 +14,9 @@ interface SendResult {
   link?: string;
 }
 
+// Mensagem quando outra chamada já reservou/enviou o convite: não sobrescrevemos o estado dela.
+const MSG_JA_ENVIANDO = 'Este convite já está sendo enviado. Aguarde e atualize a lista.';
+
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
 
@@ -82,8 +85,10 @@ export async function POST(request: NextRequest) {
     // O Zelador é funcionário externo: nunca com unidade (o banco também recusa).
     if (invite.role === 'ZELADOR' && (invite.unit_id || invite.bloco || invite.unidade)) {
       const recusa = 'O Zelador é funcionário externo e não pode ter unidade.';
-      await supabase.from('pending_invites').update({ status: 'ERRO', erro_mensagem: recusa }).eq('id', invite.id);
-      results.push({ id: invite.id, ok: false, mensagem: recusa });
+      // Filtra por status: se outra chamada já reservou/enviou, não sobrescreve o ENVIADO dela com ERRO.
+      const { data: marcado } = await admin.from('pending_invites').update({ status: 'ERRO', erro_mensagem: recusa })
+        .eq('id', invite.id).in('status', ['PENDENTE', 'ERRO']).select('id');
+      results.push({ id: invite.id, ok: false, mensagem: marcado && marcado.length > 0 ? recusa : MSG_JA_ENVIANDO });
       continue;
     }
 
@@ -105,8 +110,9 @@ export async function POST(request: NextRequest) {
 
       if ((existing && existing.length > 0) || (transfPendente && transfPendente.length > 0)) {
         const msg = `Já existe um usuário ativo com o perfil ${invite.role}.`;
-        await supabase.from('pending_invites').update({ status: 'ERRO', erro_mensagem: msg }).eq('id', invite.id);
-        results.push({ id: invite.id, ok: false, mensagem: msg });
+        const { data: marcado } = await admin.from('pending_invites').update({ status: 'ERRO', erro_mensagem: msg })
+          .eq('id', invite.id).in('status', ['PENDENTE', 'ERRO']).select('id');
+        results.push({ id: invite.id, ok: false, mensagem: marcado && marcado.length > 0 ? msg : MSG_JA_ENVIANDO });
         continue;
       }
     }
@@ -123,8 +129,10 @@ export async function POST(request: NextRequest) {
     const { data: emUso } = await admin.rpc('email_em_uso', { p_email: invite.email });
     if (emUso) {
       const msg = 'Já existe uma conta com este e-mail. Não é possível enviar outro convite para ele.';
-      await supabase.from('pending_invites').update({ status: 'ERRO', erro_mensagem: msg }).eq('id', invite.id);
-      results.push({ id: invite.id, ok: false, mensagem: msg });
+      // Pedido tardio: a vencedora já criou a conta e marcou ENVIADO. Sem o filtro, o e-mail "em uso" seria o dela.
+      const { data: marcado } = await admin.from('pending_invites').update({ status: 'ERRO', erro_mensagem: msg })
+        .eq('id', invite.id).in('status', ['PENDENTE', 'ERRO']).select('id');
+      results.push({ id: invite.id, ok: false, mensagem: marcado && marcado.length > 0 ? msg : MSG_JA_ENVIANDO });
       continue;
     }
 
@@ -136,7 +144,7 @@ export async function POST(request: NextRequest) {
       .in('status', ['PENDENTE', 'ERRO'])
       .select('id');
     if (!reservado || reservado.length === 0) {
-      results.push({ id: invite.id, ok: false, mensagem: 'Este convite já está sendo enviado. Aguarde e atualize a lista.' });
+      results.push({ id: invite.id, ok: false, mensagem: MSG_JA_ENVIANDO });
       continue;
     }
 
